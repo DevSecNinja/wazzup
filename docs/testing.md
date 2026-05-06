@@ -13,21 +13,46 @@
 
 | Layer | Purpose | Examples | CI trigger |
 | --- | --- | --- | --- |
-| Unit | Validate pure logic. | Date windows, scoring, dedupe, feed normalization, cost limits. | Every PR and push. |
-| Contract | Validate schemas and provider interfaces. | `ContentItem`, `Briefing`, `latest.json`, delivery payloads. | Every PR and push. |
-| Integration | Validate components together with fixtures. | Parse real saved RSS samples, run pipeline with fake AI provider, publish data to temp dir. | Every PR and push. |
-| Frontend | Validate rendering and accessibility basics. | Load fixture `latest.json`, render briefing, keyboard navigation, service worker registration. | Every PR and push. |
-| End-to-end | Validate deployed/static behavior. | Build app, serve static output, browse latest briefing. | Main branch and release. |
+| Unit | Validate pure logic. | Date windows, scoring, dedupe, feed normalization, provider selection. | Pull request and manual CI. |
+| Contract | Validate generated data shape and provider interfaces. | `ContentItem`, `Briefing`, `latest.json`, release-state layout. | Pull request and manual CI. |
+| Integration | Validate components together with fixtures. | Parse saved RSS samples, run pipeline with fake AI provider, publish data to temp dir. | Pull request and manual CI. |
+| Frontend | Validate rendering and accessibility basics. | Load fixture `latest.json`, render briefing, keyboard navigation, service worker registration. | Planned. |
+| End-to-end | Validate deployed/static behavior. | Build app, restore release state, validate Pages artifact. | News hourly and Pages workflows. |
 | Live smoke | Validate external services safely. | Fetch a small allowlisted feed, optional AI provider canary with tiny prompt. | Scheduled or manual only. |
+
+## Implemented test suite
+
+The current MVP uses Python `unittest` and lightweight scripts instead of pytest or a JavaScript test runner.
+
+Implemented tests:
+
+- [../tests/test_config.py](../tests/test_config.py): source and interest configuration loading.
+- [../tests/test_feeds.py](../tests/test_feeds.py): RSS parsing, URL canonicalization, and deduplication priority.
+- [../tests/test_scoring.py](../tests/test_scoring.py): deterministic scoring behavior.
+- [../tests/test_pipeline.py](../tests/test_pipeline.py): end-to-end fixture pipeline generation with the fake AI provider and generated-data validation.
+- [../tests/test_publisher.py](../tests/test_publisher.py): retention by path date, YAML/JSON mirror generation, and manifest updates.
+- [../tests/test_ai.py](../tests/test_ai.py): provider defaulting and Copilot token guard behavior.
+
+Implemented validation commands:
+
+```text
+task format:check              # UTF-8, trailing newline, trailing whitespace
+task lint                      # Python syntax parse via ast
+task test                      # unittest discovery
+task build                     # compile Python modules
+task pipeline:generate:fixtures
+task validate:data
+task pages:build               # restore retained state and validate Pages data
+```
 
 ## Required MVP tests
 
 ### Source tests
 
 - Parse RSS 2.0 feed fixture.
-- Parse Atom feed fixture.
-- Parse JSON Feed fixture.
-- Parse podcast RSS fixture with and without transcript metadata.
+- Parse Atom feed fixture. Parser support exists; an explicit Atom fixture test should still be added.
+- Parse JSON Feed fixture. Deferred.
+- Parse podcast RSS fixture with and without transcript metadata. Deferred.
 - Handle malformed feeds without crashing the whole pipeline.
 - Preserve original source URL and canonical URL separately.
 
@@ -60,6 +85,7 @@
 - Provider output is rejected when JSON schema validation fails.
 - Token and item budgets stop oversized requests.
 - Cached article summaries are reused when `contentHash` and prompt version match.
+- Copilot CLI provider fails with actionable diagnostics when a GitHub Actions token is missing or the CLI exits non-zero.
 
 ### Publisher tests
 
@@ -75,6 +101,8 @@
 - Links open the original source article.
 - Keyboard navigation works for briefing sections.
 - Basic accessibility checks pass.
+
+Frontend tests are not implemented yet because the MVP deliberately has no Node package/build/test setup. Add browser-level tests once the UI grows beyond the latest-briefing/source-health view.
 
 ## Prompt regression tests
 
@@ -93,14 +121,9 @@ Use committed fixtures for repeatability:
 
 ```text
 tests/fixtures/
-  feeds/rss-basic.xml
-  feeds/atom-basic.xml
-  feeds/json-feed-basic.json
-  feeds/podcast-with-transcript.xml
-  feeds/malformed.xml
-  ai/summary-response-valid.json
-  ai/summary-response-invalid-missing-citation.json
-  expected/briefing-morning.json
+  microsoft-security-blog.xml
+  microsoft-security-threat-intelligence.xml
+  nos-news.xml
 ```
 
 Fixtures should be small and either hand-written or derived from permissively licensed/public examples without copying substantial article text.
@@ -111,15 +134,17 @@ The CI workflow should block merges unless these checks pass:
 
 1. Formatting check.
 2. Lint check.
-3. Type check.
-4. Unit tests.
-5. Contract/schema tests.
-6. Integration tests using fixtures and fake AI provider.
-7. Frontend build.
-8. Static output validation.
+3. Unit and integration tests.
+4. Python compile/build check.
+5. Fixture generation using fake AI provider.
+6. Static output validation.
+
+The separate reusable Lint workflow runs organization-standard checks on pull requests and manual dispatch.
 
 Optional checks:
 
+- Type check.
+- Frontend/browser tests.
 - Accessibility check.
 - Dependency review.
 - CodeQL.
@@ -139,13 +164,13 @@ Coverage should guide quality but should not replace meaningful assertions.
 Implementation should provide commands equivalent to:
 
 ```text
-format
-lint
-typecheck
-test
-test:integration
-build
-validate:data
+task format:check
+task lint
+task test
+task build
+task pipeline:generate:fixtures
+task validate:data
+task pages:build
 ```
 
-The exact package manager and command names should be finalized when the implementation stack is selected.
+Use `mise install` first to install the pinned runtime/toolchain, then `task install` to install Python dependencies.

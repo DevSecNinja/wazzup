@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted and implemented for the MVP provider set
 
 ## Context
 
@@ -19,19 +19,26 @@ Implement AI summarization behind an `AiSummaryProvider` interface.
 
 Preferred provider order for the MVP:
 
-1. Copilot CLI provider for GitHub-native scheduled runs.
-2. API provider for Azure OpenAI, OpenAI, GitHub Models, or compatible endpoints when stricter provider control is needed.
-3. Ollama, Foundry, or other provider adapters for later experiments, local-model canaries, and privacy-oriented runs.
-4. Fake deterministic provider for CI and repeatable tests.
+1. Copilot CLI provider for GitHub-native scheduled runs when a Copilot token secret exists.
+2. Fake deterministic provider for CI, repeatable tests, local runs, and tokenless scheduled fallback.
+3. API provider for Azure OpenAI, OpenAI, GitHub Models, or compatible endpoints when stricter provider control is needed.
+4. Ollama, Foundry, or other provider adapters for later experiments, local-model canaries, and privacy-oriented runs.
 
 The Copilot CLI provider should:
 
 - Install GitHub Copilot CLI in the Actions runner.
-- Authenticate with a fine-grained PAT stored as `COPILOT_REQUESTS_PAT` and exposed as `COPILOT_GITHUB_TOKEN`.
+- Authenticate with a fine-grained PAT stored as `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` and exposed to the CLI as `COPILOT_GITHUB_TOKEN`.
 - Run non-interactively with `copilot -p` and `--no-ask-user`.
 - Use narrowly scoped `--allow-tool` values.
 - Write structured JSON to a temporary output file.
 - Validate schema, citations, and size limits before publication.
+
+Implemented safety behavior:
+
+- [../../.github/workflows/news-hourly.yml](../../.github/workflows/news-hourly.yml) selects an effective provider before installing Node or Copilot CLI.
+- If `copilot-cli` is requested without either token secret, the workflow logs a warning and uses `AI_PROVIDER=fake`.
+- [../../src/wazzup/ai.py](../../src/wazzup/ai.py) checks for `COPILOT_GITHUB_TOKEN` in GitHub Actions and raises an actionable error if the workflow guard is bypassed.
+- Copilot CLI stdout/stderr is captured and included in sanitized failure diagnostics when the CLI exits non-zero.
 
 ## Consequences
 
@@ -41,6 +48,7 @@ The Copilot CLI provider should:
 - Avoids introducing a separate hosted backend for summarization.
 - Allows provider changes without rewriting feed, ranking, storage, or frontend code.
 - Keeps tests deterministic through the fake provider.
+- Lets the scheduled pipeline and Pages deployment keep working before Copilot token setup is complete.
 
 ### Negative
 
@@ -48,6 +56,7 @@ The Copilot CLI provider should:
 - CLI behavior can be less predictable than a direct structured-output API and must be validated defensively.
 - Usage accounting may be less precise than direct API token accounting.
 - Ollama on GitHub-hosted runners can be slow and model downloads can dominate runtime; Foundry or other provider paths will require separate evaluation.
+- Fake-provider fallback keeps automation green but produces deterministic placeholder-style summaries instead of true AI summaries until Copilot token setup is complete.
 
 ## Alternatives considered
 
@@ -74,7 +83,7 @@ Run local models in Actions only.
 
 ## Follow-up decisions
 
-- Confirm Copilot license and PAT setup work in scheduled automation.
-- Define the first structured summary schema and prompt bundle format.
+- Confirm Copilot license and PAT setup work in scheduled automation with a real `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret.
+- Define formal structured summary schema files. Runtime validation exists; schema files are deferred.
 - Build a small canary workflow comparing Copilot CLI and fake provider output validation.
 - Defer Ollama, Foundry, and other provider experiments until the Copilot CLI path is understood.

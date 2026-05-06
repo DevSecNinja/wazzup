@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted and implemented for the MVP
 
 ## Context
 
@@ -25,7 +25,15 @@ The backend pipeline will:
 
 The frontend will be a small static PWA that consumes generated JSON mirrors of the canonical YAML contracts.
 
-Generated data state is stored outside Git history in a dedicated GitHub Release asset, then published to GitHub Pages as a build artifact.
+Generated data state is stored outside Git history in a dedicated GitHub Release asset, then restored by the Pages workflow and published to GitHub Pages as a build artifact.
+
+Implemented details:
+
+- Backend runtime: Python package under [../../src/wazzup](../../src/wazzup).
+- Frontend runtime: static vanilla HTML/CSS/JavaScript under [../../public](../../public).
+- Automation boundary: [../../Taskfile.yml](../../Taskfile.yml) and [../../.mise.toml](../../.mise.toml).
+- State asset: GitHub Release `news-state`, asset `wazzup-state.zip`.
+- Deployment: [../../.github/workflows/news-hourly.yml](../../.github/workflows/news-hourly.yml) mutates release-backed state; [../../.github/workflows/pages.yml](../../.github/workflows/pages.yml) deploys through the reusable `DevSecNinja/.github` Pages workflow.
 
 ## Consequences
 
@@ -45,6 +53,7 @@ Generated data state is stored outside Git history in a dedicated GitHub Release
 - Web Push requires additional backend state if implemented later.
 - Large generated history can bloat artifacts without retention.
 - Public Pages output means generated interests and summarized source choices are visible unless deployment changes later.
+- Release asset restore must support both token-authenticated scheduled runs and tokenless public downloads inside reusable Pages deployment.
 
 ## Alternatives considered
 
@@ -73,7 +82,8 @@ This differs from the accepted release-backed state decision: releases store the
 
 ## Follow-up decisions
 
-- Select the implementation runtime and package manager.
-- Validate Copilot CLI behavior in scheduled Actions runs.
+- Select the implementation runtime and package manager. Resolved: Python, mise, and Task.
+- Validate Copilot CLI behavior in scheduled Actions runs. Partially resolved: Copilot CLI is implemented, and missing token secrets now fall back to `fake`.
 - Select the first delivery target beyond the PWA.
-- Define JSON schemas before writing pipeline logic.
+- Define JSON schemas before writing pipeline logic. Deferred; runtime validators and tests currently protect the contract.
+- Replace manual service worker cache versioning with generated build metadata.

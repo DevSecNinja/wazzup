@@ -1,16 +1,24 @@
 # Architecture
 
-## Recommended architecture summary
+## Implemented architecture summary
 
-Use a GitHub-native static architecture for the MVP:
+Wazzup currently uses a GitHub-native static architecture:
 
 - GitHub Actions runs the backend pipeline hourly.
-- The pipeline fetches sources, normalizes content, ranks items, calls an AI summary provider, and writes versioned YAML outputs with JSON browser mirrors.
+- The Python pipeline fetches sources, normalizes content, deduplicates and ranks items, calls an AI summary provider, and writes versioned YAML outputs with JSON browser mirrors.
 - GitHub Pages hosts both the minimal PWA and the generated YAML/JSON data.
 - A dedicated GitHub Release asset stores the rolling generated-data state between scheduled runs.
-- Optional delivery adapters can later send briefings to services such as Home Assistant, ntfy, email, Teams, or Slack.
+- Optional delivery adapters are not implemented yet; services such as Home Assistant, ntfy, email, Teams, or Slack remain future work.
 - The core domain contracts remain independent from GitHub Actions and GitHub Pages so they can later power a REST API, agent tool, or MCP server.
 - Commits must follow Conventional Commits so release-please can be added without history cleanup.
+
+Implementation deviations from the original target are intentional for MVP simplicity:
+
+- Backend runtime is Python 3.11+ under [../src/wazzup](../src/wazzup).
+- Frontend is vanilla HTML/CSS/JavaScript under [../public](../public); there is no frontend build step yet.
+- YAML is the canonical generated state format; JSON files are generated browser mirrors.
+- Pages state restoration supports tokenless public release-asset downloads because reusable workflow string inputs cannot reliably inject `GH_TOKEN` for nested shell commands.
+- News hourly requests Copilot CLI by default, but falls back to the deterministic fake provider if Copilot token secrets are missing.
 
 ## Context diagram
 
@@ -19,7 +27,7 @@ flowchart LR
     User[User] --> PWA[PWA on GitHub Pages]
     PWA --> StaticData[Static YAML data + JSON mirrors]
     Actions[GitHub Actions scheduler] --> Pipeline[News pipeline]
-    Pipeline --> Feeds[RSS / Atom / JSON Feed / Podcast RSS]
+    Pipeline --> Feeds[RSS / Atom now; JSON Feed / Podcast RSS later]
     Pipeline --> AI[AI summary provider]
     Pipeline --> StaticData
     Pipeline --> Delivery[Optional delivery adapters]
@@ -31,15 +39,16 @@ flowchart LR
 
 | Component | Responsibility | MVP implementation |
 | --- | --- | --- |
-| Source configuration | Defines feeds, categories, weights, and credentials references. | YAML or JSON config committed to the repo. |
-| Fetcher | Retrieves RSS, Atom, JSON Feed, GitHub release feeds, and podcast feeds. | CLI command run by GitHub Actions. |
+| Source configuration | Defines feeds, categories, weights, headers, and interest hints. | [../config/sources.yml](../config/sources.yml) and [../config/interests.yml](../config/interests.yml). |
+| Fetcher | Retrieves RSS and Atom XML feeds. | `urllib.request` based Python fetcher in [../src/wazzup/feeds.py](../src/wazzup/feeds.py). |
 | Normalizer | Converts source entries into `ContentItem` records. | Pure functions with fixtures. |
-| Deduplicator | Groups duplicate or near-duplicate articles. | Canonical URL + GUID + normalized title heuristics. |
+| Deduplicator | Groups duplicate or near-duplicate articles. | Canonical URL + raw ref/GUID + normalized title/day transitive groups. |
 | Ranker | Scores items against interests, source quality, recency, and coverage. | Deterministic scoring plus optional AI reranking later. |
 | Summarizer | Generates article and briefing summaries. | AI provider abstraction with prompt versioning. |
-| Publisher | Writes canonical static YAML, JSON browser mirrors, and deployable frontend assets. | GitHub Pages artifact deployment. |
-| Delivery adapters | Pushes selected briefings to external channels. | Optional webhooks initially. |
-| Frontend | Displays latest, hourly, morning, evening, saved, and source views. | Static TypeScript PWA. |
+| Publisher | Writes canonical static YAML, JSON browser mirrors, source health, `latest`, and `manifest` files. | [../src/wazzup/publisher.py](../src/wazzup/publisher.py). |
+| State store | Persists generated data across scheduled runs without commits. | `news-state` GitHub Release asset `wazzup-state.zip`. |
+| Delivery adapters | Pushes selected briefings to external channels. | Not implemented yet. |
+| Frontend | Displays latest briefing and source health. | Static vanilla PWA in [../public](../public). |
 
 ## Pipeline flow
 
@@ -60,11 +69,12 @@ sequenceDiagram
     CLI->>AI: summarize selected articles/briefing
     AI-->>CLI: structured summary data
     CLI->>CLI: validate contracts and budgets
-    CLI->>Pages: publish YAML/JSON + app assets
+    CLI->>Pages: persist YAML/JSON state to release asset
+    Pages->>Pages: reusable Pages workflow restores state and deploys public artifact
     CLI->>User: optional delivery webhook
 ```
 
-## Proposed repository structure
+## Repository structure
 
 ```text
 config/
@@ -72,24 +82,31 @@ config/
   interests.yml
 docs/
 src/
-  core/                 # domain types, scoring, dedupe, contracts
-  sources/              # RSS, Atom, JSON Feed, podcast adapters
-  ai/                   # provider interface, prompts, response validation
-  pipeline/             # CLI orchestration
-  delivery/             # optional webhook/email/Home Assistant adapters
-  web/                  # static frontend
+  wazzup/
+    ai.py               # provider interface, fake provider, Copilot CLI provider
+    config.py           # YAML config loading/validation
+    feeds.py            # RSS/Atom fetch, parse, canonicalization, dedupe
+    models.py           # dataclass domain contracts
+    pipeline.py         # CLI orchestration
+    publisher.py        # YAML canonical output and JSON mirrors
+    scoring.py          # deterministic ranking
+    validate_data.py    # generated-data validation
+public/
+  index.html
+  styles.css
+  app.js
+  sw.js
+  manifest.webmanifest
 tests/
   fixtures/
-  unit/
-  integration/
-  contract/
 .github/workflows/
   ci.yml
+  lint.yml
   news-hourly.yml
   pages.yml
 ```
 
-This structure is the implementation target. The current MVP implements the core pipeline, static PWA, tests, and GitHub Actions workflow skeleton; future work can fill in richer delivery adapters, API surfaces, and podcast support.
+Future work can split the Python modules into deeper packages if complexity grows, but the current flat package keeps the MVP easy to inspect.
 
 ## Domain contracts
 
@@ -181,9 +198,15 @@ public/data/
   archives/YYYY-MM.yaml
 ```
 
-The scheduled workflow must not commit generated article or briefing YAML/JSON to `main`. It restores the previous `public/data` window from a dedicated `news-state` GitHub Release asset, generates new data, enforces 35-day retention, and uploads the updated release asset. The separate Pages workflow then uses the reusable Pages deployment from `DevSecNinja/.github` to deploy the same static files to GitHub Pages.
+The scheduled workflow must not commit generated article or briefing YAML/JSON to `main`. It restores the previous `public/data` window from a dedicated `news-state` GitHub Release asset, generates new data, enforces 35-day retention, and uploads the updated release asset. The separate Pages workflow then uses the reusable Pages deployment from `DevSecNinja/.github` to restore that same release asset and deploy the static files to GitHub Pages.
 
 YAML is the canonical persisted state format because it is easier to inspect and edit when debugging release assets. JSON remains a generated transport mirror because browsers can consume it without adding a YAML parser dependency to the PWA.
+
+Release-state restore behavior:
+
+- In `News hourly`, [../Taskfile.yml](../Taskfile.yml) uses `GH_TOKEN` and `gh release download` to restore prior state, then `gh release upload --clobber` or `gh release create` to persist updated state.
+- In `Pages`, the reusable workflow cannot receive a working token through a string input, so `task pages:build` restores `wazzup-state.zip` through the public release download URL when no `GH_TOKEN`/`GITHUB_TOKEN` is available.
+- `pages:build` sets `STATE_REQUIRED=true`; if retained state cannot be restored, deployment fails explicitly instead of uploading an empty app data directory.
 
 Rejected alternatives:
 
@@ -228,6 +251,8 @@ Recommended defaults:
 
 This avoids daylight-saving issues in workflow YAML.
 
+Current implementation note: automatic due-time selection is not implemented yet. [../.github/workflows/news-hourly.yml](../.github/workflows/news-hourly.yml) defaults to `hourly` and exposes `forceBriefing` values `hourly`, `morning`, and `evening` for manual dispatch. [../src/wazzup/pipeline.py](../src/wazzup/pipeline.py) computes correct hourly/morning/evening windows for the selected kind.
+
 ## Implementation sequence
 
 Build the first implementation as an end-to-end thin slice instead of isolated layers:
@@ -235,7 +260,7 @@ Build the first implementation as an end-to-end thin slice instead of isolated l
 1. Validate [config/sources.yml](../config/sources.yml) and fetch the three initial RSS feeds.
 2. Normalize feed entries into versioned `ContentItem` records.
 3. Score and select a small set of articles using deterministic rules.
-4. Generate an English briefing through the Copilot CLI provider, with a fake provider for tests.
+4. Generate an English briefing through the Copilot CLI provider when configured, with a fake provider for tests and tokenless fallback.
 5. Write static YAML and JSON mirrors to the Pages data layout.
 6. Render the latest briefing in a minimal PWA.
 7. Add CI gates and a scheduled workflow skeleton.
@@ -250,25 +275,25 @@ Use a provider interface instead of calling a provider directly from pipeline lo
 AiSummaryProvider.generateStructuredSummary(request) -> SummaryResponse
 ```
 
-Recommended MVP provider order:
+Implemented and planned provider order:
 
 | Provider | Best use | Notes |
 | --- | --- | --- |
-| Copilot CLI | Default GitHub-native scheduled summarization. | Runs in GitHub Actions with `copilot -p`, `COPILOT_GITHUB_TOKEN`, `--no-ask-user`, and narrowly scoped `--allow-tool` permissions. |
-| Azure OpenAI / OpenAI / GitHub Models | Direct API-based summarization with clearer model and token accounting. | Useful fallback if structured output or quota control is easier through an API. |
-| Ollama / Foundry | Local/self-contained or platform-specific experiments. | Feasible later, but not part of the MVP default path. |
-| Fake provider | Tests and local deterministic development. | Must be the default provider in CI. |
+| Copilot CLI | Default requested scheduled summarization provider. | Implemented with `copilot -p`, `COPILOT_GITHUB_TOKEN`, `--no-ask-user`, and narrow `--allow-tool` permissions. Requires `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret. |
+| Fake provider | Tests, local deterministic development, and tokenless scheduled fallback. | Implemented and used by CI. |
+| Azure OpenAI / OpenAI / GitHub Models | Direct API-based summarization with clearer model and token accounting. | Planned. |
+| Ollama / Foundry | Local/self-contained or platform-specific experiments. | Planned. |
 
 The pipeline should prepare a provider-neutral summary request, then adapters translate it into the provider-specific invocation. For Copilot CLI, the adapter should write a prompt bundle to a temporary file, run the CLI in programmatic mode, request structured JSON output, and validate the output before publishing.
 
-Implementation requirements:
+Implementation requirements and current status:
 
-- Validate provider output with JSON Schema or a runtime type validator.
+- Validate provider output with JSON Schema or a runtime type validator. Runtime validation is implemented in [../src/wazzup/ai.py](../src/wazzup/ai.py); formal schema files are deferred.
 - Keep prompt templates versioned.
 - Include citations in the request and require cited output.
-- Cache article-level summaries by `contentHash` and `promptVersion`.
-- Enforce max input items, max tokens, and monthly cost budget.
-- Provide a fake deterministic provider for tests.
+- Cache article-level summaries by `contentHash` and `promptVersion`. Deferred.
+- Enforce max input items, max tokens, and monthly cost budget. Max input items are enforced; token/monthly cost accounting is deferred.
+- Provide a fake deterministic provider for tests. Implemented.
 - Restrict Copilot CLI tool permissions to the minimum needed, and avoid giving it write access outside a temporary output directory.
 - Track provider metadata in every briefing, including provider type, model if known, prompt version, token or request estimate, and validation result.
 
@@ -278,10 +303,15 @@ Use a small static PWA:
 
 - `index.html` with semantic sections.
 - CSS custom properties for theming.
-- TypeScript modules for data loading, state, routing, and rendering.
-- Web Components if reusable UI components become useful.
-- Service Worker for static asset caching and recent briefing cache.
+- Vanilla JavaScript for data loading and rendering.
+- Service Worker for static asset and recently fetched data caching.
 - No runtime framework in the MVP unless complexity proves it adds clear design or functionality value. If introduced, keep dependencies low, stable, and well-known.
+
+Current frontend limitations:
+
+- It renders only the latest briefing and source health.
+- It consumes JSON mirrors, not canonical YAML, to avoid a browser-side YAML parser dependency.
+- The service worker currently uses a manual cache name (`wazzup-static-v1`); build metadata-based versioning is planned.
 
 ## Notification architecture
 
@@ -344,7 +374,7 @@ To avoid rework, the MVP should treat static YAML contracts as canonical, with J
 - `search_items(query)`
 - `mark_saved(itemId)` if user state is later introduced
 
-The future MCP server should depend on `src/core` contracts, not scrape the frontend.
+The future MCP server should depend on the domain contracts in [../src/wazzup](../src/wazzup), not scrape the frontend.
 
 ## Security and privacy
 

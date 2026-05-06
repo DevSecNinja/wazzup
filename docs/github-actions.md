@@ -4,12 +4,13 @@
 
 | Workflow | Trigger | Responsibility |
 | --- | --- | --- |
-| CI | Pull request and push to `main` | Formatting, linting, type checks, tests, schema validation, frontend build. |
-| News hourly | Hourly schedule and manual dispatch | Fetch feeds, update article store, generate due briefings, and persist release-backed state. |
-| Pages deploy | After successful news generation or manual dispatch | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow. |
-| Live smoke | Manual or daily schedule | Optional real feed and AI provider canary checks with strict budgets. |
-| Archive cleanup | Monthly schedule | Keep release-backed rolling state compact and optionally publish monthly recap archives. |
-| Release automation | Push to `main` | Future release-please workflow driven by Conventional Commits. |
+| CI | Pull request and manual dispatch | Formatting, syntax linting, tests, compile checks, fixture generation, and generated-data validation. |
+| Lint | Pull request and manual dispatch | Reusable organization lint workflow from `DevSecNinja/.github`. |
+| News hourly | Hourly schedule and manual dispatch | Fetch feeds, generate a briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
+| Pages | Successful `News hourly` workflow run and manual dispatch | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow. |
+| Live smoke | Not implemented yet | Optional real feed and AI provider canary checks with strict budgets. |
+| Archive cleanup | Not implemented yet | Keep release-backed rolling state compact and optionally publish monthly recap archives. |
+| Release automation | Not implemented yet | Future release-please workflow driven by Conventional Commits. |
 
 ## Recommended workflow boundaries
 
@@ -31,24 +32,25 @@ The preferred MVP path is Copilot CLI because it is GitHub-native and can run di
 | Ollama | Optional local-model experiment or privacy-focused smoke run. | Install/start Ollama, pull/cache a small model, expect slower CPU inference on GitHub-hosted runners. |
 | Fake provider | CI and deterministic tests. | No secrets or network calls. |
 
-## CI workflow sketch
+## Implemented CI workflow
 
 ```yaml
 name: CI
 
 on:
   pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: jdx/mise-action@v4
         with:
           version: 2026.4.18
@@ -58,9 +60,11 @@ jobs:
       - run: task validate:data
 ```
 
-If the implementation uses another runtime, keep the same gate structure and replace setup/install commands.
+CI intentionally does not run on every push to `main` to avoid duplicate checks when PR validation already covered the change. Deployment/state workflows still run on their own operational triggers.
 
-## Hourly news workflow sketch
+## Implemented hourly news workflow
+
+Key excerpts from [../.github/workflows/news-hourly.yml](../.github/workflows/news-hourly.yml):
 
 ```yaml
 name: News hourly
@@ -71,21 +75,29 @@ on:
   workflow_dispatch:
     inputs:
       forceBriefing:
-        description: Force briefing kind: none, hourly, morning, evening
+        description: Force briefing kind
         required: false
-        default: none
+        default: hourly
+        type: choice
+        options: [hourly, morning, evening]
+      aiProvider:
+        description: AI provider adapter
+        required: false
+        default: copilot-cli
+        type: choice
+        options: [copilot-cli, fake]
 
 permissions:
   contents: read
 
 concurrency:
-  group: news-hourly
+  group: news-hourly-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   generate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     permissions:
       contents: write
     env:
@@ -93,29 +105,47 @@ jobs:
       WAZZUP_MAX_AI_ITEMS: 30
       WAZZUP_MAX_AI_COST_USD: 1.00
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
         with:
           version: 2026.4.18
+      - name: Select AI provider
+        id: ai
+        env:
+          COPILOT_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
+        run: |
+          # Actual workflow validates requested provider, then falls back to fake
+          # only when copilot-cli was requested without a Copilot token secret.
+          provider="${REQUESTED_AI_PROVIDER}"
+          if [[ "${provider}" == "copilot-cli" && -z "${COPILOT_TOKEN}" ]]; then
+            provider="fake"
+          fi
+          echo "provider=${provider}" >>"${GITHUB_OUTPUT}"
+      - name: Set up Node.js for Copilot CLI
+        if: ${{ steps.ai.outputs.provider == 'copilot-cli' }}
+        uses: actions/setup-node@v6
+      - name: Install Copilot CLI
+        if: ${{ steps.ai.outputs.provider == 'copilot-cli' }}
+        run: npm install -g @github/copilot
       - run: task install
       - name: Generate retained news state
         run: task news:generate
         env:
-          AI_PROVIDER: copilot-cli
+          GH_TOKEN: ${{ github.token }}
+          AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
 ```
+
+Operational learning: the first live News hourly run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
 
 ## Copilot CLI workflow variant
 
 The implementation hides provider-specific commands behind `task news:generate` and the Python AI provider adapter. Internally, a Copilot CLI adapter can follow this pattern:
 
 ```yaml
-- uses: actions/setup-node@v4
+- uses: actions/setup-node@v6
   with:
-    node-version: 22
-    cache: npm
-
-- run: npm ci
+    node-version: 24
 
 - name: Install Copilot CLI
   run: npm install -g @github/copilot
@@ -154,14 +184,20 @@ Ollama can be evaluated behind the same provider interface:
   env:
     AI_PROVIDER: ollama
     OLLAMA_MODEL: llama3.2:3b
-  run: npm run pipeline:generate -- --force-briefing "${{ inputs.forceBriefing || 'none' }}"
+    FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
+  run: task pipeline:generate
 ```
 
 This should not be the default MVP runner unless quality and runtime are acceptable. Prefer caching model layers and running it only on manual or scheduled canary workflows until validated.
 
 ## Reusable workflow integration
 
-For shared workflows from a `.github` repository, keep project-specific schedules here and delegate common checks:
+For shared workflows from a `.github` repository, keep project-specific schedules here and delegate common checks. Wazzup currently uses:
+
+- `DevSecNinja/.github/.github/workflows/lint.yml@af5030dd0d6f61b80fe58f949c9b985d1931ddf2` for [../.github/workflows/lint.yml](../.github/workflows/lint.yml).
+- `DevSecNinja/.github/.github/workflows/pages.yml@af5030dd0d6f61b80fe58f949c9b985d1931ddf2` for [../.github/workflows/pages.yml](../.github/workflows/pages.yml).
+
+General pattern:
 
 ```yaml
 jobs:
@@ -169,12 +205,24 @@ jobs:
     uses: DevSecNinja/.github/.github/workflows/node-ci.yml@v1
     with:
       node-version: 22
-      build-command: npm run build
-      test-command: npm test
+      build-command: task build
+      test-command: task test
     secrets: inherit
 ```
 
-Use pinned tags or SHA references for reusable workflows. Avoid using a moving branch for security-sensitive release workflows.
+Use pinned tags or SHA references for reusable workflows. Avoid using a moving branch for security-sensitive release workflows. Wazzup pins the reusable workflows to the commit for `.github` release `v1.3.0`.
+
+## Implemented Pages workflow
+
+[../.github/workflows/pages.yml](../.github/workflows/pages.yml) runs after successful `News hourly` completion or by manual dispatch. It delegates deployment to the reusable Pages workflow with these important inputs:
+
+- `artifact-path: public`
+- `install-command`: install mise, trust config, install tools, and run `task install`
+- `test-command`: `~/.local/bin/mise exec -- task ci`
+- `build-command`: `~/.local/bin/mise exec -- task pages:build`
+- `cloudflare-preview: false`
+
+Operational learning: do not inject `GH_TOKEN="${{ github.token }}"` into the reusable workflow `build-command` string. In practice, the token was evaluated to an empty value inside the called workflow and `gh release download` failed. The fixed design makes `task pages:build` restore `news-state` through the public release asset URL when no `GH_TOKEN` or `GITHUB_TOKEN` is available.
 
 ## Future release-please workflow
 
@@ -227,6 +275,8 @@ Recommended behavior:
 - Publish current static output to GitHub Pages.
 - Keep 35 days of detailed article YAML plus JSON mirrors in Pages data.
 - Persist the 35-day Pages data window as a `wazzup-state.zip` asset on the `news-state` GitHub Release.
+- `task state:restore` uses `gh release download` when a token is available and falls back to `https://github.com/DevSecNinja/wazzup/releases/download/news-state/wazzup-state.zip` style download when it is not.
+- `task pages:build` sets `STATE_REQUIRED=true`, so Pages deployment fails clearly if retained state is unavailable instead of deploying a PWA with missing `public/data/latest.json`.
 - Keep compact monthly recap archives in separate GitHub Releases if history matters.
 - Upload debug artifacts only for failed runs and redact sensitive data.
 - Avoid committing generated hourly YAML/JSON to `main` to prevent repository bloat.
@@ -239,6 +289,13 @@ Workflow shell logic should live in [Taskfile.yml](../Taskfile.yml) wherever pra
 ## Standardized Pages deployment
 
 The scheduled `News hourly` workflow is responsible for mutating release-backed state. It does not deploy Pages directly. After it succeeds, the `Pages` workflow calls the reusable Pages workflow from `DevSecNinja/.github` and restores the `news-state` release asset through `task pages:build` before deployment. The Pages restore path supports unauthenticated release-asset downloads so it works inside the reusable workflow without injecting `GH_TOKEN` into a string input.
+
+Observed failure modes and fixes:
+
+| Failure | Cause | Fix |
+| --- | --- | --- |
+| News hourly failed in Copilot CLI | `COPILOT_GITHUB_TOKEN` was empty while `AI_PROVIDER=copilot-cli`. | Select effective provider first and fall back to `fake` when no Copilot token secret exists. |
+| Pages deploy failed validating `public/data/latest.json` | Reusable workflow received empty `GH_TOKEN`, state restore skipped, and `public/data` was missing. | Restore public release asset without a token in Pages builds and make missing retained state fatal for `pages:build`. |
 
 ## Security hardening
 
@@ -253,13 +310,21 @@ The scheduled `News hourly` workflow is responsible for mutating release-backed 
 ## Failure handling
 
 - A single feed failure should not fail the whole run unless failure rate exceeds a configured threshold.
-- AI provider failures should publish source data and mark summary generation as degraded.
+- AI provider token absence should not fail scheduled runs; the workflow falls back to the fake provider. Other AI provider failures currently fail the run with captured CLI diagnostics.
 - Delivery failures should not roll back successful publication.
 - Repeated failures should be visible in `sources/status.json` and workflow summaries.
 
 ## Workflow summary output
 
-Each scheduled run should write a GitHub Actions step summary containing:
+The implemented News hourly workflow writes a concise GitHub Actions step summary containing:
+
+- Forced briefing kind.
+- Requested AI provider.
+- Effective AI provider after token fallback.
+- State release name.
+- Reminder that Pages deployment is handled by the Pages workflow after success.
+
+Target future summary additions:
 
 - Number of feeds configured, fetched, failed, and skipped.
 - Number of new, duplicate, and selected items.

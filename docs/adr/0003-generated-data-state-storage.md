@@ -23,6 +23,13 @@ Use a dedicated GitHub Release named `news-state` as the durable state store for
 5. The workflow uploads the updated `wazzup-state.zip` release asset with `--clobber`.
 6. The separate Pages workflow deploys `public` to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.
 
+Implemented refinement after the first Pages deployment failure:
+
+- `task state:restore` uses `gh release download` when `GH_TOKEN` or `GITHUB_TOKEN` exists.
+- If no token is available, `task state:restore` downloads the public release asset URL directly with `curl`.
+- `task pages:build` sets `STATE_REQUIRED=true`; if state cannot be restored, Pages deployment fails explicitly instead of deploying missing `public/data/latest.json`.
+- The reusable Pages workflow receives `build-command: ~/.local/bin/mise exec -- task pages:build` without trying to inject `GH_TOKEN` into a string input.
+
 ## Consequences
 
 ### Positive
@@ -38,6 +45,7 @@ Use a dedicated GitHub Release named `news-state` as the durable state store for
 - The scheduled workflow needs `contents: write` permission to create/update the release asset.
 - Release asset updates are mutable state and need defensive validation before publishing.
 - The `news-state` release is operational state, not a semantic product release.
+- The Pages workflow depends on the state release being public or otherwise downloadable without a token. This matches the current public MVP assumption.
 
 ## Alternatives considered
 
@@ -66,3 +74,4 @@ Use a dedicated GitHub Release named `news-state` as the durable state store for
 - Add a monthly recap archive format once monthly recaps are implemented.
 - Decide whether `news-state` should be a prerelease forever or hidden behind a naming convention only.
 - Add stronger integrity checks for the downloaded state archive before extraction.
+- If Wazzup becomes private, revisit token propagation for reusable Pages workflows or move state restoration outside the reusable workflow boundary.
