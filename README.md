@@ -42,3 +42,4 @@ task validate:data
 ```
 
 Open [public/index.html](public/index.html) through a local static server after generating data. The GitHub Actions workflow uses Copilot CLI by default for scheduled runs; local and CI validation use the deterministic fake provider.
+Configure either `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` as a repository secret to enable Copilot CLI in News hourly runs; otherwise the workflow falls back to the fake provider with a warning.

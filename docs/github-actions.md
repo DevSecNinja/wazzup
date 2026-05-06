@@ -102,12 +102,12 @@ jobs:
         run: task news:generate
         env:
           AI_PROVIDER: copilot-cli
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
 ```
 
 ## Copilot CLI workflow variant
 
-The implementation should hide provider-specific commands behind `npm run pipeline:generate`. Internally, a Copilot CLI adapter can follow this pattern:
+The implementation hides provider-specific commands behind `task news:generate` and the Python AI provider adapter. Internally, a Copilot CLI adapter can follow this pattern:
 
 ```yaml
 - uses: actions/setup-node@v4
@@ -123,8 +123,9 @@ The implementation should hide provider-specific commands behind `npm run pipeli
 - name: Generate briefing with Copilot CLI provider
   env:
     AI_PROVIDER: copilot-cli
-    COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT }}
-  run: npm run pipeline:generate -- --force-briefing "${{ inputs.forceBriefing || 'none' }}"
+    COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
+    FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
+  run: task news:generate
 ```
 
 Provider adapter requirements:
@@ -193,7 +194,8 @@ Expected MVP secrets:
 
 | Secret | Purpose |
 | --- | --- |
-| `COPILOT_REQUESTS_PAT` | Fine-grained PAT for Copilot CLI with Copilot Requests permission. |
+| `COPILOT_REQUESTS_PAT` | Preferred repository secret containing a fine-grained PAT for Copilot CLI with Copilot Requests permission. |
+| `COPILOT_GITHUB_TOKEN` | Alternative secret name accepted by the News hourly workflow. |
 | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint. |
 | `AZURE_OPENAI_API_KEY` | Azure OpenAI API key. |
 | `OPENAI_API_KEY` | Optional alternative provider. |
@@ -203,6 +205,7 @@ Expected MVP secrets:
 Rules:
 
 - Never echo secrets.
+- If Copilot CLI is requested without either Copilot token secret, the News hourly workflow logs a warning and uses the deterministic `fake` provider so release-backed state, validation, and Pages automation can still complete.
 - Redact prompt/debug logs by default.
 - Scope permissions per workflow.
 - Use GitHub Environments for deployment approvals if outputs are public.

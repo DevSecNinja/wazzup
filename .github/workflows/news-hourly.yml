@@ -42,7 +42,7 @@ jobs:
       WAZZUP_TIMEZONE: Europe/Amsterdam
       WAZZUP_MAX_AI_ITEMS: 30
       WAZZUP_MAX_AI_COST_USD: "1.00"
-      AI_PROVIDER: ${{ inputs.aiProvider || 'copilot-cli' }}
+      REQUESTED_AI_PROVIDER: ${{ inputs.aiProvider || 'copilot-cli' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -54,14 +54,37 @@ jobs:
         with:
           version: 2026.4.18
 
+      - name: Select AI provider
+        id: ai
+        env:
+          COPILOT_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
+        run: |-
+          set -euo pipefail
+
+          provider="${REQUESTED_AI_PROVIDER}"
+          case "${provider}" in
+            copilot-cli|fake) ;;
+            *)
+              echo "::error::Unsupported AI provider: ${provider}"
+              exit 1
+              ;;
+          esac
+
+          if [[ "${provider}" == "copilot-cli" && -z "${COPILOT_TOKEN}" ]]; then
+            echo "::warning::Copilot CLI was requested, but neither COPILOT_REQUESTS_PAT nor COPILOT_GITHUB_TOKEN is configured. Falling back to AI_PROVIDER=fake for this run."
+            provider="fake"
+          fi
+
+          echo "provider=${provider}" >>"${GITHUB_OUTPUT}"
+
       - name: Set up Node.js for Copilot CLI
-        if: ${{ env.AI_PROVIDER == 'copilot-cli' }}
+        if: ${{ steps.ai.outputs.provider == 'copilot-cli' }}
         uses: actions/setup-node@v6
         with:
           node-version: 24
 
       - name: Install Copilot CLI
-        if: ${{ env.AI_PROVIDER == 'copilot-cli' }}
+        if: ${{ steps.ai.outputs.provider == 'copilot-cli' }}
         run: npm install -g @github/copilot
 
       - name: Install Python dependencies
@@ -70,7 +93,8 @@ jobs:
       - name: Generate and persist retained news state
         env:
           GH_TOKEN: ${{ github.token }}
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT }}
+          AI_PROVIDER: ${{ steps.ai.outputs.provider }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
           FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
         run: task news:generate
 
@@ -85,13 +109,15 @@ jobs:
       - name: Write workflow summary
         env:
           FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
+          AI_PROVIDER: ${{ steps.ai.outputs.provider }}
         run: |-
           set -euo pipefail
           {
             echo "## Wazzup news state"
             echo ""
             echo "- Force briefing: ${FORCE_BRIEFING}"
-            echo "- AI provider: ${AI_PROVIDER}"
+            echo "- Requested AI provider: ${REQUESTED_AI_PROVIDER}"
+            echo "- Effective AI provider: ${AI_PROVIDER}"
             echo "- State release: news-state"
             echo "- Pages deployment: handled by the Pages workflow after this run succeeds"
           } >>"${GITHUB_STEP_SUMMARY}"

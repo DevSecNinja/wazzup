@@ -85,6 +85,12 @@ class CopilotCliSummaryProvider:
     def generate_structured_summary(self, request: SummaryRequest) -> SummaryResponse:
         if not shutil.which(self.copilot_command):
             raise RuntimeError("Copilot CLI is not installed; install @github/copilot or use AI_PROVIDER=fake")
+        if os.environ.get("GITHUB_ACTIONS") == "true" and not os.environ.get("COPILOT_GITHUB_TOKEN"):
+            raise RuntimeError(
+                "AI_PROVIDER=copilot-cli requires COPILOT_GITHUB_TOKEN in GitHub Actions. "
+                "Configure COPILOT_REQUESTS_PAT or COPILOT_GITHUB_TOKEN as a repository secret, "
+                "or use AI_PROVIDER=fake."
+            )
         prompt_payload = build_prompt_payload(request)
         with tempfile.TemporaryDirectory(prefix="wazzup-copilot-") as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -106,7 +112,20 @@ class CopilotCliSummaryProvider:
                 "--allow-tool=write",
                 "--no-ask-user",
             ]
-            subprocess.run(command, check=True, cwd=tmp_dir, env=os.environ.copy())
+            result = subprocess.run(command, capture_output=True, cwd=tmp_dir, env=os.environ.copy(), text=True)
+            if result.returncode != 0:
+                details = []
+                if result.stdout.strip():
+                    details.append(f"stdout: {result.stdout.strip()}")
+                if result.stderr.strip():
+                    details.append(f"stderr: {result.stderr.strip()}")
+                detail_text = "\n" + "\n".join(details) if details else ""
+                raise RuntimeError(
+                    f"Copilot CLI failed with exit code {result.returncode}. "
+                    "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
+                    "or use AI_PROVIDER=fake."
+                    f"{detail_text}"
+                )
             if not output_path.exists():
                 raise RuntimeError("Copilot CLI did not write summary.json")
             payload = json.loads(output_path.read_text(encoding="utf-8"))
