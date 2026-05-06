@@ -3,6 +3,9 @@ version: "3"
 
 vars:
   PYTHON: '{{default "python3" .PYTHON}}'
+  FORCE_BRIEFING: '{{default "hourly" .FORCE_BRIEFING}}'
+  STATE_RELEASE: '{{default "news-state" .STATE_RELEASE}}'
+  STATE_ASSET: '{{default "wazzup-state.zip" .STATE_ASSET}}'
 
 env:
   PYTHONPATH: src
@@ -41,12 +44,66 @@ tasks:
   pipeline:generate:
     desc: Generate static briefing data
     cmds:
-      - '{{.PYTHON}} -m wazzup.pipeline'
+      - '{{.PYTHON}} -m wazzup.pipeline --force-briefing "{{.FORCE_BRIEFING}}"'
+
+  pipeline:generate:fixtures:
+    desc: Generate static briefing data from committed fixtures
+    env:
+      AI_PROVIDER: fake
+    cmds:
+      - '{{.PYTHON}} -m wazzup.pipeline --fixture-dir tests/fixtures --force-briefing "{{.FORCE_BRIEFING}}"'
 
   validate:data:
     desc: Validate generated static data
     cmds:
       - '{{.PYTHON}} -m wazzup.validate_data public/data'
+
+  state:restore:
+    desc: Restore retained generated-data state from the GitHub Release asset
+    cmds:
+      - |-
+        set -euo pipefail
+
+        mkdir -p .state
+        if gh release download {{.STATE_RELEASE}} --pattern {{.STATE_ASSET}} --dir .state --repo "${GITHUB_REPOSITORY}"; then
+          unzip -q -o .state/{{.STATE_ASSET}} -d public
+          echo "Restored retained news state from the {{.STATE_RELEASE}} release."
+        else
+          echo "::notice::No retained {{.STATE_RELEASE}} release asset found; starting from an empty data window."
+        fi
+
+  state:persist:
+    desc: Persist retained generated-data state to the GitHub Release asset
+    cmds:
+      - |-
+        set -euo pipefail
+
+        mkdir -p .state
+        (cd public && zip -qr ../.state/{{.STATE_ASSET}} data)
+
+        if gh release view {{.STATE_RELEASE}} --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+          gh release upload {{.STATE_RELEASE}} .state/{{.STATE_ASSET}} --clobber --repo "${GITHUB_REPOSITORY}"
+        else
+          gh release create {{.STATE_RELEASE}} .state/{{.STATE_ASSET}} \
+            --title "Wazzup retained news state" \
+            --notes "Rolling generated YAML state and JSON mirrors for the Wazzup GitHub Pages deployment." \
+            --prerelease \
+            --repo "${GITHUB_REPOSITORY}"
+        fi
+
+  news:generate:
+    desc: Restore state, generate a briefing, validate data, and persist state
+    cmds:
+      - task: state:restore
+      - task: pipeline:generate
+      - task: validate:data
+      - task: state:persist
+
+  pages:build:
+    desc: Restore retained state and validate the Pages artifact
+    cmds:
+      - task: state:restore
+      - task: validate:data
 
   ci:
     desc: Run all local validation checks

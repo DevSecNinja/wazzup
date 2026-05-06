@@ -33,16 +33,11 @@ concurrency:
 
 jobs:
   generate:
-    name: Generate and deploy briefing
+    name: Generate briefing state
     runs-on: ubuntu-24.04
     timeout-minutes: 25
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       contents: write
-      id-token: write
-      pages: write
     env:
       WAZZUP_TIMEZONE: Europe/Amsterdam
       WAZZUP_MAX_AI_ITEMS: 30
@@ -72,56 +67,31 @@ jobs:
       - name: Install Python dependencies
         run: task install
 
-      - name: Restore retained news state
+      - name: Generate and persist retained news state
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |-
-          set -euo pipefail
-
-          mkdir -p .state
-          if gh release download news-state --pattern wazzup-state.zip --dir .state --repo "${GITHUB_REPOSITORY}"; then
-            unzip -q -o .state/wazzup-state.zip -d public
-            echo "Restored retained news state from the news-state release."
-          else
-            echo "::notice::No retained news-state release asset found; starting from an empty data window."
-          fi
-
-      - name: Generate static briefing data
-        env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT }}
           FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
-        run: python -m wazzup.pipeline --force-briefing "${FORCE_BRIEFING}"
+        run: task news:generate
 
-      - name: Validate generated data
-        run: task validate:data
+      - name: Upload generated public artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wazzup-public
+          path: public
+          if-no-files-found: error
+          retention-days: 1
 
-      - name: Persist retained news state
+      - name: Write workflow summary
         env:
-          GH_TOKEN: ${{ github.token }}
+          FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
         run: |-
           set -euo pipefail
-
-          mkdir -p .state
-          (cd public && zip -qr ../.state/wazzup-state.zip data)
-
-          if gh release view news-state --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            gh release upload news-state .state/wazzup-state.zip --clobber --repo "${GITHUB_REPOSITORY}"
-          else
-            gh release create news-state .state/wazzup-state.zip \
-              --title "Wazzup retained news state" \
-              --notes "Rolling generated JSON state for the Wazzup GitHub Pages deployment." \
-              --prerelease \
-              --repo "${GITHUB_REPOSITORY}"
-          fi
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v6
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: public
-
-      - name: Deploy Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          {
+            echo "## Wazzup news state"
+            echo ""
+            echo "- Force briefing: ${FORCE_BRIEFING}"
+            echo "- AI provider: ${AI_PROVIDER}"
+            echo "- State release: news-state"
+            echo "- Pages deployment: handled by the Pages workflow after this run succeeds"
+          } >>"${GITHUB_STEP_SUMMARY}"

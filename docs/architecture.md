@@ -5,8 +5,8 @@
 Use a GitHub-native static architecture for the MVP:
 
 - GitHub Actions runs the backend pipeline hourly.
-- The pipeline fetches sources, normalizes content, ranks items, calls an AI summary provider, and writes versioned JSON outputs.
-- GitHub Pages hosts both the minimal PWA and the generated JSON data.
+- The pipeline fetches sources, normalizes content, ranks items, calls an AI summary provider, and writes versioned YAML outputs with JSON browser mirrors.
+- GitHub Pages hosts both the minimal PWA and the generated YAML/JSON data.
 - A dedicated GitHub Release asset stores the rolling generated-data state between scheduled runs.
 - Optional delivery adapters can later send briefings to services such as Home Assistant, ntfy, email, Teams, or Slack.
 - The core domain contracts remain independent from GitHub Actions and GitHub Pages so they can later power a REST API, agent tool, or MCP server.
@@ -17,7 +17,7 @@ Use a GitHub-native static architecture for the MVP:
 ```mermaid
 flowchart LR
     User[User] --> PWA[PWA on GitHub Pages]
-    PWA --> StaticData[Static JSON data]
+    PWA --> StaticData[Static YAML data + JSON mirrors]
     Actions[GitHub Actions scheduler] --> Pipeline[News pipeline]
     Pipeline --> Feeds[RSS / Atom / JSON Feed / Podcast RSS]
     Pipeline --> AI[AI summary provider]
@@ -37,7 +37,7 @@ flowchart LR
 | Deduplicator | Groups duplicate or near-duplicate articles. | Canonical URL + GUID + normalized title heuristics. |
 | Ranker | Scores items against interests, source quality, recency, and coverage. | Deterministic scoring plus optional AI reranking later. |
 | Summarizer | Generates article and briefing summaries. | AI provider abstraction with prompt versioning. |
-| Publisher | Writes static JSON indexes and deployable frontend assets. | GitHub Pages artifact deployment. |
+| Publisher | Writes canonical static YAML, JSON browser mirrors, and deployable frontend assets. | GitHub Pages artifact deployment. |
 | Delivery adapters | Pushes selected briefings to external channels. | Optional webhooks initially. |
 | Frontend | Displays latest, hourly, morning, evening, saved, and source views. | Static TypeScript PWA. |
 
@@ -58,9 +58,9 @@ sequenceDiagram
     Feeds-->>CLI: feed entries
     CLI->>CLI: normalize, dedupe, score
     CLI->>AI: summarize selected articles/briefing
-    AI-->>CLI: structured summary JSON
+    AI-->>CLI: structured summary data
     CLI->>CLI: validate contracts and budgets
-    CLI->>Pages: publish JSON + app assets
+    CLI->>Pages: publish YAML/JSON + app assets
     CLI->>User: optional delivery webhook
 ```
 
@@ -164,17 +164,26 @@ Required fields:
 
 ```text
 public/data/
-  latest.json
-  manifest.json
-  sources/status.json
-  articles/YYYY/MM/DD.json
+  latest.yaml                 # canonical
+  latest.json                 # browser mirror
+  manifest.yaml               # canonical
+  manifest.json               # browser mirror
+  sources/status.yaml         # canonical
+  sources/status.json         # browser mirror
+  articles/YYYY/MM/DD.yaml    # canonical
+  articles/YYYY/MM/DD.json    # browser mirror
+  briefings/YYYY/MM/DD/hourly-HH.yaml
   briefings/YYYY/MM/DD/hourly-HH.json
+  briefings/YYYY/MM/DD/morning.yaml
   briefings/YYYY/MM/DD/morning.json
+  briefings/YYYY/MM/DD/evening.yaml
   briefings/YYYY/MM/DD/evening.json
-  archives/YYYY-MM.json
+  archives/YYYY-MM.yaml
 ```
 
-The scheduled workflow must not commit generated article or briefing JSON to `main`. It restores the previous `public/data` window from a dedicated `news-state` GitHub Release asset, generates new data, enforces 35-day retention, uploads the updated release asset, and deploys the same static files to GitHub Pages.
+The scheduled workflow must not commit generated article or briefing YAML/JSON to `main`. It restores the previous `public/data` window from a dedicated `news-state` GitHub Release asset, generates new data, enforces 35-day retention, and uploads the updated release asset. The separate Pages workflow then uses the reusable Pages deployment from `DevSecNinja/.github` to deploy the same static files to GitHub Pages.
+
+YAML is the canonical persisted state format because it is easier to inspect and edit when debugging release assets. JSON remains a generated transport mirror because browsers can consume it without adding a YAML parser dependency to the PWA.
 
 Rejected alternatives:
 
@@ -182,9 +191,21 @@ Rejected alternatives:
 - Committing generated data to a `news` branch: avoids polluting `main`, but still creates thousands of commits per year and adds branch-management complexity.
 - Pages artifact only: simple, but does not provide a durable state input for the next scheduled run.
 
-### `latest.json`
+## Deduplication strategy
 
-Small pointer file consumed by the frontend and Home Assistant.
+Deduplication is a first-class pipeline step because duplicate RSS entries were a primary frustration with previous feed tooling.
+
+The MVP deduplicates before scoring using transitive duplicate groups:
+
+1. Canonical URL key after removing common tracking parameters and fragments.
+2. Feed GUID/raw reference key when available.
+3. Normalized title plus publication day key for syndicated or mirrored stories with different URLs.
+
+When multiple items land in the same group, the winner is selected by source priority, summary richness, and publication timestamp. The Microsoft Threat Intelligence topic feed currently has elevated source priority over the broader Microsoft Security Blog feed. Future improvements can add semantic title similarity, source-specific canonicalization rules, and duplicate-group metadata in the published output.
+
+### `latest.yaml` and `latest.json`
+
+Small pointer file consumed by the frontend and Home Assistant. YAML is canonical; JSON is the PWA mirror.
 
 Example fields:
 
@@ -215,7 +236,7 @@ Build the first implementation as an end-to-end thin slice instead of isolated l
 2. Normalize feed entries into versioned `ContentItem` records.
 3. Score and select a small set of articles using deterministic rules.
 4. Generate an English briefing through the Copilot CLI provider, with a fake provider for tests.
-5. Write static JSON to the Pages data layout.
+5. Write static YAML and JSON mirrors to the Pages data layout.
 6. Render the latest briefing in a minimal PWA.
 7. Add CI gates and a scheduled workflow skeleton.
 
@@ -314,7 +335,7 @@ Audio transcription should be opt-in due to cost, latency, and copyright conside
 
 ## Future API and MCP readiness
 
-To avoid rework, the MVP should treat static JSON contracts as the canonical API. A later API or MCP server can expose the same operations:
+To avoid rework, the MVP should treat static YAML contracts as canonical, with JSON mirrors as browser/API compatibility output. A later API or MCP server can expose the same operations:
 
 - `list_briefings(window, kind)`
 - `get_briefing(id)`
@@ -339,7 +360,7 @@ The future MCP server should depend on `src/core` contracts, not scrape the fron
 | Risk | Mitigation |
 | --- | --- |
 | GitHub Pages exposes personal interests | Public output is accepted for MVP; keep source preferences and prompts minimal and support private/static alternatives later. |
-| Repository bloat from generated JSON | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated JSON. |
+| Repository bloat from generated data | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated YAML/JSON. |
 | AI hallucinations | Require citations, validate structured output, keep source links visible. |
 | AI provider cost spikes | Cache summaries, cap item count, track token/request estimates. |
 | Scheduled workflows delayed | Treat schedules as best-effort and compute windows from timestamps. |

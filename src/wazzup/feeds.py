@@ -26,6 +26,7 @@ TRACKING_PARAMS = {
 
 TAG_RE = re.compile(r"<[^>]+>")
 WHITESPACE_RE = re.compile(r"\s+")
+NON_WORD_RE = re.compile(r"[^\w\s-]", re.UNICODE)
 
 
 def utc_now() -> datetime:
@@ -61,6 +62,17 @@ def canonicalize_url(url: str) -> str:
 def stable_hash(*parts: str, length: int = 16) -> str:
     digest = hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
     return digest[:length]
+
+
+def normalize_title(value: str) -> str:
+    text = clean_text(value).lower()
+    text = NON_WORD_RE.sub(" ", text)
+    text = WHITESPACE_RE.sub(" ", text).strip()
+    prefixes = ["breaking ", "update ", "exclusive "]
+    for prefix in prefixes:
+        if text.startswith(prefix):
+            text = text[len(prefix) :]
+    return text
 
 
 def parse_date(value: str | None, fallback: datetime) -> datetime:
@@ -184,11 +196,39 @@ def fetch_and_parse(source: SourceConfig, discovered_at: datetime | None = None)
         return [], SourceStatus(source.id, False, isoformat(fetched_at), 0, f"{type(exc).__name__}: {exc}")
 
 
+def deduplication_keys(item: ContentItem) -> list[str]:
+    published_day = item.published_at[:10]
+    keys = []
+    if item.canonical_url:
+        keys.append(f"url:{item.canonical_url}")
+    if item.raw_ref and item.raw_ref != item.canonical_url:
+        keys.append(f"ref:{item.raw_ref}")
+    normalized_title = normalize_title(item.title)
+    if len(normalized_title) >= 18:
+        keys.append(f"title-day:{published_day}:{normalized_title}")
+    return keys or [f"id:{item.id}"]
+
+
+def item_priority(item: ContentItem) -> tuple[int, int, str]:
+    source_priority = 2 if item.source_id == "microsoft-security-threat-intelligence" else 1
+    return source_priority, len(item.summary), item.published_at
+
+
 def deduplicate(items: list[ContentItem]) -> list[ContentItem]:
-    by_key: dict[str, ContentItem] = {}
+    groups: list[tuple[set[str], list[ContentItem]]] = []
     for item in items:
-        key = item.canonical_url or item.raw_ref
-        existing = by_key.get(key)
-        if existing is None or item.source_id.startswith("microsoft-security-threat-intelligence"):
-            by_key[key] = item
-    return list(by_key.values())
+        keys = set(deduplication_keys(item))
+        matching_indexes = [index for index, (group_keys, _) in enumerate(groups) if group_keys & keys]
+        if not matching_indexes:
+            groups.append((keys, [item]))
+            continue
+        first_index = matching_indexes[0]
+        groups[first_index][0].update(keys)
+        groups[first_index][1].append(item)
+        for index in reversed(matching_indexes[1:]):
+            groups[first_index][0].update(groups[index][0])
+            groups[first_index][1].extend(groups[index][1])
+            del groups[index]
+
+    winners = [max(group_items, key=item_priority) for _, group_items in groups]
+    return sorted(winners, key=lambda item: item.published_at, reverse=True)

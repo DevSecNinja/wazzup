@@ -5,7 +5,7 @@
 - Prefer deterministic tests over live network or live AI provider calls.
 - Test core pipeline logic as pure functions wherever possible.
 - Keep provider integrations behind interfaces with contract tests.
-- Validate every generated JSON artifact against versioned schemas.
+- Validate every generated YAML artifact and JSON mirror against versioned schemas.
 - Treat prompts as versioned production assets with regression tests.
 - Run fast checks on every pull request and slower scheduled checks separately.
 

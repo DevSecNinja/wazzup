@@ -19,15 +19,15 @@ Wazzup is planned as a GitHub-native personal tech-news briefing app. It collect
 ## Proposed MVP
 
 1. Fetch RSS feeds hourly from GitHub Actions.
-2. Normalize articles into stable JSON records.
+2. Normalize articles into stable YAML records with JSON browser mirrors.
 3. Rank articles using configurable interests and source weights.
 4. Generate AI-assisted summaries through an AI provider abstraction, with Copilot CLI as the preferred first GitHub-native runner if licensing and token setup are acceptable.
-5. Publish static JSON plus a minimal PWA to GitHub Pages.
+5. Publish static YAML/JSON data plus a minimal PWA to GitHub Pages.
 6. Run unit, integration, contract, and build checks in GitHub Actions.
 
 ## Repository status
 
-This repository contains the first end-to-end MVP slice: source configuration, RSS ingestion, deterministic scoring, a fake AI provider for tests/local runs, a Copilot CLI provider for GitHub Actions, release-backed static JSON state publishing, and a minimal PWA.
+This repository contains the first end-to-end MVP slice: source configuration, RSS ingestion, deterministic scoring, a fake AI provider for tests/local runs, a Copilot CLI provider for GitHub Actions, release-backed static YAML state with JSON browser mirrors, and a minimal PWA.
 
 ## Local development
 

@@ -5,8 +5,8 @@
 | Workflow | Trigger | Responsibility |
 | --- | --- | --- |
 | CI | Pull request and push to `main` | Formatting, linting, type checks, tests, schema validation, frontend build. |
-| News hourly | Hourly schedule and manual dispatch | Fetch feeds, update article store, generate due briefings, publish static data. |
-| Pages deploy | After successful news generation or frontend changes | Deploy PWA and static JSON to GitHub Pages. |
+| News hourly | Hourly schedule and manual dispatch | Fetch feeds, update article store, generate due briefings, and persist release-backed state. |
+| Pages deploy | After successful news generation or manual dispatch | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow. |
 | Live smoke | Manual or daily schedule | Optional real feed and AI provider canary checks with strict budgets. |
 | Archive cleanup | Monthly schedule | Keep release-backed rolling state compact and optionally publish monthly recap archives. |
 | Release automation | Push to `main` | Future release-please workflow driven by Conventional Commits. |
@@ -49,18 +49,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: jdx/mise-action@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run format:check
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test -- --coverage
-      - run: npm run test:integration
-      - run: npm run validate:data
-      - run: npm run build
+          version: 2026.4.18
+      - run: task install
+      - run: task ci
+      - run: task pipeline:generate:fixtures
+      - run: task validate:data
 ```
 
 If the implementation uses another runtime, keep the same gate structure and replace setup/install commands.
@@ -82,8 +77,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: news-hourly
@@ -93,36 +86,23 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
     env:
       WAZZUP_TIMEZONE: Europe/Amsterdam
       WAZZUP_MAX_AI_ITEMS: 30
       WAZZUP_MAX_AI_COST_USD: 1.00
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: jdx/mise-action@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Generate static news data
-        run: npm run pipeline:generate -- --force-briefing "${{ inputs.forceBriefing || 'none' }}"
+          version: 2026.4.18
+      - run: task install
+      - name: Generate retained news state
+        run: task news:generate
         env:
           AI_PROVIDER: copilot-cli
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT }}
-      - run: npm run validate:data
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-
-  deploy:
-    needs: generate
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
 ```
 
 ## Copilot CLI workflow variant
@@ -242,12 +222,20 @@ Recommended behavior:
 ## Artifact and retention strategy
 
 - Publish current static output to GitHub Pages.
-- Keep 35 days of detailed article JSON in Pages data.
+- Keep 35 days of detailed article YAML plus JSON mirrors in Pages data.
 - Persist the 35-day Pages data window as a `wazzup-state.zip` asset on the `news-state` GitHub Release.
 - Keep compact monthly recap archives in separate GitHub Releases if history matters.
 - Upload debug artifacts only for failed runs and redact sensitive data.
-- Avoid committing generated hourly JSON to `main` to prevent repository bloat.
+- Avoid committing generated hourly YAML/JSON to `main` to prevent repository bloat.
 - Avoid a generated-data branch unless release assets prove insufficient; it still creates thousands of commits per year.
+
+## Task automation boundary
+
+Workflow shell logic should live in [Taskfile.yml](../Taskfile.yml) wherever practical. GitHub Actions should call tasks such as `task news:generate`, `task pages:build`, `task pipeline:generate:fixtures`, and `task validate:data` instead of duplicating pipeline commands inline.
+
+## Standardized Pages deployment
+
+The scheduled `News hourly` workflow is responsible for mutating release-backed state. It does not deploy Pages directly. After it succeeds, the `Pages` workflow calls the reusable Pages workflow from `DevSecNinja/.github` and restores the `news-state` release asset through `task pages:build` before deployment.
 
 ## Security hardening
 

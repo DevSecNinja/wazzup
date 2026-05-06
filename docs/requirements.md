@@ -45,13 +45,13 @@ A technically proficient individual who follows technology news, open-source rel
 | FR-001 | Maintain a configurable list of feeds, source categories, source weights, and user interests. | Must |
 | FR-002 | Fetch configured RSS/Atom/JSON feeds hourly from GitHub Actions. | Must |
 | FR-003 | Deduplicate articles using canonical URL, feed item GUID, title similarity, and publication timestamp. | Must |
-| FR-004 | Store normalized article metadata in a stable, versioned JSON format without committing generated data to `main`. | Must |
+| FR-004 | Store normalized article metadata in stable, versioned YAML with generated JSON browser mirrors, without committing generated data to `main`. | Must |
 | FR-005 | Score articles against user interests, recency, source reliability, and duplicate coverage. | Must |
 | FR-006 | Generate hourly summaries for notable changes since the previous run. | Should |
 | FR-007 | Generate a morning briefing at 07:00 local time covering the previous day plus overnight updates since 20:00. | Must |
 | FR-008 | Generate an evening briefing at 20:00 local time covering the day since 07:00. | Must |
 | FR-009 | Include citations/source links for every summary bullet. | Must |
-| FR-010 | Expose latest summaries and article indexes as static JSON. | Must |
+| FR-010 | Expose latest summaries and article indexes as static YAML plus JSON browser mirrors. | Must |
 | FR-011 | Provide a minimal responsive frontend with daily and hourly views. | Must |
 | FR-012 | Support installable PWA behavior with offline reading of recently loaded briefings. | Should |
 | FR-013 | Support user notification options without requiring a custom always-on server. | Should |
@@ -74,7 +74,7 @@ A technically proficient individual who follows technology news, open-source rel
 | NFR-005 | Cost control | Configurable AI request/token budget, max items per run, and cache of article summaries. |
 | NFR-006 | Reliability | Workflow should fail gracefully per feed and continue processing healthy sources. |
 | NFR-007 | Portability | Core pipeline should run locally, in GitHub Actions, and later in an API service. |
-| NFR-008 | Performance | Frontend initial load should remain lightweight; static JSON should be chunked by date. |
+| NFR-008 | Performance | Frontend initial load should remain lightweight; static data should be chunked by date. |
 | NFR-009 | Accessibility | Frontend should meet WCAG 2.1 AA basics: keyboard navigation, contrast, semantic HTML. |
 | NFR-010 | Auditability | Every summary should record model/provider, prompt version, generation time, and source IDs. |
 | NFR-011 | Release hygiene | Commits must follow Conventional Commits so release-please can be introduced later. |
@@ -85,7 +85,7 @@ A technically proficient individual who follows technology news, open-source rel
 
 - Static configuration for feeds and interests.
 - Hourly RSS collection via GitHub Actions.
-- Normalized article store as JSON files.
+- Normalized article store as YAML files with generated JSON browser mirrors.
 - AI provider abstraction with Copilot CLI, API-based provider, and deterministic test provider implementations.
 - Morning and evening briefing generation.
 - GitHub Pages-hosted frontend.
@@ -117,16 +117,16 @@ Full Web Push requires subscription storage and a push sender. That introduces b
 
 ### Where to run the backend?
 
-Use GitHub Actions for the MVP backend. Publish generated static data to GitHub Pages. Avoid a database initially by storing date-partitioned JSON files and small indexes in a dedicated GitHub Release asset that the scheduled workflow restores before each run.
+Use GitHub Actions for the MVP backend. Publish generated static data to GitHub Pages. Avoid a database initially by storing date-partitioned YAML files, generated JSON browser mirrors, and small indexes in a dedicated GitHub Release asset that the scheduled workflow restores before each run.
 
 ### Can the backend run on GitHub without maintaining a database?
 
 Yes, with trade-offs. Recommended MVP storage:
 
-- `data/latest.json` for the latest briefing pointers.
-- `data/briefings/YYYY/MM/DD/*.json` for generated summaries.
-- `data/articles/YYYY/MM/DD.json` for normalized article records.
-- `data/sources/status.json` for feed health.
+- `data/latest.yaml` for the latest briefing pointers, with `latest.json` as browser mirror.
+- `data/briefings/YYYY/MM/DD/*.yaml` for generated summaries, with JSON mirrors.
+- `data/articles/YYYY/MM/DD.yaml` for normalized article records, with JSON mirrors.
+- `data/sources/status.yaml` for feed health, with JSON mirror.
 - `news-state` GitHub Release asset for the rolling 35-day state window.
 - Optional monthly GitHub Release archives for cold history or monthly recaps.
 

@@ -20,10 +20,10 @@ The backend pipeline will:
 2. Normalize, deduplicate, and score items.
 3. Generate due briefings through an AI provider abstraction.
 4. Validate all generated data against versioned contracts.
-5. Publish static JSON and frontend assets to GitHub Pages.
+5. Publish static YAML/JSON and frontend assets to GitHub Pages.
 6. Optionally send delivery webhooks after successful publication.
 
-The frontend will be a small static PWA that consumes the generated JSON contracts.
+The frontend will be a small static PWA that consumes generated JSON mirrors of the canonical YAML contracts.
 
 Generated data state is stored outside Git history in a dedicated GitHub Release asset, then published to GitHub Pages as a build artifact.
 
@@ -35,7 +35,7 @@ Generated data state is stored outside Git history in a dedicated GitHub Release
 - Low operational cost.
 - Simple deployment and scheduling through GitHub Actions.
 - Generated data can be inspected and archived without committing it to `main`.
-- Static JSON contracts can later become an API surface.
+- Static YAML contracts and JSON mirrors can later become an API surface.
 
 ### Negative
 

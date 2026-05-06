@@ -1,28 +1,25 @@
-PYTHON ?= python3
-PYTHONPATH := src
-export PYTHONPATH
-
 .PHONY: install format-check lint test build pipeline-generate validate-data ci
 
 install:
-	$(PYTHON) -m pip install -r requirements.txt
+	task install
 
 format-check:
-	$(PYTHON) scripts/check_format.py
+	task format:check
 
 lint:
-	$(PYTHON) scripts/lint.py
+	task lint
 
 build:
-	$(PYTHON) -m compileall -q src scripts
+	task build
 
 test:
-	$(PYTHON) -m unittest discover -s tests
+	task test
 
 pipeline-generate:
-	$(PYTHON) -m wazzup.pipeline
+	task pipeline:generate
 
 validate-data:
-	$(PYTHON) -m wazzup.validate_data public/data
+	task validate:data
 
-ci: format-check lint test build
+ci:
+	task ci

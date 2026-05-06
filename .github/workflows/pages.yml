@@ -1,0 +1,44 @@
+---
+name: Pages
+
+on:
+  workflow_run:
+    workflows:
+      - News hourly
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  pages:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    uses: DevSecNinja/.github/.github/workflows/pages.yml@af5030dd0d6f61b80fe58f949c9b985d1931ddf2 # v1.3.0
+    permissions:
+      contents: read
+      deployments: write
+      id-token: write
+      issues: write
+      pages: write
+      pull-requests: write
+    with:
+      # renovate: datasource=node-version depName=node
+      node-version: "24"
+      node-cache: ""
+      # renovate: datasource=npm depName=wrangler
+      wrangler-version: "3"
+      artifact-path: public
+      install-command: |-
+        curl -fsSL https://mise.run | sh
+        ~/.local/bin/mise trust .
+        ~/.local/bin/mise install
+        ~/.local/bin/mise exec -- task install
+      test-command: ~/.local/bin/mise exec -- task ci
+      build-command: GH_TOKEN="${{ github.token }}" ~/.local/bin/mise exec -- task pages:build
+      cloudflare-preview: false
