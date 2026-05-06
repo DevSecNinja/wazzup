@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>NOS Nieuws</title>
+    <link>https://nos.nl</link>
+    <description>NOS Nieuws</description>
+    <item>
+      <title>Nederlandse organisaties waarschuwen voor digitale dreiging</title>
+      <link>https://nos.nl/l/123456</link>
+      <guid>nos-1</guid>
+      <pubDate>Wed, 06 May 2026 14:30:00 +0000</pubDate>
+      <description><![CDATA[Nederlandse organisaties waarschuwen voor een digitale dreiging en adviseren betere beveiliging.]]></description>
+      <category>Tech</category>
+    </item>
+  </channel>
+</rss>

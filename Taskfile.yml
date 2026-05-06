@@ -1,0 +1,57 @@
+---
+version: "3"
+
+vars:
+  PYTHON: '{{default "python3" .PYTHON}}'
+
+env:
+  PYTHONPATH: src
+
+tasks:
+  default:
+    desc: Run the standard CI task set
+    cmds:
+      - task: ci
+
+  install:
+    desc: Install Python dependencies
+    cmds:
+      - '{{.PYTHON}} -m pip install -r requirements.txt'
+
+  format:check:
+    desc: Check lightweight formatting rules
+    cmds:
+      - '{{.PYTHON}} scripts/check_format.py'
+
+  lint:
+    desc: Run lightweight Python syntax linting
+    cmds:
+      - '{{.PYTHON}} scripts/lint.py'
+
+  test:
+    desc: Run unit and integration tests
+    cmds:
+      - '{{.PYTHON}} -m unittest discover -s tests'
+
+  build:
+    desc: Compile Python modules
+    cmds:
+      - '{{.PYTHON}} -m compileall -q src scripts'
+
+  pipeline:generate:
+    desc: Generate static briefing data
+    cmds:
+      - '{{.PYTHON}} -m wazzup.pipeline'
+
+  validate:data:
+    desc: Validate generated static data
+    cmds:
+      - '{{.PYTHON}} -m wazzup.validate_data public/data'
+
+  ci:
+    desc: Run all local validation checks
+    cmds:
+      - task: format:check
+      - task: lint
+      - task: test
+      - task: build

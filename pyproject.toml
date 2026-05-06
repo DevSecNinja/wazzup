@@ -1,0 +1,16 @@
+[project]
+name = "wazzup"
+version = "0.1.0"
+description = "GitHub-native AI-assisted news briefing pipeline and PWA"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Jean-Paul van Ravensberg" }]
+dependencies = ["PyYAML>=6.0"]
+
+[project.scripts]
+wazzup = "wazzup.pipeline:main"
+wazzup-validate-data = "wazzup.validate_data:main"
+
+[tool.coverage.run]
+source = ["src/wazzup"]

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Threat intelligence | Microsoft Security Blog</title>
+    <link>https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/</link>
+    <description>Expert coverage of cybersecurity topics</description>
+    <item>
+      <title>Breaking phishing campaign leads to identity token compromise</title>
+      <link>https://www.microsoft.com/en-us/security/blog/example-phishing-token-compromise/</link>
+      <guid>ms-ti-1</guid>
+      <pubDate>Wed, 06 May 2026 15:00:00 +0000</pubDate>
+      <description><![CDATA[Microsoft threat intelligence observed a phishing campaign using AiTM infrastructure to steal identity tokens.]]></description>
+      <category>Threat intelligence</category>
+    </item>
+  </channel>
+</rss>

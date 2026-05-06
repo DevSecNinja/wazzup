@@ -1,0 +1,157 @@
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+from .ai import SummaryResponse
+from .feeds import isoformat, stable_hash
+from .models import AppConfig, BriefingKind, ScoredItem, SourceStatus
+
+
+def write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def date_parts(dt: datetime) -> tuple[str, str, str]:
+    return f"{dt:%Y}", f"{dt:%m}", f"{dt:%d}"
+
+
+def build_briefing(
+    kind: BriefingKind,
+    window_start: datetime,
+    window_end: datetime,
+    generated_at: datetime,
+    app_config: AppConfig,
+    scored_items: list[ScoredItem],
+    summary: SummaryResponse,
+) -> dict[str, Any]:
+    briefing_id = f"briefing-{kind}-{stable_hash(isoformat(window_start), isoformat(window_end), summary.headline)}"
+    citations = []
+    item_by_id = {scored.item.id: scored.item for scored in scored_items}
+    for item_id, item in item_by_id.items():
+        citations.append(
+            {
+                "itemId": item_id,
+                "title": item.title,
+                "url": item.url,
+                "sourceId": item.source_id,
+                "sourceName": item.source_name,
+            }
+        )
+    provider = summary.provider
+    return {
+        "schemaVersion": 1,
+        "id": briefing_id,
+        "kind": kind,
+        "windowStart": isoformat(window_start),
+        "windowEnd": isoformat(window_end),
+        "generatedAt": isoformat(generated_at),
+        "timezone": app_config.timezone,
+        "language": app_config.summary_language,
+        "headline": summary.headline,
+        "sections": summary.sections,
+        "sourceItemIds": [scored.item.id for scored in scored_items],
+        "citations": citations,
+        "model": provider.get("model", "unknown"),
+        "provider": provider,
+        "promptVersion": provider.get("promptVersion", "summary-v1"),
+        "costEstimate": provider.get("costEstimate", {"amount": 0, "currency": "USD"}),
+    }
+
+
+def briefing_path(data_dir: Path, kind: BriefingKind, window_end: datetime) -> Path:
+    year, month, day = date_parts(window_end)
+    if kind == "hourly":
+        filename = f"hourly-{window_end:%H}.json"
+    else:
+        filename = f"{kind}.json"
+    return data_dir / "briefings" / year / month / day / filename
+
+
+def articles_path(data_dir: Path, window_end: datetime) -> Path:
+    year, month, day = date_parts(window_end)
+    return data_dir / "articles" / year / month / f"{day}.json"
+
+
+def publish_outputs(
+    public_dir: Path,
+    kind: BriefingKind,
+    window_start: datetime,
+    window_end: datetime,
+    generated_at: datetime,
+    app_config: AppConfig,
+    scored_items: list[ScoredItem],
+    summary: SummaryResponse,
+    statuses: list[SourceStatus],
+) -> dict[str, Any]:
+    data_dir = public_dir / "data"
+    public_dir.mkdir(parents=True, exist_ok=True)
+    briefing = build_briefing(kind, window_start, window_end, generated_at, app_config, scored_items, summary)
+    b_path = briefing_path(data_dir, kind, window_end)
+    a_path = articles_path(data_dir, window_end)
+    write_json(b_path, briefing)
+    write_json(
+        a_path,
+        {
+            "schemaVersion": 1,
+            "generatedAt": isoformat(generated_at),
+            "items": [scored.to_dict() for scored in scored_items],
+        },
+    )
+    write_json(
+        data_dir / "sources" / "status.json",
+        {
+            "schemaVersion": 1,
+            "generatedAt": isoformat(generated_at),
+            "sources": [status.to_dict() for status in statuses],
+        },
+    )
+    latest = {
+        "schemaVersion": 1,
+        "generatedAt": isoformat(generated_at),
+        "latestBriefingUrl": relative_data_url(data_dir, b_path),
+        "latestArticlesUrl": relative_data_url(data_dir, a_path),
+        "latestHourlyBriefingUrl": relative_data_url(data_dir, b_path) if kind == "hourly" else None,
+        "latestMorningBriefingUrl": relative_data_url(data_dir, b_path) if kind == "morning" else None,
+        "latestEveningBriefingUrl": relative_data_url(data_dir, b_path) if kind == "evening" else None,
+        "health": {
+            "ok": all(status.ok for status in statuses),
+            "sourceCount": len(statuses),
+            "failedSourceCount": len([status for status in statuses if not status.ok]),
+        },
+    }
+    write_json(data_dir / "latest.json", latest)
+    write_json(
+        data_dir / "manifest.json",
+        {
+            "schemaVersion": 1,
+            "generatedAt": isoformat(generated_at),
+            "retentionDays": app_config.retention_days,
+            "briefings": [relative_data_url(data_dir, b_path)],
+            "articles": [relative_data_url(data_dir, a_path)],
+        },
+    )
+    enforce_retention(data_dir, generated_at, app_config.retention_days)
+    return latest
+
+
+def relative_data_url(data_dir: Path, path: Path) -> str:
+    return path.relative_to(data_dir).as_posix()
+
+
+def enforce_retention(data_dir: Path, now: datetime, retention_days: int) -> None:
+    cutoff = now.astimezone(UTC) - timedelta(days=retention_days)
+    for root_name in ["articles", "briefings"]:
+        root = data_dir / root_name
+        if not root.exists():
+            continue
+        for path in root.rglob("*.json"):
+            try:
+                modified = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+            except OSError:
+                continue
+            if modified < cutoff:
+                path.unlink(missing_ok=True)

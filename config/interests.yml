@@ -1,0 +1,48 @@
+schemaVersion: 1
+summaryLanguage: en
+retentionDays: 35
+timezone: Europe/Amsterdam
+briefings:
+  morningLocalTime: "07:00"
+  eveningLocalTime: "20:00"
+interests:
+  - id: security
+    name: Security
+    weight: 1.4
+    keywords:
+      - security
+      - cybersecurity
+      - vulnerability
+      - exploit
+      - malware
+      - phishing
+      - identity
+      - threat intelligence
+  - id: ai
+    name: AI and developer platforms
+    weight: 1.1
+    keywords:
+      - ai
+      - artificial intelligence
+      - copilot
+      - developer
+      - platform
+      - automation
+  - id: cloud
+    name: Cloud and infrastructure
+    weight: 1.0
+    keywords:
+      - cloud
+      - azure
+      - kubernetes
+      - infrastructure
+      - outage
+  - id: microsoft
+    name: Microsoft ecosystem
+    weight: 1.1
+    keywords:
+      - microsoft
+      - azure
+      - defender
+      - entra
+      - windows

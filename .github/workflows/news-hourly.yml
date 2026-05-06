@@ -1,0 +1,94 @@
+---
+name: News hourly
+
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+    inputs:
+      forceBriefing:
+        description: "Force briefing kind"
+        required: false
+        default: hourly
+        type: choice
+        options:
+          - hourly
+          - morning
+          - evening
+      aiProvider:
+        description: "AI provider adapter"
+        required: false
+        default: copilot-cli
+        type: choice
+        options:
+          - copilot-cli
+          - fake
+
+permissions:
+  contents: read
+
+concurrency:
+  group: news-hourly-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    name: Generate and deploy briefing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      id-token: write
+      pages: write
+    env:
+      WAZZUP_TIMEZONE: Europe/Amsterdam
+      WAZZUP_MAX_AI_ITEMS: 30
+      WAZZUP_MAX_AI_COST_USD: "1.00"
+      AI_PROVIDER: ${{ inputs.aiProvider || 'copilot-cli' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up mise
+        uses: jdx/mise-action@v4
+        with:
+          version: 2026.4.18
+
+      - name: Set up Node.js for Copilot CLI
+        if: ${{ env.AI_PROVIDER == 'copilot-cli' }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install Copilot CLI
+        if: ${{ env.AI_PROVIDER == 'copilot-cli' }}
+        run: npm install -g @github/copilot
+
+      - name: Install Python dependencies
+        run: task install
+
+      - name: Generate static briefing data
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT }}
+          FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
+        run: python -m wazzup.pipeline --force-briefing "${FORCE_BRIEFING}"
+
+      - name: Validate generated data
+        run: task validate:data
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

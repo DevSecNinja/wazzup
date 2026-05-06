@@ -1,0 +1,10 @@
+{
+  "name": "Wazzup",
+  "short_name": "Wazzup",
+  "description": "AI-assisted technology news briefings.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#111827",
+  "icons": []
+}

@@ -26,4 +26,18 @@ Wazzup is planned as a GitHub-native personal tech-news briefing app. It collect
 
 ## Repository status
 
-This repository currently contains requirements and architecture only. Implementation should start after the open product and privacy decisions in [Product requirements](docs/requirements.md#open-decisions) are resolved.
+This repository contains the first end-to-end MVP slice: source configuration, RSS ingestion, deterministic scoring, a fake AI provider for tests/local runs, a Copilot CLI provider for GitHub Actions, static JSON publishing, and a minimal PWA.
+
+## Local development
+
+This repository uses [mise](https://mise.jdx.dev/) and [Task](https://taskfile.dev/) for local automation.
+
+```text
+mise install
+task install
+task ci
+AI_PROVIDER=fake task pipeline:generate
+task validate:data
+```
+
+Open [public/index.html](public/index.html) through a local static server after generating data. The GitHub Actions workflow uses Copilot CLI by default for scheduled runs; local and CI validation use the deterministic fake provider.

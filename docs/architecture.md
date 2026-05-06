@@ -88,7 +88,7 @@ tests/
   pages.yml
 ```
 
-This structure is a target for implementation; the current repository only contains planning documents.
+This structure is the implementation target. The current MVP implements the core pipeline, static PWA, tests, and GitHub Actions workflow skeleton; future work can fill in richer delivery adapters, API surfaces, and podcast support.
 
 ## Domain contracts
 
