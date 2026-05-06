@@ -1,0 +1,88 @@
+# Source registry for Wazzup feed ingestion.
+# Keep this file human-editable; implementation code should validate it with a schema.
+schemaVersion: 1
+
+defaults:
+  enabled: true
+  fetch:
+    timeoutSeconds: 30
+    retryAttempts: 2
+    headers:
+      User-Agent: "Wazzup/0.1 (+https://github.com/DevSecNinja/wazzup)"
+      Accept: "application/rss+xml, application/xml;q=0.9, */*;q=0.8"
+
+sources:
+  - id: microsoft-security-blog
+    name: Microsoft Security Blog
+    enabled: true
+    type: rss
+    homepageUrl: https://www.microsoft.com/en-us/security/blog/
+    feedUrl: https://www.microsoft.com/en-us/security/blog/feed/
+    language: en
+    region: global
+    weight: 1.2
+    categories:
+      - microsoft
+      - security
+      - cybersecurity
+    interestHints:
+      - cloud security
+      - identity
+      - security operations
+      - vulnerability management
+      - microsoft security products
+    fetch:
+      headers:
+        Accept-Language: "en-US,en;q=0.9"
+    notes: "General Microsoft Security Blog feed. Expect overlap with topic-specific feeds; deduplication should group shared articles."
+
+  - id: microsoft-security-threat-intelligence
+    name: Microsoft Security Blog - Threat Intelligence
+    enabled: true
+    type: rss
+    homepageUrl: https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/
+    feedUrl: https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/feed/
+    language: en
+    region: global
+    weight: 1.6
+    categories:
+      - microsoft
+      - security
+      - threat-intelligence
+    interestHints:
+      - threat intelligence
+      - phishing
+      - nation-state actors
+      - incident response
+      - malware campaigns
+      - identity attacks
+    overlapsWith:
+      - microsoft-security-blog
+    fetch:
+      headers:
+        Accept-Language: "en-US,en;q=0.9"
+    notes: "Priority source from the requested list; score this above the broader Microsoft Security Blog feed."
+
+  - id: nos-news
+    name: NOS Nieuws
+    enabled: true
+    type: rss
+    homepageUrl: https://nos.nl/
+    feedUrl: https://feeds.nos.nl/nosnieuwsalgemeen
+    language: nl
+    region: nl
+    weight: 0.8
+    categories:
+      - general-news
+      - netherlands
+      - world-news
+    interestHints:
+      - dutch news
+      - world news
+      - politics
+      - public broadcaster
+    relatedFeeds:
+      - id: nos-tech
+        feedUrl: https://feeds.nos.nl/nosnieuwstech
+        reason: "Consider enabling later if a narrower Dutch technology-news signal is preferred over the general NOS feed."
+    notes: "Official NOS general news RSS feed discovered for the NOS homepage."
