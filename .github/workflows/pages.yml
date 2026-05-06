@@ -40,5 +40,5 @@ jobs:
         ~/.local/bin/mise install
         ~/.local/bin/mise exec -- task install
       test-command: ~/.local/bin/mise exec -- task ci
-      build-command: GH_TOKEN="${{ github.token }}" ~/.local/bin/mise exec -- task pages:build
+      build-command: ~/.local/bin/mise exec -- task pages:build
       cloudflare-preview: false
