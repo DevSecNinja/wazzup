@@ -10,6 +10,7 @@ Wazzup is planned as a GitHub-native personal tech-news briefing app. It collect
 - [GitHub Actions design](docs/github-actions.md)
 - [ADR 0001: GitHub-native static architecture](docs/adr/0001-github-native-static-architecture.md)
 - [ADR 0002: AI execution strategy](docs/adr/0002-ai-execution-strategy.md)
+- [ADR 0003: Generated data state storage](docs/adr/0003-generated-data-state-storage.md)
 
 ## Configuration
 
@@ -26,7 +27,7 @@ Wazzup is planned as a GitHub-native personal tech-news briefing app. It collect
 
 ## Repository status
 
-This repository contains the first end-to-end MVP slice: source configuration, RSS ingestion, deterministic scoring, a fake AI provider for tests/local runs, a Copilot CLI provider for GitHub Actions, static JSON publishing, and a minimal PWA.
+This repository contains the first end-to-end MVP slice: source configuration, RSS ingestion, deterministic scoring, a fake AI provider for tests/local runs, a Copilot CLI provider for GitHub Actions, release-backed static JSON state publishing, and a minimal PWA.
 
 ## Local development
 

@@ -8,7 +8,7 @@
 | News hourly | Hourly schedule and manual dispatch | Fetch feeds, update article store, generate due briefings, publish static data. |
 | Pages deploy | After successful news generation or frontend changes | Deploy PWA and static JSON to GitHub Pages. |
 | Live smoke | Manual or daily schedule | Optional real feed and AI provider canary checks with strict budgets. |
-| Archive cleanup | Monthly schedule | Move old generated data to release archives and enforce retention. |
+| Archive cleanup | Monthly schedule | Keep release-backed rolling state compact and optionally publish monthly recap archives. |
 | Release automation | Push to `main` | Future release-please workflow driven by Conventional Commits. |
 
 ## Recommended workflow boundaries
@@ -243,9 +243,11 @@ Recommended behavior:
 
 - Publish current static output to GitHub Pages.
 - Keep 35 days of detailed article JSON in Pages data.
-- Keep compact monthly archives in GitHub Releases if history matters.
+- Persist the 35-day Pages data window as a `wazzup-state.zip` asset on the `news-state` GitHub Release.
+- Keep compact monthly recap archives in separate GitHub Releases if history matters.
 - Upload debug artifacts only for failed runs and redact sensitive data.
 - Avoid committing generated hourly JSON to `main` to prevent repository bloat.
+- Avoid a generated-data branch unless release assets prove insufficient; it still creates thousands of commits per year.
 
 ## Security hardening
 

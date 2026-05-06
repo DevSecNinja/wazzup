@@ -45,7 +45,7 @@ A technically proficient individual who follows technology news, open-source rel
 | FR-001 | Maintain a configurable list of feeds, source categories, source weights, and user interests. | Must |
 | FR-002 | Fetch configured RSS/Atom/JSON feeds hourly from GitHub Actions. | Must |
 | FR-003 | Deduplicate articles using canonical URL, feed item GUID, title similarity, and publication timestamp. | Must |
-| FR-004 | Store normalized article metadata in a stable, versioned JSON format. | Must |
+| FR-004 | Store normalized article metadata in a stable, versioned JSON format without committing generated data to `main`. | Must |
 | FR-005 | Score articles against user interests, recency, source reliability, and duplicate coverage. | Must |
 | FR-006 | Generate hourly summaries for notable changes since the previous run. | Should |
 | FR-007 | Generate a morning briefing at 07:00 local time covering the previous day plus overnight updates since 20:00. | Must |
@@ -117,7 +117,7 @@ Full Web Push requires subscription storage and a push sender. That introduces b
 
 ### Where to run the backend?
 
-Use GitHub Actions for the MVP backend. Publish generated static data to GitHub Pages. Avoid a database initially by storing date-partitioned JSON files and small indexes. Archive older data to GitHub Releases if long-term history is needed.
+Use GitHub Actions for the MVP backend. Publish generated static data to GitHub Pages. Avoid a database initially by storing date-partitioned JSON files and small indexes in a dedicated GitHub Release asset that the scheduled workflow restores before each run.
 
 ### Can the backend run on GitHub without maintaining a database?
 
@@ -127,9 +127,10 @@ Yes, with trade-offs. Recommended MVP storage:
 - `data/briefings/YYYY/MM/DD/*.json` for generated summaries.
 - `data/articles/YYYY/MM/DD.json` for normalized article records.
 - `data/sources/status.json` for feed health.
-- Optional monthly GitHub Release archives for cold history.
+- `news-state` GitHub Release asset for the rolling 35-day state window.
+- Optional monthly GitHub Release archives for cold history or monthly recaps.
 
-This avoids an operational database but should enforce retention to avoid repository bloat.
+This avoids an operational database and avoids thousands of generated-data commits per year. A separate `news` branch is possible, but the release asset is cleaner because it keeps generated state out of Git history.
 
 ### How to run the frontend with as few libraries as possible?
 

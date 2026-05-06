@@ -7,6 +7,7 @@ Use a GitHub-native static architecture for the MVP:
 - GitHub Actions runs the backend pipeline hourly.
 - The pipeline fetches sources, normalizes content, ranks items, calls an AI summary provider, and writes versioned JSON outputs.
 - GitHub Pages hosts both the minimal PWA and the generated JSON data.
+- A dedicated GitHub Release asset stores the rolling generated-data state between scheduled runs.
 - Optional delivery adapters can later send briefings to services such as Home Assistant, ntfy, email, Teams, or Slack.
 - The core domain contracts remain independent from GitHub Actions and GitHub Pages so they can later power a REST API, agent tool, or MCP server.
 - Commits must follow Conventional Commits so release-please can be added without history cleanup.
@@ -52,7 +53,7 @@ sequenceDiagram
     participant User as User channels
 
     Cron->>CLI: run hourly
-    CLI->>Pages: load previous indexes/cache
+    CLI->>Pages: restore previous release-backed data window
     CLI->>Feeds: fetch configured sources
     Feeds-->>CLI: feed entries
     CLI->>CLI: normalize, dedupe, score
@@ -172,6 +173,14 @@ public/data/
   briefings/YYYY/MM/DD/evening.json
   archives/YYYY-MM.json
 ```
+
+The scheduled workflow must not commit generated article or briefing JSON to `main`. It restores the previous `public/data` window from a dedicated `news-state` GitHub Release asset, generates new data, enforces 35-day retention, uploads the updated release asset, and deploys the same static files to GitHub Pages.
+
+Rejected alternatives:
+
+- Committing generated data to `main`: too much history churn for hourly outputs.
+- Committing generated data to a `news` branch: avoids polluting `main`, but still creates thousands of commits per year and adds branch-management complexity.
+- Pages artifact only: simple, but does not provide a durable state input for the next scheduled run.
 
 ### `latest.json`
 
@@ -330,7 +339,7 @@ The future MCP server should depend on `src/core` contracts, not scrape the fron
 | Risk | Mitigation |
 | --- | --- |
 | GitHub Pages exposes personal interests | Public output is accepted for MVP; keep source preferences and prompts minimal and support private/static alternatives later. |
-| Repository bloat from generated JSON | Use rolling retention and monthly release archives. |
+| Repository bloat from generated JSON | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated JSON. |
 | AI hallucinations | Require citations, validate structured output, keep source links visible. |
 | AI provider cost spikes | Cache summaries, cap item count, track token/request estimates. |
 | Scheduled workflows delayed | Treat schedules as best-effort and compute windows from timestamps. |

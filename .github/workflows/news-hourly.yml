@@ -40,7 +40,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     permissions:
-      contents: read
+      contents: write
       id-token: write
       pages: write
     env:
@@ -72,6 +72,20 @@ jobs:
       - name: Install Python dependencies
         run: task install
 
+      - name: Restore retained news state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |-
+          set -euo pipefail
+
+          mkdir -p .state
+          if gh release download news-state --pattern wazzup-state.zip --dir .state --repo "${GITHUB_REPOSITORY}"; then
+            unzip -q -o .state/wazzup-state.zip -d public
+            echo "Restored retained news state from the news-state release."
+          else
+            echo "::notice::No retained news-state release asset found; starting from an empty data window."
+          fi
+
       - name: Generate static briefing data
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT }}
@@ -80,6 +94,25 @@ jobs:
 
       - name: Validate generated data
         run: task validate:data
+
+      - name: Persist retained news state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |-
+          set -euo pipefail
+
+          mkdir -p .state
+          (cd public && zip -qr ../.state/wazzup-state.zip data)
+
+          if gh release view news-state --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release upload news-state .state/wazzup-state.zip --clobber --repo "${GITHUB_REPOSITORY}"
+          else
+            gh release create news-state .state/wazzup-state.zip \
+              --title "Wazzup retained news state" \
+              --notes "Rolling generated JSON state for the Wazzup GitHub Pages deployment." \
+              --prerelease \
+              --repo "${GITHUB_REPOSITORY}"
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v6

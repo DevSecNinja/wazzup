@@ -124,17 +124,8 @@ def publish_outputs(
         },
     }
     write_json(data_dir / "latest.json", latest)
-    write_json(
-        data_dir / "manifest.json",
-        {
-            "schemaVersion": 1,
-            "generatedAt": isoformat(generated_at),
-            "retentionDays": app_config.retention_days,
-            "briefings": [relative_data_url(data_dir, b_path)],
-            "articles": [relative_data_url(data_dir, a_path)],
-        },
-    )
     enforce_retention(data_dir, generated_at, app_config.retention_days)
+    write_manifest(data_dir, generated_at, app_config.retention_days)
     return latest
 
 
@@ -142,16 +133,55 @@ def relative_data_url(data_dir: Path, path: Path) -> str:
     return path.relative_to(data_dir).as_posix()
 
 
+def write_manifest(data_dir: Path, generated_at: datetime, retention_days: int) -> None:
+    briefings = sorted(relative_data_url(data_dir, path) for path in (data_dir / "briefings").rglob("*.json"))
+    articles = sorted(relative_data_url(data_dir, path) for path in (data_dir / "articles").rglob("*.json"))
+    write_json(
+        data_dir / "manifest.json",
+        {
+            "schemaVersion": 1,
+            "generatedAt": isoformat(generated_at),
+            "retentionDays": retention_days,
+            "briefings": briefings,
+            "articles": articles,
+        },
+    )
+
+
 def enforce_retention(data_dir: Path, now: datetime, retention_days: int) -> None:
-    cutoff = now.astimezone(UTC) - timedelta(days=retention_days)
+    cutoff_date = (now.astimezone(UTC) - timedelta(days=retention_days)).date()
     for root_name in ["articles", "briefings"]:
         root = data_dir / root_name
         if not root.exists():
             continue
         for path in root.rglob("*.json"):
-            try:
-                modified = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
-            except OSError:
-                continue
-            if modified < cutoff:
+            path_date = date_from_data_path(root_name, path)
+            if path_date is not None and path_date < cutoff_date:
                 path.unlink(missing_ok=True)
+    prune_empty_directories(data_dir / "articles")
+    prune_empty_directories(data_dir / "briefings")
+
+
+def date_from_data_path(root_name: str, path: Path) -> datetime.date | None:
+    parts = path.parts
+    try:
+        root_index = parts.index(root_name)
+        year = int(parts[root_index + 1])
+        month = int(parts[root_index + 2])
+        if root_name == "articles":
+            day = int(Path(parts[root_index + 3]).stem)
+        else:
+            day = int(parts[root_index + 3])
+        return datetime(year, month, day, tzinfo=UTC).date()
+    except (ValueError, IndexError):
+        return None
+
+
+def prune_empty_directories(root: Path) -> None:
+    if not root.exists():
+        return
+    for directory in sorted([path for path in root.rglob("*") if path.is_dir()], reverse=True):
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
