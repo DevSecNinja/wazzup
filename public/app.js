@@ -14,9 +14,10 @@ const MAX_DESCRIPTION_LENGTH = 320;
 const BACKGROUND_SYNC_TAG = 'wazzup-hourly-update';
 const DEFAULT_RETENTION_DAYS = 35;
 const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
+const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
 
 let briefingSeenObserver = null;
-let hideSeenEnabled = false;
+let hideSeenEnabled = safeLocalStorageGet(HIDE_SEEN_STORAGE_KEY) === '1';
 
 async function getJson(path) {
   const response = await fetch(path, { cache: 'no-store' });
@@ -216,6 +217,7 @@ function bindHideSeenButton() {
   if (!button) return;
   button.addEventListener('click', () => {
     hideSeenEnabled = !hideSeenEnabled;
+    safeLocalStorageSet(HIDE_SEEN_STORAGE_KEY, hideSeenEnabled ? '1' : '0');
     applyHideSeenFilter();
   });
   applyHideSeenFilter();

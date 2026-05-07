@@ -38,6 +38,7 @@ class PwaAssetTests(unittest.TestCase):
         app = Path("public/app.js").read_text(encoding="utf-8")
         css = Path("public/styles.css").read_text(encoding="utf-8")
         self.assertIn("const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems'", app)
+        self.assertIn("const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen'", app)
         self.assertIn("function seenItemStorageKey(dayKey, itemId)", app)
         self.assertIn("manifest?.retentionDays", app)
         self.assertIn("data-seen-item-ids", app)
