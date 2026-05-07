@@ -12,6 +12,10 @@ const FALLBACK_TIME_ZONE = 'Europe/Amsterdam';
 const MAX_HEADLINE_LENGTH = 96;
 const MAX_DESCRIPTION_LENGTH = 320;
 const BACKGROUND_SYNC_TAG = 'wazzup-hourly-update';
+const DEFAULT_RETENTION_DAYS = 35;
+const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
+
+let briefingSeenObserver = null;
 
 async function getJson(path) {
   const response = await fetch(path, { cache: 'no-store' });
@@ -102,15 +106,158 @@ function resolveDataUrl(path) {
   return value.startsWith('data/') ? value : `data/${value}`;
 }
 
-function renderBriefing(briefing) {
+function briefingDayKey(briefing) {
+  return localDateKey(briefing?.generatedAt || new Date().toISOString());
+}
+
+function safeLocalStorageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage failures so the PWA still renders offline data.
+  }
+}
+
+function retentionDaysFromManifest(manifest) {
+  const value = Number(manifest?.retentionDays);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : DEFAULT_RETENTION_DAYS;
+}
+
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function seenItemStorageKey(dayKey, itemId) {
+  return `${dayKey}:${String(itemId || '').trim()}`;
+}
+
+function retentionCutoffDayKey(dayKey, retentionDays) {
+  const [year, month, day] = String(dayKey || '').split('-').map(Number);
+  if (!year || !month || !day) return null;
+  const cutoff = new Date(Date.UTC(year, month - 1, day));
+  cutoff.setUTCDate(cutoff.getUTCDate() - Math.max(retentionDays - 1, 0));
+  return cutoff.toISOString().slice(0, 10);
+}
+
+function pruneSeenBriefingItems(entries, dayKey, retentionDays) {
+  const cutoffDayKey = retentionCutoffDayKey(dayKey, retentionDays);
+  return Object.fromEntries(
+    Object.entries(entries || {}).filter(([storageKey]) => {
+      const [entryDayKey] = storageKey.split(':');
+      return !cutoffDayKey || entryDayKey >= cutoffDayKey;
+    }),
+  );
+}
+
+function createSeenBriefingState(briefing, manifest) {
+  const dayKey = briefingDayKey(briefing);
+  const retentionDays = retentionDaysFromManifest(manifest);
+  let parsedEntries = {};
+  try {
+    parsedEntries = JSON.parse(safeLocalStorageGet(SEEN_BRIEFING_ITEMS_STORAGE_KEY) || '{}');
+  } catch {
+    parsedEntries = {};
+  }
+  if (!parsedEntries || Array.isArray(parsedEntries) || typeof parsedEntries !== 'object') {
+    parsedEntries = {};
+  }
+  const entries = pruneSeenBriefingItems(parsedEntries, dayKey, retentionDays);
+  if (JSON.stringify(entries) !== JSON.stringify(parsedEntries)) {
+    safeLocalStorageSet(SEEN_BRIEFING_ITEMS_STORAGE_KEY, JSON.stringify(entries));
+  }
+  return { dayKey, entries };
+}
+
+function bulletItemIds(briefing, bullet, sectionIndex, bulletIndex) {
+  const itemIds = Array.from(new Set((bullet.citations || []).filter(Boolean).map((itemId) => String(itemId))));
+  return itemIds.length ? itemIds : [`${briefing.id || 'briefing'}:${sectionIndex}:${bulletIndex}`];
+}
+
+function isSeenBriefingItem(seenState, itemIds) {
+  return itemIds.every((itemId) => hasOwn(seenState.entries, seenItemStorageKey(seenState.dayKey, itemId)));
+}
+
+function setBulletSeenState(bulletEl, seen) {
+  if (!bulletEl) return;
+  const statusEl = bulletEl.querySelector('.bullet__status');
+  bulletEl.dataset.seenState = seen ? 'seen' : 'new';
+  bulletEl.classList.toggle('bullet--seen', seen);
+  if (!statusEl) return;
+  statusEl.textContent = seen ? 'Seen' : 'New';
+  statusEl.classList.toggle('bullet__status--seen', seen);
+  statusEl.classList.toggle('bullet__status--new', !seen);
+}
+
+function markSeenBriefingItems(seenState, itemIds) {
+  let changed = false;
+  itemIds.forEach((itemId) => {
+    const storageKey = seenItemStorageKey(seenState.dayKey, itemId);
+    if (hasOwn(seenState.entries, storageKey)) return;
+    seenState.entries[storageKey] = new Date().toISOString();
+    changed = true;
+  });
+  if (changed) {
+    safeLocalStorageSet(SEEN_BRIEFING_ITEMS_STORAGE_KEY, JSON.stringify(seenState.entries));
+  }
+  return changed;
+}
+
+function markBriefingBulletSeen(bulletEl, seenState) {
+  const itemIds = String(bulletEl?.dataset?.seenItemIds || '')
+    .split(',')
+    .map((itemId) => itemId.trim())
+    .filter(Boolean);
+  if (!itemIds.length) return;
+  markSeenBriefingItems(seenState, itemIds);
+  setBulletSeenState(bulletEl, true);
+}
+
+function observeBriefingItems(seenState) {
+  if (briefingSeenObserver) {
+    briefingSeenObserver.disconnect();
+    briefingSeenObserver = null;
+  }
+  const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
+  if (!bullets.length) return;
+  if (!('IntersectionObserver' in window)) {
+    bullets.forEach((bulletEl) => markBriefingBulletSeen(bulletEl, seenState));
+    return;
+  }
+  briefingSeenObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.6) return;
+        markBriefingBulletSeen(entry.target, seenState);
+        briefingSeenObserver?.unobserve(entry.target);
+      });
+    },
+    { threshold: [0.6] },
+  );
+  bullets.forEach((bulletEl) => {
+    if (bulletEl.dataset.seenState === 'seen') return;
+    briefingSeenObserver.observe(bulletEl);
+  });
+}
+
+function renderBriefing(briefing, seenState) {
   const citations = citationMap(briefing);
   const sections = (briefing.sections || [])
-    .map((section) => {
+    .map((section, sectionIndex) => {
       const bullets = (section.bullets || [])
-        .map((bullet) => {
+        .map((bullet, bulletIndex) => {
           const normalized = normalizeBullet(bullet, citations);
           const temperature = normalized.temperature;
           const temperatureLevel = temperatureClass(temperature);
+          const itemIds = bulletItemIds(briefing, bullet, sectionIndex, bulletIndex);
+          const seen = isSeenBriefingItem(seenState, itemIds);
           const links = (bullet.citations || [])
             .map((itemId) => citations.get(itemId))
             .filter(Boolean)
@@ -120,7 +267,7 @@ function renderBriefing(briefing) {
             )
             .join('');
           const tags = normalized.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
-          return `<li class="bullet bullet--${temperatureLevel}"><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '•')}</span><h4>${escapeHtml(normalized.title)}</h4></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${links}</div></li>`;
+          return `<li class="bullet bullet--${temperatureLevel}${seen ? ' bullet--seen' : ''}" data-seen-item-ids="${escapeHtml(itemIds.join(','))}" data-seen-state="${seen ? 'seen' : 'new'}"><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '•')}</span><h4>${escapeHtml(normalized.title)}</h4><span class="bullet__status bullet__status--${seen ? 'seen' : 'new'}">${seen ? 'Seen' : 'New'}</span></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${links}</div></li>`;
         })
         .join('');
       return `<section class="section"><h3>${escapeHtml(section.title)}</h3><ul class="bullet-list">${bullets}</ul></section>`;
@@ -336,8 +483,10 @@ async function main() {
       getJson('data/sources/status.json'),
       getJson('data/manifest.json'),
     ]);
+    const seenState = createSeenBriefingState(briefing, manifest);
     renderHero(briefing);
-    renderBriefing(briefing);
+    renderBriefing(briefing, seenState);
+    observeBriefingItems(seenState);
     renderSources(status);
     await renderYesterday(manifest, latest, briefing);
     await renderFooter(buildInfo);

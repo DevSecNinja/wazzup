@@ -34,6 +34,21 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("tag-list", app)
         self.assertIn("renderYesterday", app)
 
+    def test_pwa_tracks_seen_briefing_items_locally(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        css = Path("public/styles.css").read_text(encoding="utf-8")
+        self.assertIn("const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems'", app)
+        self.assertIn("function seenItemStorageKey(dayKey, itemId)", app)
+        self.assertIn("manifest?.retentionDays", app)
+        self.assertIn("data-seen-item-ids", app)
+        self.assertIn("data-seen-state", app)
+        self.assertIn("IntersectionObserver", app)
+        self.assertIn("threshold: [0.6]", app)
+        self.assertIn("bullet__status--", app)
+        self.assertIn(".bullet--seen", css)
+        self.assertIn(".bullet__status--new", css)
+        self.assertIn(".bullet__status--seen", css)
+
     def test_homepage_uses_simple_header_and_yesterday_card(self) -> None:
         html = Path("public/index.html").read_text(encoding="utf-8")
         self.assertIn("viewport-fit=cover", html)
