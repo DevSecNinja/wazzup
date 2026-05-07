@@ -8,7 +8,7 @@ from wazzup.config import load_app_config, load_sources
 class ConfigTests(unittest.TestCase):
     def test_load_sources(self) -> None:
         sources = load_sources("config/sources.yml")
-        self.assertGreaterEqual(len(sources), 2)
+        self.assertGreaterEqual(len(sources), 15)
         self.assertEqual("microsoft-security-threat-intelligence", sources[1].id)
         self.assertEqual("MS TI", sources[1].source_tag)
         self.assertIn("economist", {source.id for source in sources})
