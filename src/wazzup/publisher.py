@@ -53,6 +53,7 @@ def build_briefing(
                 "url": item.url,
                 "sourceId": item.source_id,
                 "sourceName": item.source_name,
+                "publishedAt": item.published_at,
             }
         )
     provider = summary.provider

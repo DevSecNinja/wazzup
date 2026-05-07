@@ -74,7 +74,8 @@ def collect_items(sources_path: str, fixture_dir: str = "") -> tuple[list[Conten
         fixture_items = load_items_from_fixture(source.id, fixture_root, source) if fixture_root else None
         if fixture_items is not None:
             all_items.extend(fixture_items)
-            statuses.append(SourceStatus(source.id, True, isoformat(discovered_at), len(fixture_items), "fixture"))
+            last_article_at = max((item.published_at for item in fixture_items), default=None)
+            statuses.append(SourceStatus(source.id, True, isoformat(discovered_at), len(fixture_items), "fixture", last_article_at))
             continue
         items, status = fetch_and_parse(source, discovered_at)
         all_items.extend(items)

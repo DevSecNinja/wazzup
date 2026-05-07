@@ -112,6 +112,7 @@ class SourceStatus:
     fetched_at: str
     item_count: int
     message: str
+    last_article_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -120,4 +121,5 @@ class SourceStatus:
             "fetchedAt": self.fetched_at,
             "itemCount": self.item_count,
             "message": self.message,
+            "lastArticleAt": self.last_article_at,
         }

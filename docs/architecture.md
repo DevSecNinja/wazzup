@@ -84,6 +84,7 @@ docs/
 src/
   wazzup/
     ai.py               # provider interface, fake provider, Copilot CLI provider
+    build_info.py       # generated build metadata for footer/SW cache version
     config.py           # YAML config loading/validation
     feeds.py            # RSS/Atom fetch, parse, canonicalization, dedupe
     models.py           # dataclass domain contracts
@@ -196,17 +197,26 @@ public/data/
   briefings/YYYY/MM/DD/evening.yaml
   briefings/YYYY/MM/DD/evening.json
   archives/YYYY-MM.yaml
+public/build-info.json        # generated deployment metadata for footer/SW version
 ```
 
 The scheduled workflow must not commit generated article or briefing YAML/JSON to `main`. It restores the previous `public/data` window from a dedicated `news-state` GitHub Release asset, generates new data, enforces 35-day retention, and uploads the updated release asset. The separate Pages workflow then uses the reusable Pages deployment from `DevSecNinja/.github` to restore that same release asset and deploy the static files to GitHub Pages.
 
 YAML is the canonical persisted state format because it is easier to inspect and edit when debugging release assets. JSON remains a generated transport mirror because browsers can consume it without adding a YAML parser dependency to the PWA.
 
+Why the release contains both YAML and JSON today:
+
+- YAML is the standard human/operator format for generated state.
+- JSON is a generated compatibility mirror for the browser, Home Assistant-style consumers, and simple validation tooling.
+- Keeping both avoids adding a YAML parser dependency to the PWA while preserving human-readable release assets.
+- If the duplicated files become too noisy, the likely simplification is to switch the canonical generated output to JSON-only rather than making the browser parse YAML.
+
 Release-state restore behavior:
 
 - In `News hourly`, [../Taskfile.yml](../Taskfile.yml) uses `GH_TOKEN` and `gh release download` to restore prior state, then `gh release upload --clobber` or `gh release create` to persist updated state.
 - In `Pages`, the reusable workflow cannot receive a working token through a string input, so `task pages:build` restores `wazzup-state.zip` through the public release download URL when no `GH_TOKEN`/`GITHUB_TOKEN` is available.
 - `pages:build` sets `STATE_REQUIRED=true`; if retained state cannot be restored, deployment fails explicitly instead of uploading an empty app data directory.
+- The current state release is intentionally one mutable operational release, not one release per hour. Hourly releases would create thousands of releases per year and duplicate the generated-data churn problem in a different GitHub surface. A better future archive is one immutable daily or monthly recap release whose body contains a human-readable digest and links to archived assets.
 
 Rejected alternatives:
 
@@ -311,7 +321,9 @@ Current frontend limitations:
 
 - It renders only the latest briefing and source health.
 - It consumes JSON mirrors, not canonical YAML, to avoid a browser-side YAML parser dependency.
-- The service worker currently uses a manual cache name (`wazzup-static-v1`); build metadata-based versioning is planned.
+- It renders previous briefings from `manifest.json` once multiple hourly runs exist.
+- It supports opt-in local notifications when the open/installed PWA observes a new briefing URL. True background push notifications require stored subscriptions and are deferred.
+- The service worker cache is versioned by the `buildId` query string from `build-info.json`, uses `updateViaCache: 'none'`, and supports offline reading for assets/data that have already been fetched.
 
 ## Notification architecture
 

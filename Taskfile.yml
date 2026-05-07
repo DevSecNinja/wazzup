@@ -41,9 +41,15 @@ tasks:
     cmds:
       - '{{.PYTHON}} -m compileall -q src scripts'
 
+  build:metadata:
+    desc: Write static build metadata for the PWA footer and service worker version
+    cmds:
+      - '{{.PYTHON}} -m wazzup.build_info'
+
   pipeline:generate:
     desc: Generate static briefing data
     cmds:
+      - task: build:metadata
       - '{{.PYTHON}} -m wazzup.pipeline --force-briefing "{{.FORCE_BRIEFING}}"'
 
   pipeline:generate:fixtures:
@@ -51,6 +57,7 @@ tasks:
     env:
       AI_PROVIDER: fake
     cmds:
+      - task: build:metadata
       - '{{.PYTHON}} -m wazzup.pipeline --fixture-dir tests/fixtures --force-briefing "{{.FORCE_BRIEFING}}"'
 
   validate:data:
@@ -119,6 +126,7 @@ tasks:
     env:
       STATE_REQUIRED: "true"
     cmds:
+      - task: build:metadata
       - task: state:restore
       - task: validate:data
 

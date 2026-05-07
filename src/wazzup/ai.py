@@ -141,14 +141,23 @@ class CopilotCliSummaryProvider:
 
 
 def _fake_bullet(scored: ScoredItem) -> str:
-    reason = scored.score_reasons[0] if scored.score_reasons else "ranked as notable"
-    return f"{scored.item.title} — {reason}."
+    summary = scored.item.summary.strip()
+    if summary:
+        text = summary.rstrip(".")
+        if len(text) > 220:
+            text = text[:219].rstrip() + "…"
+    else:
+        text = "This update is worth scanning based on your configured interests."
+    if scored.matched_interests:
+        interests = ", ".join(scored.matched_interests[:3]).replace("-", " ")
+        return f"{scored.item.title}: {text}. Why it matters: it matches your {interests} interests."
+    return f"{scored.item.title}: {text}."
 
 
 def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
     return {
         "schemaVersion": 1,
-        "task": "Generate a concise English news briefing with citations.",
+        "task": "Generate a concise English news briefing with citations, tailored to the configured user interests.",
         "kind": request.kind,
         "windowStart": request.window_start,
         "windowEnd": request.window_end,
@@ -170,6 +179,12 @@ def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
                 }
             ],
         },
+        "styleGuide": [
+            "Write for a single technical reader, not as marketing copy.",
+            "Summarize why each item matters to the reader's interests.",
+            "Never mention scoring internals such as source weight, score, recency bonus, or duplicate group IDs.",
+            "Keep bullets concise and source-grounded.",
+        ],
     }
 
 

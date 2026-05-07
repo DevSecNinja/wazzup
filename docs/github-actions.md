@@ -286,6 +286,8 @@ Recommended behavior:
 
 Workflow shell logic should live in [Taskfile.yml](../Taskfile.yml) wherever practical. GitHub Actions should call tasks such as `task news:generate`, `task pages:build`, `task pipeline:generate:fixtures`, and `task validate:data` instead of duplicating pipeline commands inline.
 
+`task build:metadata` writes `public/build-info.json` with the current commit, build id, repository URL, and timestamp. It is called by pipeline generation and Pages builds so the footer can link to the deployed commit and the service worker can register with a build-specific cache key.
+
 ## Standardized Pages deployment
 
 The scheduled `News hourly` workflow is responsible for mutating release-backed state. It does not deploy Pages directly. After it succeeds, the `Pages` workflow calls the reusable Pages workflow from `DevSecNinja/.github` and restores the `news-state` release asset through `task pages:build` before deployment. The Pages restore path supports unauthenticated release-asset downloads so it works inside the reusable workflow without injecting `GH_TOKEN` into a string input.

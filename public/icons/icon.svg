@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Wazzup logo</title>
+  <desc id="desc">A glowing W monogram with a news pulse.</desc>
+  <defs>
+    <linearGradient id="bg" x1="72" x2="440" y1="48" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22d3ee" />
+      <stop offset="0.52" stop-color="#2563eb" />
+      <stop offset="1" stop-color="#7c3aed" />
+    </linearGradient>
+    <linearGradient id="mark" x1="130" x2="382" y1="150" y2="362" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f8fafc" />
+      <stop offset="1" stop-color="#cffafe" />
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="#020617" />
+  <circle cx="130" cy="110" r="180" fill="#22d3ee" opacity="0.2" />
+  <circle cx="418" cy="414" r="172" fill="#8b5cf6" opacity="0.24" />
+  <rect x="58" y="58" width="396" height="396" rx="96" fill="url(#bg)" opacity="0.92" />
+  <path d="M118 176h58l38 146 46-146h49l46 146 38-146h58l-67 202h-57l-43-132-43 132h-57L118 176Z" fill="url(#mark)" filter="url(#glow)" />
+  <path d="M142 130h148" stroke="#e0f2fe" stroke-width="24" stroke-linecap="round" opacity="0.95" />
+  <path d="M336 130h34" stroke="#e0f2fe" stroke-width="24" stroke-linecap="round" opacity="0.75" />
+</svg>

@@ -191,7 +191,8 @@ def fetch_and_parse(source: SourceConfig, discovered_at: datetime | None = None)
     try:
         payload = fetch_feed(source)
         items = parse_feed(source, payload, fetched_at)
-        return items, SourceStatus(source.id, True, isoformat(fetched_at), len(items), "ok")
+        last_article_at = max((item.published_at for item in items), default=None)
+        return items, SourceStatus(source.id, True, isoformat(fetched_at), len(items), "ok", last_article_at)
     except Exception as exc:  # noqa: BLE001 - keep per-source failures isolated
         return [], SourceStatus(source.id, False, isoformat(fetched_at), 0, f"{type(exc).__name__}: {exc}")
 

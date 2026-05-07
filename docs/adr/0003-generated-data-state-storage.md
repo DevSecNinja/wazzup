@@ -30,6 +30,10 @@ Implemented refinement after the first Pages deployment failure:
 - `task pages:build` sets `STATE_REQUIRED=true`; if state cannot be restored, Pages deployment fails explicitly instead of deploying missing `public/data/latest.json`.
 - The reusable Pages workflow receives `build-command: ~/.local/bin/mise exec -- task pages:build` without trying to inject `GH_TOKEN` into a string input.
 
+Do not create one GitHub Release per hour for operational state. That would create up to 8,760 releases per year before retries and manual runs. The mutable `news-state` release remains the hot state store. If human time travel becomes important beyond the 35-day Pages window, add immutable daily or monthly archive/recap releases with concise release bodies and attached snapshots.
+
+The state archive currently contains YAML canonical files and JSON mirrors. YAML remains the operator-facing source of truth; JSON exists so the no-build PWA and simple consumers can fetch native browser data without a YAML parser.
+
 ## Consequences
 
 ### Positive
@@ -64,6 +68,16 @@ Implemented refinement after the first Pages deployment failure:
 - Pros: Simplest deployment path.
 - Cons: Does not provide a durable state input for the next scheduled run.
 
+### One release per hour
+
+- Pros: Easy chronological browsing in GitHub Releases.
+- Cons: Up to 8,760 releases per year, noisy release UI, weak app integration, and duplicated state-management complexity.
+
+### One release per day or month
+
+- Pros: Human-friendly archive cadence and good place for recap bodies.
+- Cons: Still needs a separate rolling state store for the next scheduled run and is better treated as an archive feature, not the hot state path.
+
 ### External database or object storage
 
 - Pros: Better query and state-management capabilities.
@@ -72,6 +86,7 @@ Implemented refinement after the first Pages deployment failure:
 ## Follow-up decisions
 
 - Add a monthly recap archive format once monthly recaps are implemented.
+- Consider a daily recap release if GitHub Releases become the preferred long-term human archive.
 - Decide whether `news-state` should be a prerelease forever or hidden behind a naming convention only.
 - Add stronger integrity checks for the downloaded state archive before extraction.
 - If Wazzup becomes private, revisit token propagation for reusable Pages workflows or move state restoration outside the reusable workflow boundary.

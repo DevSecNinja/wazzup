@@ -11,6 +11,7 @@ dependencies = ["PyYAML>=6.0"]
 [project.scripts]
 wazzup = "wazzup.pipeline:main"
 wazzup-validate-data = "wazzup.validate_data:main"
+wazzup-build-info = "wazzup.build_info:main"
 
 [tool.coverage.run]
 source = ["src/wazzup"]

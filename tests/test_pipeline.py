@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -31,6 +32,10 @@ class PipelineTests(unittest.TestCase):
                 validate_data_dir(public_dir / "data")
                 briefing = (public_dir / "data" / latest["latestBriefingUrl"]).read_text(encoding="utf-8")
                 self.assertIn("Top updates", briefing)
+                briefing_json = json.loads((public_dir / "data" / latest["latestBriefingUrl"]).read_text(encoding="utf-8"))
+                self.assertIn("publishedAt", briefing_json["citations"][0])
+                status_json = json.loads((public_dir / "data" / "sources" / "status.json").read_text(encoding="utf-8"))
+                self.assertTrue(all("lastArticleAt" in source for source in status_json["sources"]))
         finally:
             if previous_provider is None:
                 os.environ.pop("AI_PROVIDER", None)
