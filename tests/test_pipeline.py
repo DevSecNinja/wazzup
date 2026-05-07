@@ -8,11 +8,57 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from wazzup.pipeline import generate
+from wazzup.models import ContentItem, ScoredItem
+from wazzup.pipeline import generate, prioritize_hourly_new_items
 from wazzup.validate_data import validate_data_dir
 
 
+def scored_item(item_id: str, published_at: str, score: float) -> ScoredItem:
+    return ScoredItem(
+        item=ContentItem(
+            schema_version=1,
+            id=item_id,
+            source_id="test-source",
+            source_name="Test Source",
+            source_tag="Test",
+            source_type="rss",
+            title=f"Article {item_id}",
+            url=f"https://example.com/{item_id}",
+            canonical_url=f"https://example.com/{item_id}",
+            published_at=published_at,
+            discovered_at=published_at,
+            authors=[],
+            tags=[],
+            language="en",
+            summary="Summary",
+            content_hash=item_id,
+            raw_ref=item_id,
+        ),
+        score=score,
+        score_reasons=[],
+        matched_interests=[],
+        duplicate_group_id=f"dup-{item_id}",
+        freshness_bucket="fresh",
+    )
+
+
 class PipelineTests(unittest.TestCase):
+    def test_hourly_selection_prioritizes_new_articles(self) -> None:
+        now = datetime(2026, 5, 6, 15, 42, tzinfo=UTC)
+        scored = [
+            scored_item("older-high", "2026-05-06T09:00:00Z", 99),
+            scored_item("newest", "2026-05-06T15:35:00Z", 10),
+            scored_item("newer", "2026-05-06T15:20:00Z", 10),
+            scored_item("new", "2026-05-06T15:05:00Z", 10),
+            scored_item("hour-old", "2026-05-06T14:50:00Z", 10),
+            scored_item("older-low", "2026-05-06T08:00:00Z", 1),
+        ]
+
+        prioritized = prioritize_hourly_new_items(scored, now)
+
+        self.assertEqual(["newest", "newer", "new", "hour-old"], [item.item.id for item in prioritized[:4]])
+        self.assertEqual("older-high", prioritized[4].item.id)
+
     def test_generate_auto_selects_due_morning_briefing(self) -> None:
         previous_provider = os.environ.get("AI_PROVIDER")
         os.environ["AI_PROVIDER"] = "fake"

@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from .ai import SummaryRequest, provider_from_env
 from .config import load_app_config, load_sources
 from .feeds import deduplicate, fetch_and_parse, isoformat, parse_feed, utc_now
-from .models import BriefingKind, ContentItem, SourceStatus
+from .models import BriefingKind, ContentItem, ScoredItem, SourceStatus
 from .publisher import briefing_path, publish_outputs
 from .scoring import parse_iso, score_items
 
@@ -91,6 +91,26 @@ def filter_items_to_window(items: list[ContentItem], window_start: datetime, win
     return [item for item in items if window_start <= parse_iso(item.published_at) <= window_end]
 
 
+def prioritize_hourly_new_items(scored_items: list[ScoredItem], now: datetime) -> list[ScoredItem]:
+    recent_start = now.astimezone(UTC) - timedelta(hours=1)
+    recent_end = now.astimezone(UTC)
+    recent_items: list[tuple[datetime, ScoredItem]] = []
+    older_items = []
+    for scored in scored_items:
+        published_at = parse_iso(scored.item.published_at)
+        if recent_start <= published_at <= recent_end:
+            recent_items.append((published_at, scored))
+        else:
+            older_items.append(scored)
+
+    def newest_first(item: tuple[datetime, ScoredItem]) -> tuple[float, float]:
+        published_at, scored = item
+        return -published_at.timestamp(), -scored.score
+
+    # New hourly articles stay above older high-scoring items; score only breaks ties among recent items.
+    return [scored for _, scored in sorted(recent_items, key=newest_first)] + older_items
+
+
 def load_items_from_fixture(source_id: str, fixture_dir: Path, source) -> list[ContentItem] | None:
     fixture_path = fixture_dir / f"{source_id}.xml"
     if not fixture_path.exists():
@@ -137,7 +157,10 @@ def generate(argv: Sequence[str] | None = None) -> dict:
     if kind == "hourly":
         content_window_start, content_window_end = rolling_day_window(now, app_config.timezone)
     window_items = filter_items_to_window(items, content_window_start, content_window_end)
-    scored = score_items(window_items, sources, app_config, now)[: args.max_items]
+    scored = score_items(window_items, sources, app_config, now)
+    if kind == "hourly":
+        scored = prioritize_hourly_new_items(scored, now)
+    scored = scored[: args.max_items]
     provider = provider_from_env(app_config)
     summary = provider.generate_structured_summary(
         SummaryRequest(
