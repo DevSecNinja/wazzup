@@ -1,0 +1,39 @@
+---
+# Conventional Commit-style issue labels.
+feat:
+  - '^feat(\(.+\))?:'
+  - '(?i)(feature request|enhancement|add support|would be (nice|great)|request)'
+
+fix:
+  - '^fix(\(.+\))?:'
+  - '(?i)(error|crash|fail|broken|not work|doesn.t work|bug)'
+
+docs:
+  - '^docs(\(.+\))?:'
+  - '(?i)(doc|readme|wiki|guide|tutorial|documentation)'
+
+ci:
+  - '^ci(\(.+\))?:'
+  - '(?i)(github action|workflow|pipeline|\.github)'
+
+# Area labels.
+area/backend:
+  - '(?i)(python|pipeline|feed|rss|atom|scoring|copilot|ai provider)'
+
+area/frontend:
+  - '(?i)(pwa|frontend|ui|css|service worker|manifest|notification)'
+
+area/data:
+  - '(?i)(data|yaml|json|state|release asset|retention|source|fixture)'
+
+area/docs:
+  - '(?i)(doc|readme|adr|architecture|requirement)'
+
+area/github:
+  - '(?i)(github action|workflow|ci|pipeline|label|automation)'
+
+area/renovate:
+  - '(?i)(renovate|dependency|dependenc|update.*package|package.*update)'
+
+question:
+  - '(?i)(how (do|to|can)|question|\?)'

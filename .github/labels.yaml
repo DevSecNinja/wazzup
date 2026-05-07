@@ -1,0 +1,21 @@
+---
+# Repo-specific labels. The label-sync workflow merges these with the
+# DevSecNinja base labels from the shared .github repository.
+- name: area/backend
+  color: "0e8a16"
+  description: Python ingestion, scoring, AI provider, and publisher code
+- name: area/frontend
+  color: "1d76db"
+  description: Static PWA assets, styling, service worker, and manifest
+- name: area/data
+  color: "5319e7"
+  description: Generated data contracts, source config, fixtures, and retention
+- name: area/docs
+  color: "0075ca"
+  description: Documentation and ADRs
+- name: area/github
+  color: "fbca04"
+  description: GitHub Actions, Renovate, labels, and repository automation
+- name: area/renovate
+  color: "027fa0"
+  description: Renovate configuration and dependency update automation

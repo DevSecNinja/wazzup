@@ -8,6 +8,9 @@
 | Lint | Pull request and manual dispatch | Reusable organization lint workflow from `DevSecNinja/.github`. |
 | News hourly | Hourly schedule and manual dispatch | Fetch feeds, generate a briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
 | Pages | Successful `News hourly` workflow run and manual dispatch | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow. |
+| Config Sync | Weekly and manual dispatch | Open PRs when shared repo config from `DevSecNinja/.github` drifts. |
+| Label Sync | Daily, manual dispatch, and label config changes | Sync repository labels from the org base labels plus repo-specific labels. |
+| Labeler | Pull requests, issues, and manual dispatch | Apply area/type labels using shared labeler automation. |
 | Live smoke | Not implemented yet | Optional real feed and AI provider canary checks with strict budgets. |
 | Archive cleanup | Not implemented yet | Keep release-backed rolling state compact and optionally publish monthly recap archives. |
 | Release automation | Not implemented yet | Future release-please workflow driven by Conventional Commits. |
@@ -20,6 +23,18 @@
 - Publishing should happen only after contract validation succeeds.
 - Delivery notifications should happen only after publishing succeeds.
 - Commit messages and PR titles must follow Conventional Commits before release-please is enabled.
+
+## Repository automation from `DevSecNinja/.github`
+
+Implemented repository automation:
+
+- [../renovate.json5](../renovate.json5) imports the shared Renovate presets from `DevSecNinja/.github` for dependency grouping, labels, semantic commits, custom managers, and safe automerge rules.
+- Reusable workflow refs and version inputs include `# renovate:` markers where the org custom managers can maintain them through PRs.
+- [../.github/workflows/config-sync.yml](../.github/workflows/config-sync.yml) runs weekly and can open PRs for shared config drift.
+- [../.github/workflows/label-sync.yml](../.github/workflows/label-sync.yml) syncs labels from [../.github/labels.yaml](../.github/labels.yaml) plus the org base labels.
+- [../.github/workflows/labeler.yml](../.github/workflows/labeler.yml) applies issue/PR labels using [../.github/issue-labeler.yaml](../.github/issue-labeler.yaml) and [../.github/pr-labeler.yaml](../.github/pr-labeler.yaml).
+
+Release Please remains deferred until the app has an explicit first release/versioning policy.
 
 ## AI runner options in Actions
 

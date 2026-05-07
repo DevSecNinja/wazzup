@@ -1,0 +1,22 @@
+---
+name: Config Sync
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: config-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # renovate: datasource=github-tags depName=DevSecNinja/.github
+    uses: DevSecNinja/.github/.github/workflows/config-sync.yml@af5030dd0d6f61b80fe58f949c9b985d1931ddf2 # v1.3.0
+    permissions:
+      contents: write
+      pull-requests: write
