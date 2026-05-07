@@ -334,6 +334,46 @@ sources:
       - AI
     notes: "Tech feed from issue #2 OPML; HTTP URL normalized to HTTPS."
 
+  - id: economist
+    name: The Economist
+    sourceTag: Economist
+    enabled: true
+    type: rss
+    homepageUrl: https://www.economist.com/
+    feedUrl: https://www.economist.com/latest/rss.xml
+    language: en
+    region: global
+    weight: 0.95
+    categories:
+      - general-news
+      - world-news
+      - business
+    interestHints:
+      - global markets
+      - geopolitics
+      - economics
+    notes: "The Economist latest feed."
+
+  - id: financial-times
+    name: Financial Times
+    sourceTag: FT
+    enabled: true
+    type: rss
+    homepageUrl: https://www.ft.com/
+    feedUrl: https://www.ft.com/rss/home
+    language: en
+    region: uk
+    weight: 0.95
+    categories:
+      - business
+      - world-news
+      - finance
+    interestHints:
+      - markets
+      - business news
+      - finance
+    notes: "Financial Times home feed."
+
   - id: apple-newsroom
     name: Apple Newsroom
     sourceTag: Apple

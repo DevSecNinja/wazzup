@@ -139,7 +139,9 @@ function renderHero(briefing) {
 }
 
 function renderSources(status) {
-  const sources = status.sources || [];
+  const sources = (status.sources || [])
+    .slice()
+    .sort((sourceA, sourceB) => sourceA.sourceId.localeCompare(sourceB.sourceId));
   const items = sources
     .map(
       (source) => `<li>

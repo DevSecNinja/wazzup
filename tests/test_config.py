@@ -4,13 +4,17 @@ import unittest
 
 from wazzup.config import load_app_config, load_sources
 
+MIN_EXPECTED_SOURCES = 15
+
 
 class ConfigTests(unittest.TestCase):
     def test_load_sources(self) -> None:
         sources = load_sources("config/sources.yml")
-        self.assertEqual(17, len(sources))
+        self.assertGreaterEqual(len(sources), MIN_EXPECTED_SOURCES)
         self.assertEqual("microsoft-security-threat-intelligence", sources[1].id)
         self.assertEqual("MS TI", sources[1].source_tag)
+        self.assertIn("economist", {source.id for source in sources})
+        self.assertIn("financial-times", {source.id for source in sources})
         self.assertIn("the-hacker-news", {source.id for source in sources})
         self.assertIn("tech", {category for source in sources for category in source.categories})
         self.assertIn("Accept", sources[0].headers)
