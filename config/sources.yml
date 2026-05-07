@@ -1,3 +1,4 @@
+---
 # Source registry for Wazzup feed ingestion.
 # Keep this file human-editable; implementation code should validate it with a schema.
 schemaVersion: 1
@@ -34,7 +35,8 @@ sources:
     fetch:
       headers:
         Accept-Language: "en-US,en;q=0.9"
-    notes: "General Microsoft Security Blog feed. Expect overlap with topic-specific feeds; deduplication should group shared articles."
+    notes: "General Microsoft Security Blog feed. Expect overlap with topic-specific feeds; deduplication should group shared
+      articles."
 
   - id: microsoft-security-threat-intelligence
     name: Microsoft Security Blog - Threat Intelligence

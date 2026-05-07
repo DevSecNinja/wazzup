@@ -30,7 +30,7 @@ Wazzup is a GitHub-native personal news briefing app. It collects configured RSS
    - `fake` for deterministic CI, local development, and tokenless fallback.
 8. Persist generated state outside Git history in a mutable `news-state` GitHub Release asset named `wazzup-state.zip`.
 9. Publish the static PWA and generated data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.
-10. Run lightweight formatting, syntax linting, unit/integration tests, compile checks, fixture generation, data validation, dependency update automation, repo-label sync, and reusable organization lint workflows in GitHub Actions.
+10. Run lightweight formatting, syntax linting, unit/integration tests, compile checks, fixture generation, data validation, dependency update automation, repo-label sync, reusable organization lint workflows, and a manual shared auto-fix workflow in GitHub Actions.
 
 ## Repository status
 
@@ -55,6 +55,7 @@ This repository uses [mise](https://mise.jdx.dev/) and [Task](https://taskfile.d
 ```text
 mise install
 task install
+task hooks:install
 task ci
 AI_PROVIDER=fake task pipeline:generate
 task validate:data
@@ -69,5 +70,7 @@ task news:generate              # restore release state, generate, validate, per
 task pages:build                # restore retained state and validate Pages data
 task pipeline:generate:fixtures # generate deterministic fixture output
 ```
+
+`task hooks:install` enables the repo-specific [lefthook](.lefthook.toml) pre-commit checks and Conventional Commit message hook. The manual Auto-fix formatting workflow uses the shared `DevSecNinja/.github` reusable workflow to run dprint and yamlfmt with the local shared config files.
 
 Configure either `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` as a repository secret to enable Copilot CLI in News hourly runs; otherwise the workflow falls back to the fake provider with a warning.

@@ -37,18 +37,18 @@ flowchart LR
 
 ## Runtime components
 
-| Component | Responsibility | MVP implementation |
-| --- | --- | --- |
-| Source configuration | Defines feeds, categories, weights, headers, and interest hints. | [../config/sources.yml](../config/sources.yml) and [../config/interests.yml](../config/interests.yml). |
-| Fetcher | Retrieves RSS and Atom XML feeds. | `urllib.request` based Python fetcher in [../src/wazzup/feeds.py](../src/wazzup/feeds.py). |
-| Normalizer | Converts source entries into `ContentItem` records. | Pure functions with fixtures. |
-| Deduplicator | Groups duplicate or near-duplicate articles. | Canonical URL + raw ref/GUID + normalized title/day transitive groups. |
-| Ranker | Scores items against interests, source quality, recency, and coverage. | Deterministic scoring plus optional AI reranking later. |
-| Summarizer | Generates article and briefing summaries. | AI provider abstraction with prompt versioning. |
-| Publisher | Writes canonical static YAML, JSON browser mirrors, source health, `latest`, and `manifest` files. | [../src/wazzup/publisher.py](../src/wazzup/publisher.py). |
-| State store | Persists generated data across scheduled runs without commits. | `news-state` GitHub Release asset `wazzup-state.zip`. |
-| Delivery adapters | Pushes selected briefings to external channels. | Not implemented yet. |
-| Frontend | Displays latest briefing and source health. | Static vanilla PWA in [../public](../public). |
+| Component            | Responsibility                                                                                     | MVP implementation                                                                                     |
+| -------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Source configuration | Defines feeds, categories, weights, headers, and interest hints.                                   | [../config/sources.yml](../config/sources.yml) and [../config/interests.yml](../config/interests.yml). |
+| Fetcher              | Retrieves RSS and Atom XML feeds.                                                                  | `urllib.request` based Python fetcher in [../src/wazzup/feeds.py](../src/wazzup/feeds.py).             |
+| Normalizer           | Converts source entries into `ContentItem` records.                                                | Pure functions with fixtures.                                                                          |
+| Deduplicator         | Groups duplicate or near-duplicate articles.                                                       | Canonical URL + raw ref/GUID + normalized title/day transitive groups.                                 |
+| Ranker               | Scores items against interests, source quality, recency, and coverage.                             | Deterministic scoring plus optional AI reranking later.                                                |
+| Summarizer           | Generates article and briefing summaries.                                                          | AI provider abstraction with prompt versioning.                                                        |
+| Publisher            | Writes canonical static YAML, JSON browser mirrors, source health, `latest`, and `manifest` files. | [../src/wazzup/publisher.py](../src/wazzup/publisher.py).                                              |
+| State store          | Persists generated data across scheduled runs without commits.                                     | `news-state` GitHub Release asset `wazzup-state.zip`.                                                  |
+| Delivery adapters    | Pushes selected briefings to external channels.                                                    | Not implemented yet.                                                                                   |
+| Frontend             | Displays latest briefing and source health.                                                        | Static vanilla PWA in [../public](../public).                                                          |
 
 ## Pipeline flow
 
@@ -287,12 +287,12 @@ AiSummaryProvider.generateStructuredSummary(request) -> SummaryResponse
 
 Implemented and planned provider order:
 
-| Provider | Best use | Notes |
-| --- | --- | --- |
-| Copilot CLI | Default requested scheduled summarization provider. | Implemented with `copilot -p`, `COPILOT_GITHUB_TOKEN`, `--no-ask-user`, and narrow `--allow-tool` permissions. Requires `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret. |
-| Fake provider | Tests, local deterministic development, and tokenless scheduled fallback. | Implemented and used by CI. |
-| Azure OpenAI / OpenAI / GitHub Models | Direct API-based summarization with clearer model and token accounting. | Planned. |
-| Ollama / Foundry | Local/self-contained or platform-specific experiments. | Planned. |
+| Provider                              | Best use                                                                  | Notes                                                                                                                                                                            |
+| ------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Copilot CLI                           | Default requested scheduled summarization provider.                       | Implemented with `copilot -p`, `COPILOT_GITHUB_TOKEN`, `--no-ask-user`, and narrow `--allow-tool` permissions. Requires `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret. |
+| Fake provider                         | Tests, local deterministic development, and tokenless scheduled fallback. | Implemented and used by CI.                                                                                                                                                      |
+| Azure OpenAI / OpenAI / GitHub Models | Direct API-based summarization with clearer model and token accounting.   | Planned.                                                                                                                                                                         |
+| Ollama / Foundry                      | Local/self-contained or platform-specific experiments.                    | Planned.                                                                                                                                                                         |
 
 The pipeline should prepare a provider-neutral summary request, then adapters translate it into the provider-specific invocation. For Copilot CLI, the adapter should write a prompt bundle to a temporary file, run the CLI in programmatic mode, request structured JSON output, and validate the output before publishing.
 
@@ -404,12 +404,12 @@ The future MCP server should depend on the domain contracts in [../src/wazzup](.
 
 ## Key risks and mitigations
 
-| Risk | Mitigation |
-| --- | --- |
+| Risk                                    | Mitigation                                                                                                                    |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | GitHub Pages exposes personal interests | Public output is accepted for MVP; keep source preferences and prompts minimal and support private/static alternatives later. |
-| Repository bloat from generated data | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated YAML/JSON. |
-| AI hallucinations | Require citations, validate structured output, keep source links visible. |
-| AI provider cost spikes | Cache summaries, cap item count, track token/request estimates. |
-| Scheduled workflows delayed | Treat schedules as best-effort and compute windows from timestamps. |
-| Feed parsing failures | Isolate source failures and publish source health. |
-| Copyright issues | Store metadata and summaries only; avoid republishing full content. |
+| Repository bloat from generated data    | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated YAML/JSON.              |
+| AI hallucinations                       | Require citations, validate structured output, keep source links visible.                                                     |
+| AI provider cost spikes                 | Cache summaries, cap item count, track token/request estimates.                                                               |
+| Scheduled workflows delayed             | Treat schedules as best-effort and compute windows from timestamps.                                                           |
+| Feed parsing failures                   | Isolate source failures and publish source health.                                                                            |
+| Copyright issues                        | Store metadata and summaries only; avoid republishing full content.                                                           |

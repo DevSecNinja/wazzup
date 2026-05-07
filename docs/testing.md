@@ -11,14 +11,14 @@
 
 ## Test pyramid
 
-| Layer | Purpose | Examples | CI trigger |
-| --- | --- | --- | --- |
-| Unit | Validate pure logic. | Date windows, scoring, dedupe, feed normalization, provider selection. | Pull request and manual CI. |
-| Contract | Validate generated data shape and provider interfaces. | `ContentItem`, `Briefing`, `latest.json`, release-state layout. | Pull request and manual CI. |
-| Integration | Validate components together with fixtures. | Parse saved RSS samples, run pipeline with fake AI provider, publish data to temp dir. | Pull request and manual CI. |
-| Frontend | Validate rendering and accessibility basics. | Load fixture `latest.json`, render briefing, keyboard navigation, service worker registration. | Planned. |
-| End-to-end | Validate deployed/static behavior. | Build app, restore release state, validate Pages artifact. | News hourly and Pages workflows. |
-| Live smoke | Validate external services safely. | Fetch a small allowlisted feed, optional AI provider canary with tiny prompt. | Scheduled or manual only. |
+| Layer       | Purpose                                                | Examples                                                                                       | CI trigger                       |
+| ----------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | -------------------------------- |
+| Unit        | Validate pure logic.                                   | Date windows, scoring, dedupe, feed normalization, provider selection.                         | Pull request and manual CI.      |
+| Contract    | Validate generated data shape and provider interfaces. | `ContentItem`, `Briefing`, `latest.json`, release-state layout.                                | Pull request and manual CI.      |
+| Integration | Validate components together with fixtures.            | Parse saved RSS samples, run pipeline with fake AI provider, publish data to temp dir.         | Pull request and manual CI.      |
+| Frontend    | Validate rendering and accessibility basics.           | Load fixture `latest.json`, render briefing, keyboard navigation, service worker registration. | Planned.                         |
+| End-to-end  | Validate deployed/static behavior.                     | Build app, restore release state, validate Pages artifact.                                     | News hourly and Pages workflows. |
+| Live smoke  | Validate external services safely.                     | Fetch a small allowlisted feed, optional AI provider canary with tiny prompt.                  | Scheduled or manual only.        |
 
 ## Implemented test suite
 
@@ -43,6 +43,7 @@ task format:check              # UTF-8, trailing newline, trailing whitespace
 task lint                      # Python syntax parse via ast
 task test                      # unittest discovery
 task build                     # compile Python modules
+task hooks:run                 # lefthook local pre-commit checks
 task pipeline:generate:fixtures
 task validate:data
 task pages:build               # restore retained state and validate Pages data
@@ -142,7 +143,7 @@ The CI workflow should block merges unless these checks pass:
 5. Fixture generation using fake AI provider.
 6. Static output validation.
 
-The separate reusable Lint workflow runs organization-standard checks on pull requests and manual dispatch.
+The separate reusable Lint workflow runs organization-standard checks on pull requests and manual dispatch. A manual Auto-fix formatting workflow can commit dprint/yamlfmt changes to the current branch before re-running lint.
 
 Optional checks:
 
@@ -180,6 +181,7 @@ task format:check
 task lint
 task test
 task build
+task hooks:run
 task pipeline:generate:fixtures
 task validate:data
 task pages:build

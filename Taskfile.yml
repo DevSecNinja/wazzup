@@ -21,6 +21,16 @@ tasks:
     cmds:
       - '{{.PYTHON}} -m pip install -r requirements.txt'
 
+  hooks:install:
+    desc: Install lefthook git hooks
+    cmds:
+      - lefthook install
+
+  hooks:run:
+    desc: Run lefthook pre-commit hooks manually
+    cmds:
+      - lefthook run pre-commit
+
   format:check:
     desc: Check lightweight formatting rules
     cmds:
