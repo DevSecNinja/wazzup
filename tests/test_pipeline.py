@@ -13,6 +13,71 @@ from wazzup.validate_data import validate_data_dir
 
 
 class PipelineTests(unittest.TestCase):
+    def test_generate_auto_selects_due_morning_briefing(self) -> None:
+        previous_provider = os.environ.get("AI_PROVIDER")
+        os.environ["AI_PROVIDER"] = "fake"
+        try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                public_dir = Path(tmp_dir)
+                fixed_now = datetime(2026, 5, 6, 5, 10, tzinfo=UTC)
+                with patch("wazzup.pipeline.utc_now", return_value=fixed_now):
+                    latest = generate(
+                        [
+                            "--fixture-dir",
+                            "tests/fixtures",
+                            "--public-dir",
+                            str(public_dir),
+                            "--force-briefing",
+                            "auto",
+                        ]
+                    )
+                self.assertTrue(latest["latestBriefingUrl"].endswith("/morning.json"))
+                briefing = json.loads((public_dir / latest["latestBriefingUrl"]).read_text(encoding="utf-8"))
+                self.assertEqual("morning", briefing["kind"])
+        finally:
+            if previous_provider is None:
+                os.environ.pop("AI_PROVIDER", None)
+            else:
+                os.environ["AI_PROVIDER"] = previous_provider
+
+    def test_generate_auto_skips_existing_due_morning_briefing(self) -> None:
+        previous_provider = os.environ.get("AI_PROVIDER")
+        os.environ["AI_PROVIDER"] = "fake"
+        try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                public_dir = Path(tmp_dir)
+                fixed_now = datetime(2026, 5, 6, 5, 10, tzinfo=UTC)
+                with patch("wazzup.pipeline.utc_now", return_value=fixed_now):
+                    generate(
+                        [
+                            "--fixture-dir",
+                            "tests/fixtures",
+                            "--public-dir",
+                            str(public_dir),
+                            "--force-briefing",
+                            "morning",
+                        ]
+                    )
+                with patch("wazzup.pipeline.utc_now", return_value=fixed_now):
+                    latest = generate(
+                        [
+                            "--fixture-dir",
+                            "tests/fixtures",
+                            "--public-dir",
+                            str(public_dir),
+                            "--force-briefing",
+                            "auto",
+                        ]
+                    )
+                briefing = json.loads((public_dir / latest["latestBriefingUrl"]).read_text(encoding="utf-8"))
+                self.assertEqual("hourly", briefing["kind"])
+                self.assertTrue((latest.get("latestMorningBriefingUrl") or "").endswith("/morning.json"))
+        finally:
+            if previous_provider is None:
+                os.environ.pop("AI_PROVIDER", None)
+            else:
+                os.environ["AI_PROVIDER"] = previous_provider
+
     def test_generate_static_data_from_fixtures(self) -> None:
         previous_provider = os.environ.get("AI_PROVIDER")
         os.environ["AI_PROVIDER"] = "fake"

@@ -96,9 +96,9 @@ on:
       forceBriefing:
         description: Force briefing kind
         required: false
-        default: hourly
+        default: auto
         type: choice
-        options: [hourly, morning, evening]
+        options: [auto, hourly, morning, evening]
       aiProvider:
         description: AI provider adapter
         required: false
@@ -177,7 +177,7 @@ The implementation hides provider-specific commands behind `task news:generate` 
   env:
     AI_PROVIDER: copilot-cli
     COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
-    FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
+    FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
   run: task news:generate
 ```
 
@@ -207,7 +207,7 @@ Ollama can be evaluated behind the same provider interface:
   env:
     AI_PROVIDER: ollama
     OLLAMA_MODEL: llama3.2:3b
-    FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
+    FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
   run: task pipeline:generate
 ```
 

@@ -51,7 +51,7 @@ The current repository implements the end-to-end MVP thin slice with these concr
 
 Implemented deviations from the original target:
 
-- Automatic morning/evening due-time scheduling is not implemented yet. The pipeline supports `--force-briefing morning|evening`, and workflow dispatch exposes that option.
+- Automatic morning/evening due-time scheduling is implemented. The pipeline supports `--force-briefing auto|hourly|morning|evening`, and workflow dispatch exposes those options.
 - JSON Feed and podcast source parsing are deferred.
 - Direct Azure OpenAI/OpenAI/GitHub Models/Ollama providers are deferred; only `fake` and `copilot-cli` are implemented.
 - AI budget environment variables are configured in workflow YAML but not enforced in code yet.
@@ -88,7 +88,7 @@ Implemented deviations from the original target:
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Sources          | RSS and Atom XML parsing, expanded configured source registry, short source tags, category tags, and per-source health status.                                      | JSON Feed, GitHub release feeds, podcast transcript metadata.             |
 | Deduplication    | Canonical URL tracking-parameter stripping, raw ref/GUID key, normalized title plus publication day, transitive duplicate groups, source-priority winner selection. | Semantic title similarity and duplicate-group publication metadata.       |
-| Briefings        | Hourly scheduled briefing and manually forced hourly/morning/evening generation.                                                                                    | Automatic morning/evening due detection based on local time.              |
+| Briefings        | Hourly scheduled briefing plus automatic local-time morning/evening due detection, and manually forced auto/hourly/morning/evening generation.                      | Daily/hourly view routing in the frontend.                                |
 | AI               | `fake` deterministic provider and `copilot-cli` provider. Tokenless scheduled runs fall back to `fake`.                                                             | API providers, Ollama/Foundry providers, strict token/cost accounting.    |
 | Frontend         | Latest briefing, previous-day summary, source/category tags, article temperature, and source-health PWA from JSON mirrors.                                          | Rich saved-item navigation, server-side notifications, Home Assistant UI. |
 | Data validation  | Runtime validation through `wazzup.validate_data` and tests.                                                                                                        | Published JSON Schema files and schema-version migration tooling.         |

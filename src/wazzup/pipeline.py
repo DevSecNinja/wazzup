@@ -12,7 +12,7 @@ from .ai import SummaryRequest, provider_from_env
 from .config import load_app_config, load_sources
 from .feeds import deduplicate, fetch_and_parse, isoformat, parse_feed, utc_now
 from .models import BriefingKind, ContentItem, SourceStatus
-from .publisher import publish_outputs
+from .publisher import briefing_path, publish_outputs
 from .scoring import parse_iso, score_items
 
 
@@ -23,18 +23,43 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--public-dir", default="public", help="Public output directory")
     parser.add_argument(
         "--force-briefing",
-        choices=["none", "hourly", "morning", "evening"],
-        default="hourly",
-        help="Briefing kind to generate; none behaves like hourly for MVP data freshness",
+        choices=["auto", "none", "hourly", "morning", "evening"],
+        default="auto",
+        help="Briefing kind to generate; auto selects due morning/evening in local time",
     )
     parser.add_argument("--fixture-dir", default="", help="Optional directory with <source-id>.xml fixtures")
     parser.add_argument("--max-items", type=int, default=int(os.environ.get("WAZZUP_MAX_AI_ITEMS", "12")))
     return parser.parse_args(argv)
 
 
-def choose_kind(force_briefing: str) -> BriefingKind:
+def _local_time_parts(value: str) -> tuple[int, int]:
+    hour, minute = value.split(":", maxsplit=1)
+    return int(hour), int(minute)
+
+
+def _is_due(local_now: datetime, local_target: datetime) -> bool:
+    return local_target <= local_now < (local_target + timedelta(hours=2))
+
+
+def _briefing_already_exists(public_dir: Path, kind: BriefingKind, now: datetime, timezone: str) -> bool:
+    _, window_end = briefing_window(kind, now, timezone)
+    data_dir = public_dir / "data"
+    path = briefing_path(data_dir, kind, window_end)
+    return path.exists() or path.with_suffix(".json").exists()
+
+
+def choose_kind(force_briefing: str, now: datetime, timezone: str, public_dir: Path, morning_time: str, evening_time: str) -> BriefingKind:
     if force_briefing in {"morning", "evening", "hourly"}:
         return force_briefing  # type: ignore[return-value]
+    local_now = now.astimezone(ZoneInfo(timezone))
+    morning_hour, morning_minute = _local_time_parts(morning_time)
+    evening_hour, evening_minute = _local_time_parts(evening_time)
+    morning_target = local_now.replace(hour=morning_hour, minute=morning_minute, second=0, microsecond=0)
+    evening_target = local_now.replace(hour=evening_hour, minute=evening_minute, second=0, microsecond=0)
+    if _is_due(local_now, morning_target) and not _briefing_already_exists(public_dir, "morning", now, timezone):
+        return "morning"
+    if _is_due(local_now, evening_target) and not _briefing_already_exists(public_dir, "evening", now, timezone):
+        return "evening"
     return "hourly"
 
 
@@ -98,7 +123,14 @@ def generate(argv: Sequence[str] | None = None) -> dict:
     app_config = load_app_config(args.interests)
     items, statuses, sources = collect_items(args.sources, args.fixture_dir)
     now = utc_now()
-    kind = choose_kind(args.force_briefing)
+    kind = choose_kind(
+        args.force_briefing,
+        now,
+        app_config.timezone,
+        Path(args.public_dir),
+        app_config.morning_local_time,
+        app_config.evening_local_time,
+    )
     window_start, window_end = briefing_window(kind, now, app_config.timezone)
     content_window_start = window_start
     content_window_end = window_end

@@ -3,7 +3,7 @@ version: "3"
 
 vars:
   PYTHON: '{{default "python3" .PYTHON}}'
-  FORCE_BRIEFING: '{{default "hourly" .FORCE_BRIEFING}}'
+  FORCE_BRIEFING: '{{default "auto" .FORCE_BRIEFING}}'
   STATE_RELEASE: '{{default "news-state" .STATE_RELEASE}}'
   STATE_ASSET: '{{default "wazzup-state.zip" .STATE_ASSET}}'
 

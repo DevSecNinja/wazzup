@@ -9,9 +9,10 @@ on:
       forceBriefing:
         description: "Force briefing kind"
         required: false
-        default: hourly
+        default: auto
         type: choice
         options:
+          - auto
           - hourly
           - morning
           - evening
@@ -128,7 +129,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
-          FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
+          FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
         run: task news:generate
 
       - name: Upload generated public artifact
@@ -143,7 +144,7 @@ jobs:
       - name: Write workflow summary
         if: ${{ steps.cadence.outputs.should_run == 'true' }}
         env:
-          FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
+          FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
         run: |-
           set -euo pipefail

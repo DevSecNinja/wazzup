@@ -116,6 +116,12 @@ def publish_outputs(
 ) -> dict[str, Any]:
     data_dir = public_dir / "data"
     public_dir.mkdir(parents=True, exist_ok=True)
+    previous_latest: dict[str, Any] = {}
+    latest_json_path = data_dir / "latest.json"
+    if latest_json_path.exists():
+        import json
+
+        previous_latest = json.loads(latest_json_path.read_text(encoding="utf-8"))
     briefing = build_briefing(kind, window_start, window_end, generated_at, app_config, scored_items, summary)
     b_path = briefing_path(data_dir, kind, window_end)
     a_path = articles_path(data_dir, window_end)
@@ -144,9 +150,21 @@ def publish_outputs(
         "latestArticlesYamlUrl": public_data_url(data_dir, a_path),
         "latestBriefingUrl": public_data_url(data_dir, b_path.with_suffix(".json")),
         "latestArticlesUrl": public_data_url(data_dir, a_path.with_suffix(".json")),
-        "latestHourlyBriefingUrl": public_data_url(data_dir, b_path.with_suffix(".json")) if kind == "hourly" else None,
-        "latestMorningBriefingUrl": public_data_url(data_dir, b_path.with_suffix(".json")) if kind == "morning" else None,
-        "latestEveningBriefingUrl": public_data_url(data_dir, b_path.with_suffix(".json")) if kind == "evening" else None,
+        "latestHourlyBriefingUrl": (
+            public_data_url(data_dir, b_path.with_suffix(".json"))
+            if kind == "hourly"
+            else previous_latest.get("latestHourlyBriefingUrl")
+        ),
+        "latestMorningBriefingUrl": (
+            public_data_url(data_dir, b_path.with_suffix(".json"))
+            if kind == "morning"
+            else previous_latest.get("latestMorningBriefingUrl")
+        ),
+        "latestEveningBriefingUrl": (
+            public_data_url(data_dir, b_path.with_suffix(".json"))
+            if kind == "evening"
+            else previous_latest.get("latestEveningBriefingUrl")
+        ),
         "health": {
             "ok": all(status.ok for status in statuses),
             "sourceCount": len(statuses),
