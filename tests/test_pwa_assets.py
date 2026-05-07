@@ -30,9 +30,22 @@ class PwaAssetTests(unittest.TestCase):
 
     def test_homepage_uses_simple_header_and_yesterday_card(self) -> None:
         html = Path("public/index.html").read_text(encoding="utf-8")
+        self.assertIn("viewport-fit=cover", html)
+        self.assertIn("black-translucent", html)
         self.assertNotIn("topbar__links", html)
         self.assertNotIn("Previous hours", html)
         self.assertIn("id=\"yesterday\"", html)
+
+    def test_safe_area_background_avoids_white_edges(self) -> None:
+        html = Path("public/index.html").read_text(encoding="utf-8")
+        css = Path("public/styles.css").read_text(encoding="utf-8")
+        manifest = json.loads(Path("public/manifest.webmanifest").read_text(encoding="utf-8"))
+        self.assertIn('name="theme-color" content="#020617"', html)
+        self.assertEqual("#020617", manifest["theme_color"])
+        self.assertEqual("#020617", manifest["background_color"])
+        self.assertIn("--app-bg-solid: #020617", css)
+        self.assertIn("env(safe-area-inset-top", css)
+        self.assertIn("overscroll-behavior-y: none", css)
 
     def test_footer_contains_repo_commit_and_star_targets(self) -> None:
         html = Path("public/index.html").read_text(encoding="utf-8")
