@@ -15,6 +15,7 @@ defaults:
 sources:
   - id: microsoft-security-blog
     name: Microsoft Security Blog
+    sourceTag: MS Security
     enabled: true
     type: rss
     homepageUrl: https://www.microsoft.com/en-us/security/blog/
@@ -40,6 +41,7 @@ sources:
 
   - id: microsoft-security-threat-intelligence
     name: Microsoft Security Blog - Threat Intelligence
+    sourceTag: MS TI
     enabled: true
     type: rss
     homepageUrl: https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/
@@ -67,6 +69,7 @@ sources:
 
   - id: nos-news
     name: NOS Nieuws
+    sourceTag: NOS
     enabled: true
     type: rss
     homepageUrl: https://nos.nl/
@@ -88,3 +91,327 @@ sources:
         feedUrl: https://feeds.nos.nl/nosnieuwstech
         reason: "Consider enabling later if a narrower Dutch technology-news signal is preferred over the general NOS feed."
     notes: "Official NOS general news RSS feed discovered for the NOS homepage."
+
+  - id: zandvoortsecourant
+    name: Zandvoortsecourant.nl
+    sourceTag: Zandvoort
+    enabled: true
+    type: rss
+    homepageUrl: https://www.zandvoortsecourant.nl/
+    feedUrl: https://www.zandvoortsecourant.nl/rss
+    language: nl
+    region: nl
+    weight: 0.6
+    categories:
+      - local-news
+      - netherlands
+      - zandvoort
+    interestHints:
+      - local news
+      - zandvoort
+      - dutch news
+    notes: "Local Zandvoort news feed from issue #2 OPML."
+
+  - id: nytimes-most-shared
+    name: The New York Times - Most Shared
+    sourceTag: NYT
+    enabled: true
+    type: rss
+    homepageUrl: https://www.nytimes.com
+    feedUrl: https://rss.nytimes.com/services/xml/rss/nyt/MostShared.xml
+    language: en
+    region: us
+    weight: 0.9
+    categories:
+      - general-news
+      - world-news
+      - tech
+    interestHints:
+      - most shared news
+      - world news
+      - technology
+    notes: "NYT Most Shared feed from issue #2 OPML; HTTP URL normalized to HTTPS."
+
+  - id: thalpius
+    name: Thalpius
+    sourceTag: Thalpius
+    enabled: true
+    type: rss
+    homepageUrl: https://thalpius.com
+    feedUrl: https://thalpius.com/feed/
+    language: en
+    region: global
+    weight: 1.1
+    categories:
+      - security
+      - cybersecurity
+    interestHints:
+      - cybersecurity
+      - threat analysis
+      - security research
+    notes: "Security feed from issue #2 OPML."
+
+  - id: nist-cybersecurity-insights
+    name: NIST Cybersecurity Insights
+    sourceTag: NIST
+    enabled: true
+    type: rss
+    homepageUrl: https://www.nist.gov/
+    feedUrl: https://www.nist.gov/blogs/cybersecurity-insights/rss.xml
+    language: en
+    region: us
+    weight: 1.2
+    categories:
+      - security
+      - cybersecurity
+      - standards
+    interestHints:
+      - cybersecurity guidance
+      - standards
+      - risk management
+    notes: "NIST Cybersecurity Insights feed from issue #2 OPML."
+
+  - id: cisecurity-blog
+    name: Center for Internet Security Blog
+    sourceTag: CIS
+    enabled: true
+    type: rss
+    homepageUrl: https://www.cisecurity.org/feed/blog
+    feedUrl: https://www.cisecurity.org/feed/?post_type=blog
+    language: en
+    region: us
+    weight: 1.1
+    categories:
+      - security
+      - cybersecurity
+      - hardening
+    interestHints:
+      - security benchmarks
+      - hardening
+      - vulnerability management
+    notes: "Center for Internet Security blog feed from issue #2 OPML."
+
+  - id: ncsc-reports
+    name: NCSC Reports
+    sourceTag: NCSC
+    enabled: true
+    type: rss
+    homepageUrl: https://www.ncsc.gov.uk/
+    feedUrl: https://www.ncsc.gov.uk/feeds/reports.xml
+    language: en
+    region: uk
+    weight: 1.25
+    categories:
+      - security
+      - cybersecurity
+      - threat-intelligence
+      - reports
+    interestHints:
+      - threat intelligence
+      - incident response
+      - government advisories
+    notes: "UK NCSC reports feed from issue #2 OPML."
+
+  - id: recorded-future-record
+    name: The Record from Recorded Future News
+    sourceTag: Record
+    enabled: true
+    type: rss
+    homepageUrl: https://therecord.media/feed
+    feedUrl: https://therecord.media/feed/
+    language: en
+    region: global
+    weight: 1.25
+    categories:
+      - security
+      - cybersecurity
+      - threat-intelligence
+    interestHints:
+      - threat intelligence
+      - cybercrime
+      - ransomware
+      - nation-state actors
+    notes: "The Record security news feed from issue #2 OPML."
+
+  - id: have-i-been-pwned-breaches
+    name: Have I Been Pwned latest breaches
+    sourceTag: HIBP
+    enabled: true
+    type: rss
+    homepageUrl: https://haveibeenpwned.com/
+    feedUrl: https://feeds.feedburner.com/HaveIBeenPwnedLatestBreaches
+    language: en
+    region: global
+    weight: 1.15
+    categories:
+      - security
+      - cybersecurity
+      - breach
+    interestHints:
+      - data breaches
+      - identity
+      - incident response
+    notes: "HIBP latest breaches feed from issue #2 OPML; HTTP URL normalized to HTTPS."
+
+  - id: google-online-security-blog
+    name: Google Online Security Blog
+    sourceTag: GoogleSec
+    enabled: true
+    type: atom
+    homepageUrl: https://security.googleblog.com/
+    feedUrl: https://googleonlinesecurity.blogspot.com/atom.xml
+    language: en
+    region: global
+    weight: 1.2
+    categories:
+      - google
+      - security
+      - cybersecurity
+    interestHints:
+      - security research
+      - vulnerability management
+      - platform security
+    notes: "Google Online Security Blog Atom feed from issue #2 OPML; HTTP URL normalized to HTTPS."
+
+  - id: the-hacker-news
+    name: The Hacker News
+    sourceTag: THN
+    enabled: true
+    type: atom
+    homepageUrl: https://thehackernews.com
+    feedUrl: https://thehackernews.com/feeds/posts/default
+    language: en
+    region: global
+    weight: 1.15
+    categories:
+      - security
+      - cybersecurity
+      - threat-intelligence
+    interestHints:
+      - vulnerability management
+      - malware campaigns
+      - threat intelligence
+      - cybercrime
+    notes: "The Hacker News Atom feed from issue #2 OPML; HTTP URL normalized to HTTPS."
+
+  - id: krebs-on-security
+    name: Krebs on Security
+    sourceTag: Krebs
+    enabled: true
+    type: rss
+    homepageUrl: https://krebsonsecurity.com
+    feedUrl: https://krebsonsecurity.com/feed/
+    language: en
+    region: us
+    weight: 1.25
+    categories:
+      - security
+      - cybersecurity
+      - cybercrime
+    interestHints:
+      - cybercrime
+      - data breaches
+      - threat intelligence
+    notes: "Krebs on Security feed from issue #2 OPML; HTTP URL normalized to HTTPS."
+
+  - id: bleepingcomputer
+    name: BleepingComputer
+    sourceTag: Bleeping
+    enabled: true
+    type: rss
+    homepageUrl: https://www.bleepingcomputer.com/
+    feedUrl: https://www.bleepingcomputer.com/feed/
+    language: en
+    region: global
+    weight: 1.15
+    categories:
+      - security
+      - cybersecurity
+      - tech
+    interestHints:
+      - vulnerability management
+      - malware campaigns
+      - Windows
+      - ransomware
+    notes: "BleepingComputer feed from issue #2 OPML; HTTP URL normalized to HTTPS."
+
+  - id: engadget
+    name: Engadget
+    sourceTag: Engadget
+    enabled: true
+    type: rss
+    homepageUrl: https://www.engadget.com
+    feedUrl: https://www.engadget.com/rss-full.xml
+    language: en
+    region: global
+    weight: 0.9
+    categories:
+      - tech
+      - consumer-tech
+    interestHints:
+      - technology
+      - consumer technology
+      - gadgets
+      - AI
+    notes: "Tech feed from issue #2 OPML; HTTP URL normalized to HTTPS."
+
+  - id: apple-newsroom
+    name: Apple Newsroom
+    sourceTag: Apple
+    enabled: true
+    type: rss
+    homepageUrl: https://www.apple.com/newsroom/
+    feedUrl: https://www.apple.com/newsroom/rss-feed.rss
+    language: en
+    region: global
+    weight: 0.95
+    categories:
+      - tech
+      - apple
+      - consumer-tech
+    interestHints:
+      - Apple
+      - platform updates
+      - privacy
+    notes: "Apple Newsroom feed from issue #2 OPML."
+
+  - id: linuxserver-info
+    name: "Info :: LinuxServer.io"
+    sourceTag: LinuxServer
+    enabled: true
+    type: rss
+    homepageUrl: https://info.linuxserver.io/
+    feedUrl: https://info.linuxserver.io/index.xml
+    language: en
+    region: global
+    weight: 1.0
+    categories:
+      - tech
+      - self-hosting
+      - linux
+    interestHints:
+      - containers
+      - self-hosting
+      - Linux
+      - devops
+    notes: "LinuxServer.io info feed from issue #2 OPML."
+
+  - id: pcworld-latest-news
+    name: PCWorld Latest News
+    sourceTag: PCWorld
+    enabled: true
+    type: rss
+    homepageUrl: https://www.pcworld.com
+    feedUrl: https://feeds.pcworld.com/pcworld/latestnews
+    language: en
+    region: us
+    weight: 0.85
+    categories:
+      - tech
+      - consumer-tech
+      - pc
+    interestHints:
+      - consumer technology
+      - Windows
+      - hardware
+    notes: "PCWorld latest news feed from issue #2 OPML; HTTP URL normalized to HTTPS."

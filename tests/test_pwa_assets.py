@@ -26,6 +26,7 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("normalizeBullet", app)
         self.assertIn("temperatureClass", app)
         self.assertIn("bullet--", app)
+        self.assertIn("tag-list", app)
         self.assertIn("renderYesterday", app)
 
     def test_homepage_uses_simple_header_and_yesterday_card(self) -> None:

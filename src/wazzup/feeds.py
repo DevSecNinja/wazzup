@@ -64,6 +64,19 @@ def stable_hash(*parts: str, length: int = 16) -> str:
     return digest[:length]
 
 
+def merge_tags(*tag_groups: list[str]) -> list[str]:
+    tags: list[str] = []
+    seen: set[str] = set()
+    for group in tag_groups:
+        for tag in group:
+            clean = clean_text(tag, max_length=40)
+            key = clean.lower()
+            if clean and key not in seen:
+                tags.append(clean)
+                seen.add(key)
+    return tags
+
+
 def normalize_title(value: str) -> str:
     text = clean_text(value).lower()
     text = NON_WORD_RE.sub(" ", text)
@@ -158,8 +171,8 @@ def parse_feed(source: SourceConfig, payload: bytes, discovered_at: datetime | N
         canonical_url = canonicalize_url(url)
         published = parse_date(raw_date, discovered)
         clean_summary = clean_text(summary, max_length=500)
-        tags = [clean_text(category) for category in [child.text or "" for child in children(entry, "category")]]
-        tags = [tag for tag in tags if tag]
+        feed_tags = [child.text or "" for child in children(entry, "category")]
+        tags = merge_tags([source.source_tag], source.categories, feed_tags)
         content_hash = stable_hash(title, canonical_url, clean_summary, isoformat(published), length=32)
         item_id = f"item-{stable_hash(source.id, canonical_url or guid, isoformat(published))}"
         raw_ref = guid.strip() if guid else canonical_url
@@ -169,6 +182,7 @@ def parse_feed(source: SourceConfig, payload: bytes, discovered_at: datetime | N
                 id=item_id,
                 source_id=source.id,
                 source_name=source.name,
+                source_tag=source.source_tag,
                 source_type=source.type,
                 title=title,
                 url=url.strip(),
@@ -176,7 +190,7 @@ def parse_feed(source: SourceConfig, payload: bytes, discovered_at: datetime | N
                 published_at=isoformat(published),
                 discovered_at=isoformat(discovered),
                 authors=[clean_text(author)] if clean_text(author) else [],
-                tags=tags + source.categories,
+                tags=tags,
                 language=source.language,
                 summary=clean_summary,
                 content_hash=content_hash,

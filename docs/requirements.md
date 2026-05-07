@@ -61,7 +61,7 @@ Implemented deviations from the original target:
 
 | ID     | Requirement                                                                                                                                   | MVP priority |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| FR-001 | Maintain a configurable list of feeds, source categories, source weights, and user interests.                                                 | Must         |
+| FR-001 | Maintain a configurable list of feeds, short source tags, source categories, source weights, and user interests.                              | Must         |
 | FR-002 | Fetch configured RSS/Atom/JSON feeds hourly from GitHub Actions.                                                                              | Must         |
 | FR-003 | Deduplicate articles using canonical URL, feed item GUID, title similarity, and publication timestamp.                                        | Must         |
 | FR-004 | Store normalized article metadata in stable, versioned YAML with generated JSON browser mirrors, without committing generated data to `main`. | Must         |
@@ -84,14 +84,14 @@ Implemented deviations from the original target:
 
 ### Functional requirement implementation notes
 
-| Requirement area | Implemented now                                                                                                                                                     | Deferred or partial                                                          |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Sources          | RSS and Atom XML parsing, three configured RSS feeds, per-source health status.                                                                                     | JSON Feed, GitHub release feeds, podcast transcript metadata.                |
-| Deduplication    | Canonical URL tracking-parameter stripping, raw ref/GUID key, normalized title plus publication day, transitive duplicate groups, source-priority winner selection. | Semantic title similarity and duplicate-group publication metadata.          |
-| Briefings        | Hourly scheduled briefing and manually forced hourly/morning/evening generation.                                                                                    | Automatic morning/evening due detection based on local time.                 |
-| AI               | `fake` deterministic provider and `copilot-cli` provider. Tokenless scheduled runs fall back to `fake`.                                                             | API providers, Ollama/Foundry providers, strict token/cost accounting.       |
-| Frontend         | Minimal latest briefing and source-health PWA from JSON mirrors.                                                                                                    | Rich daily/hourly navigation, saved items, notifications, Home Assistant UI. |
-| Data validation  | Runtime validation through `wazzup.validate_data` and tests.                                                                                                        | Published JSON Schema files and schema-version migration tooling.            |
+| Requirement area | Implemented now                                                                                                                                                     | Deferred or partial                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Sources          | RSS and Atom XML parsing, expanded configured source registry, short source tags, category tags, and per-source health status.                                      | JSON Feed, GitHub release feeds, podcast transcript metadata.             |
+| Deduplication    | Canonical URL tracking-parameter stripping, raw ref/GUID key, normalized title plus publication day, transitive duplicate groups, source-priority winner selection. | Semantic title similarity and duplicate-group publication metadata.       |
+| Briefings        | Hourly scheduled briefing and manually forced hourly/morning/evening generation.                                                                                    | Automatic morning/evening due detection based on local time.              |
+| AI               | `fake` deterministic provider and `copilot-cli` provider. Tokenless scheduled runs fall back to `fake`.                                                             | API providers, Ollama/Foundry providers, strict token/cost accounting.    |
+| Frontend         | Latest briefing, previous-day summary, source/category tags, article temperature, and source-health PWA from JSON mirrors.                                          | Rich saved-item navigation, server-side notifications, Home Assistant UI. |
+| Data validation  | Runtime validation through `wazzup.validate_data` and tests.                                                                                                        | Published JSON Schema files and schema-version migration tooling.         |
 
 ## Non-functional requirements
 
