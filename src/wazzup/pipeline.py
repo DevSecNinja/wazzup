@@ -102,6 +102,7 @@ def prioritize_hourly_new_items(scored_items: list[ScoredItem], now: datetime) -
             recent_items.append(scored)
         else:
             older_items.append(scored)
+    # New hourly articles stay above older high-scoring items; score only breaks ties among recent items.
     return sorted(recent_items, key=lambda scored: (parse_iso(scored.item.published_at), scored.score), reverse=True) + older_items
 
 
