@@ -263,7 +263,7 @@ Recommended defaults:
 
 This avoids daylight-saving issues in workflow YAML.
 
-Current implementation note: automatic due-time selection is not implemented yet. [../.github/workflows/news-hourly.yml](../.github/workflows/news-hourly.yml) defaults to `hourly` and exposes `forceBriefing` values `hourly`, `morning`, and `evening` for manual dispatch. [../src/wazzup/pipeline.py](../src/wazzup/pipeline.py) computes correct hourly/morning/evening windows for the selected kind.
+Implementation note: [../.github/workflows/news-hourly.yml](../.github/workflows/news-hourly.yml) defaults `forceBriefing` to `auto`, and [../src/wazzup/pipeline.py](../src/wazzup/pipeline.py) selects due morning/evening briefings in local time when not explicitly forced.
 
 ## Implementation sequence
 
