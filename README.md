@@ -45,7 +45,7 @@ Important current limitations and deviations from the original target architectu
 - YAML is canonical generated state; JSON is generated only as a browser/PWA mirror.
 - Copilot CLI is optional at runtime. If no `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret exists, News hourly falls back to the deterministic fake provider so the pipeline and Pages deployment continue to work.
 - The service worker cache is versioned from generated build metadata; the footer shows the short commit and links back to the repository.
-- Notifications are opt-in and local to the installed/open PWA. There is no server-side Web Push subscription store yet.
+- Notifications are opt-in. The installed PWA now uses service-worker background sync when the browser supports it, but there is still no server-side Web Push subscription store yet.
 - Renovate and repository automation are onboarded from `DevSecNinja/.github` through [renovate.json5](renovate.json5), labeler config, label sync, and config sync workflows.
 
 ## Local development

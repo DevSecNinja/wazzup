@@ -21,6 +21,10 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("hourCycle: 'h23'", app)
         self.assertIn("updateViaCache: 'none'", app)
         self.assertIn("sw.js?v=", app)
+        self.assertIn("periodic-background-sync", app)
+        self.assertIn("registration.periodicSync.register", app)
+        self.assertIn("registration.sync.register", app)
+        self.assertIn("type: 'sync-latest-briefing'", app)
         self.assertIn("FALLBACK_TIME_ZONE = 'Europe/Amsterdam'", app)
         self.assertIn("MAX_HEADLINE_LENGTH", app)
         self.assertIn("normalizeBullet", app)
@@ -58,6 +62,11 @@ class PwaAssetTests(unittest.TestCase):
         sw = Path("public/sw.js").read_text(encoding="utf-8")
         self.assertIn("searchParams.get('v')", sw)
         self.assertIn("const CACHE_NAME = `wazzup-${BUILD_ID}`", sw)
+        self.assertIn("const STATE_CACHE_NAME = 'wazzup-meta'", sw)
+        self.assertIn("event.data?.type !== 'sync-latest-briefing'", sw)
+        self.assertIn("self.addEventListener('periodicsync'", sw)
+        self.assertIn("self.addEventListener('sync'", sw)
+        self.assertIn("self.addEventListener('notificationclick'", sw)
 
 
 if __name__ == "__main__":
