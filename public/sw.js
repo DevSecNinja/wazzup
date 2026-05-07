@@ -38,9 +38,12 @@ async function fetchLatestBriefingState() {
   const briefingResponse = await fetch(resolveDataUrl(latest.latestBriefingUrl), { cache: 'no-store' });
   if (!briefingResponse.ok) throw new Error(`Failed to load latest briefing: ${briefingResponse.status}`);
   const briefing = await briefingResponse.json();
+  const topBullet = briefing.sections?.[0]?.bullets?.[0];
+  const summary = String(topBullet?.description || topBullet?.text || '').trim();
+  const body = summary ? `📰 ${briefing.headline || 'A new hourly update is ready'}\n${summary}` : `📰 ${briefing.headline || 'A new hourly update is ready'}`;
   return {
     latestBriefingUrl: latest.latestBriefingUrl,
-    headline: briefing.headline || 'A new hourly update is ready',
+    body,
   };
 }
 
@@ -49,7 +52,7 @@ async function checkForBriefingUpdate(showNotification) {
   const previous = await readBriefingState();
   if (showNotification && previous !== null && previous.latestBriefingUrl && previous.latestBriefingUrl !== current.latestBriefingUrl) {
     await self.registration.showNotification('Wazzup hourly update', {
-      body: current.headline,
+      body: current.body,
       icon: 'icons/icon-192.png',
       badge: 'icons/icon-192.png',
       tag: BACKGROUND_SYNC_TAG,
@@ -87,7 +90,7 @@ self.addEventListener('message', (event) => {
   event.waitUntil(
     writeBriefingState({
       latestBriefingUrl: event.data.latestBriefingUrl,
-      headline: event.data.headline || 'A new hourly update is ready',
+      body: event.data.body || `📰 ${event.data.headline || 'A new hourly update is ready'}`,
     }),
   );
 });
