@@ -178,7 +178,8 @@ function createSeenBriefingState(briefing, manifest) {
 
 function bulletItemIds(briefing, bullet, sectionIndex, bulletIndex) {
   const itemIds = Array.from(new Set((bullet.citations || []).filter(Boolean).map((itemId) => String(itemId))));
-  return itemIds.length ? itemIds : [`${briefing.id || 'briefing'}:${sectionIndex}:${bulletIndex}`];
+  const fallbackBriefingId = briefing.id || briefing.generatedAt || 'briefing';
+  return itemIds.length ? itemIds : [`${fallbackBriefingId}:${sectionIndex}:${bulletIndex}`];
 }
 
 function isSeenBriefingItem(seenState, itemIds) {
