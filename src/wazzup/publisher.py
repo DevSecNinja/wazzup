@@ -140,13 +140,13 @@ def publish_outputs(
         "schemaVersion": 1,
         "canonicalFormat": "yaml",
         "generatedAt": isoformat(generated_at),
-        "latestBriefingYamlUrl": relative_data_url(data_dir, b_path),
-        "latestArticlesYamlUrl": relative_data_url(data_dir, a_path),
-        "latestBriefingUrl": relative_data_url(data_dir, b_path.with_suffix(".json")),
-        "latestArticlesUrl": relative_data_url(data_dir, a_path.with_suffix(".json")),
-        "latestHourlyBriefingUrl": relative_data_url(data_dir, b_path.with_suffix(".json")) if kind == "hourly" else None,
-        "latestMorningBriefingUrl": relative_data_url(data_dir, b_path.with_suffix(".json")) if kind == "morning" else None,
-        "latestEveningBriefingUrl": relative_data_url(data_dir, b_path.with_suffix(".json")) if kind == "evening" else None,
+        "latestBriefingYamlUrl": public_data_url(data_dir, b_path),
+        "latestArticlesYamlUrl": public_data_url(data_dir, a_path),
+        "latestBriefingUrl": public_data_url(data_dir, b_path.with_suffix(".json")),
+        "latestArticlesUrl": public_data_url(data_dir, a_path.with_suffix(".json")),
+        "latestHourlyBriefingUrl": public_data_url(data_dir, b_path.with_suffix(".json")) if kind == "hourly" else None,
+        "latestMorningBriefingUrl": public_data_url(data_dir, b_path.with_suffix(".json")) if kind == "morning" else None,
+        "latestEveningBriefingUrl": public_data_url(data_dir, b_path.with_suffix(".json")) if kind == "evening" else None,
         "health": {
             "ok": all(status.ok for status in statuses),
             "sourceCount": len(statuses),
@@ -161,6 +161,10 @@ def publish_outputs(
 
 def relative_data_url(data_dir: Path, path: Path) -> str:
     return path.relative_to(data_dir).as_posix()
+
+
+def public_data_url(data_dir: Path, path: Path) -> str:
+    return f"data/{relative_data_url(data_dir, path)}"
 
 
 def write_manifest(data_dir: Path, generated_at: datetime, retention_days: int) -> None:

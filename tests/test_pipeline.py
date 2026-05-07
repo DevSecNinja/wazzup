@@ -33,12 +33,20 @@ class PipelineTests(unittest.TestCase):
                         ]
                     )
                 self.assertIn("latestBriefingUrl", latest)
+                self.assertIn("latestArticlesUrl", latest)
+                self.assertTrue(latest["latestBriefingUrl"].startswith("data/"))
+                self.assertTrue(latest["latestArticlesUrl"].startswith("data/"))
                 validate_data_dir(public_dir / "data")
-                briefing = (public_dir / "data" / latest["latestBriefingUrl"]).read_text(encoding="utf-8")
+                briefing_path = public_dir / latest["latestBriefingUrl"]
+                articles_path = public_dir / latest["latestArticlesUrl"]
+                briefing = briefing_path.read_text(encoding="utf-8")
                 self.assertIn("Top updates", briefing)
-                briefing_json = json.loads((public_dir / "data" / latest["latestBriefingUrl"]).read_text(encoding="utf-8"))
+                briefing_json = json.loads(briefing_path.read_text(encoding="utf-8"))
+                articles_json = json.loads(articles_path.read_text(encoding="utf-8"))
                 self.assertEqual("2026-05-05T22:00:00Z", briefing_json["windowStart"])
                 self.assertEqual("2026-05-06T18:00:00Z", briefing_json["windowEnd"])
+                self.assertIsInstance(articles_json["items"], list)
+                self.assertTrue(articles_path.read_text(encoding="utf-8").lstrip().startswith("{"))
                 self.assertIn("publishedAt", briefing_json["citations"][0])
                 self.assertIn("sourceTag", briefing_json["citations"][0])
                 self.assertIn("tags", briefing_json["citations"][0])
