@@ -11,6 +11,7 @@ const REPOSITORY = 'DevSecNinja/wazzup';
 const FALLBACK_TIME_ZONE = 'Europe/Amsterdam';
 const MAX_HEADLINE_LENGTH = 96;
 const MAX_DESCRIPTION_LENGTH = 320;
+const BACKGROUND_SYNC_TAG = 'wazzup-hourly-update';
 
 async function getJson(path) {
   const response = await fetch(path, { cache: 'no-store' });
@@ -256,15 +257,61 @@ async function renderFooter(buildInfo) {
   }
 }
 
-function enableNotifications(registration, briefing, latest) {
+async function registerBackgroundNotifications(registration) {
+  if (!registration) return;
+  if ('periodicSync' in registration) {
+    let status = null;
+    try {
+      if ('permissions' in navigator && navigator.permissions?.query) {
+        status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+      }
+    } catch {
+      status = null;
+    }
+    try {
+      if (status?.state !== 'denied') {
+        await registration.periodicSync.register(BACKGROUND_SYNC_TAG, { minInterval: 60 * 60 * 1000 });
+        return;
+      }
+    } catch {
+      // Ignore unsupported periodic background sync checks and fall back to open-app notifications.
+    }
+  }
+  if ('sync' in registration) {
+    try {
+      await registration.sync.register(BACKGROUND_SYNC_TAG);
+    } catch {
+      // Ignore unsupported one-off background sync registration.
+    }
+  }
+}
+
+function syncLatestBriefing(registration, briefing, latest) {
+  const worker = registration?.active || registration?.waiting || registration?.installing;
+  if (!worker?.postMessage) return;
+  worker.postMessage({
+    type: 'sync-latest-briefing',
+    latestBriefingUrl: latest.latestBriefingUrl,
+    headline: briefing.headline,
+  });
+}
+
+async function enableNotifications(registration, briefing, latest) {
   if (!('Notification' in window) || !registration?.showNotification) return;
   notifyButton.hidden = Notification.permission === 'denied';
   notifyButton.textContent = Notification.permission === 'granted' ? 'Hourly update notifications enabled' : 'Notify me when a new hourly update lands';
   notifyButton.disabled = Notification.permission === 'granted';
+  if (Notification.permission === 'granted') {
+    await registerBackgroundNotifications(registration);
+  }
   notifyButton.addEventListener('click', async () => {
     const permission = await Notification.requestPermission();
     notifyButton.textContent = permission === 'granted' ? 'Hourly update notifications enabled' : 'Notifications unavailable';
     notifyButton.disabled = permission === 'granted';
+    if (permission === 'granted') {
+      await registerBackgroundNotifications(registration);
+      syncLatestBriefing(registration, briefing, latest);
+    }
   });
 
   const storageKey = 'wazzup:lastBriefingUrl';
@@ -278,6 +325,7 @@ function enableNotifications(registration, briefing, latest) {
     });
   }
   localStorage.setItem(storageKey, latest.latestBriefingUrl);
+  syncLatestBriefing(registration, briefing, latest);
 }
 
 async function main() {
@@ -295,7 +343,8 @@ async function main() {
     await renderFooter(buildInfo);
     if ('serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(buildInfo.buildId || 'dev')}`, { updateViaCache: 'none' });
-      enableNotifications(registration, briefing, latest);
+      await registration.update();
+      await enableNotifications(registration, briefing, latest);
     }
   } catch (error) {
     heroHeadlineEl.textContent = 'Briefing unavailable';
