@@ -41,7 +41,7 @@ class FakeSummaryProvider:
     name = "fake"
 
     def generate_structured_summary(self, request: SummaryRequest) -> SummaryResponse:
-        items = request.items[:8]
+        items = request.items
         if not items:
             headline = "No notable updates found"
             bullets: list[dict[str, Any]] = [
@@ -61,7 +61,7 @@ class FakeSummaryProvider:
                     "text": _fake_bullet(scored, request.kind),
                     "citations": [scored.item.id],
                 }
-                for scored in items[:6]
+                for scored in items
             ]
         return SummaryResponse(
             headline=headline,
@@ -106,6 +106,7 @@ class CopilotCliSummaryProvider:
                 f"Read {input_path}, summarize in English, and write strict JSON to {output_path}. "
                 "The JSON object must contain headline and sections. "
                 "Every bullet must include citations containing source item IDs from the input. "
+                "Create one bullet for each input item, preserving the input order. "
                 "Do not include Markdown fences or commentary."
             )
             command = [
@@ -209,6 +210,7 @@ def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
             "For each bullet, provide title and description separately. Avoid repeating the same title in the description.",
             "Never mention scoring internals such as source weight, score, recency bonus, or duplicate group IDs.",
             "Keep bullets concise and source-grounded.",
+            "Preserve the input item order so newly published hourly articles stay at the top.",
         ],
     }
 

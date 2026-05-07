@@ -55,6 +55,36 @@ class AiProviderTests(unittest.TestCase):
         self.assertIn("security", bullet)
         self.assertNotIn("source weight", bullet.lower())
 
+    def test_fake_provider_includes_every_selected_item(self) -> None:
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        items = [
+            replace(
+                item,
+                id=f"item-{index}",
+                title=f"Article {index}",
+                canonical_url=f"https://example.com/{index}",
+            )
+            for index in range(10)
+        ]
+        scored = score_items(items, [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
+
+        response = FakeSummaryProvider().generate_structured_summary(
+            SummaryRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                summary_language="en",
+                items=scored,
+            )
+        )
+
+        bullets = response.sections[0]["bullets"]
+        self.assertEqual(len(scored), len(bullets))
+        self.assertEqual([scored_item.item.id for scored_item in scored], [bullet["citations"][0] for bullet in bullets])
+
     def test_prompt_style_guide_discourages_why_it_matters_label(self) -> None:
         payload = build_prompt_payload(
             SummaryRequest(
