@@ -44,8 +44,9 @@ def build_briefing(
 ) -> dict[str, Any]:
     briefing_id = f"briefing-{kind}-{stable_hash(isoformat(window_start), isoformat(window_end), summary.headline)}"
     citations = []
-    item_by_id = {scored.item.id: scored.item for scored in scored_items}
-    for item_id, item in item_by_id.items():
+    scored_by_id = {scored.item.id: scored for scored in scored_items}
+    for item_id, scored in scored_by_id.items():
+        item = scored.item
         citations.append(
             {
                 "itemId": item_id,
@@ -54,6 +55,7 @@ def build_briefing(
                 "sourceId": item.source_id,
                 "sourceName": item.source_name,
                 "publishedAt": item.published_at,
+                "temperature": article_temperature(scored),
             }
         )
     provider = summary.provider
@@ -75,6 +77,14 @@ def build_briefing(
         "promptVersion": provider.get("promptVersion", "summary-v1"),
         "costEstimate": provider.get("costEstimate", {"amount": 0, "currency": "USD"}),
     }
+
+
+def article_temperature(scored: ScoredItem) -> dict[str, Any]:
+    if scored.score >= 34:
+        return {"level": "hot", "label": "High priority", "icon": "🔥"}
+    if scored.score >= 24:
+        return {"level": "warm", "label": "Worth knowing", "icon": "⚡"}
+    return {"level": "cool", "label": "Background", "icon": "•"}
 
 
 def briefing_path(data_dir: Path, kind: BriefingKind, window_end: datetime) -> Path:

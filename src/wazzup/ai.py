@@ -133,15 +133,27 @@ class CopilotCliSummaryProvider:
             if not output_path.exists():
                 raise RuntimeError("Copilot CLI did not write summary.json")
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-        return response_from_payload(
-            payload,
-            provider={
-                "type": self.name,
-                "model": payload.get("model", "copilot-cli"),
-                "promptVersion": "summary-v1",
-                "validated": True,
-            },
-        )
+        provider = {
+            "type": self.name,
+            "model": payload.get("model", "copilot-cli"),
+            "promptVersion": "summary-v1",
+            "validated": True,
+        }
+        try:
+            return response_from_payload(payload, provider=provider)
+        except ValueError as exc:
+            fallback = FakeSummaryProvider().generate_structured_summary(request)
+            return SummaryResponse(
+                headline=fallback.headline,
+                sections=fallback.sections,
+                provider={
+                    **fallback.provider,
+                    "type": "copilot-cli-fallback",
+                    "fallbackFrom": self.name,
+                    "fallbackReason": str(exc),
+                    "validated": True,
+                },
+            )
 
 
 def _fake_bullet(scored: ScoredItem) -> str:

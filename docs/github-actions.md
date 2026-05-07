@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | CI | Pull request and manual dispatch | Formatting, syntax linting, tests, compile checks, fixture generation, and generated-data validation. |
 | Lint | Pull request and manual dispatch | Reusable organization lint workflow from `DevSecNinja/.github`. |
-| News hourly | Hourly schedule and manual dispatch | Fetch feeds, generate a briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
+| News hourly | Every two hours and manual dispatch | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
 | Pages | Successful `News hourly` workflow run and manual dispatch | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow. |
 | Live smoke | Not implemented yet | Optional real feed and AI provider canary checks with strict budgets. |
 | Archive cleanup | Not implemented yet | Keep release-backed rolling state compact and optionally publish monthly recap archives. |
@@ -71,7 +71,7 @@ name: News hourly
 
 on:
   schedule:
-    - cron: "7 * * * *"
+    - cron: "7 */2 * * *"
   workflow_dispatch:
     inputs:
       forceBriefing:
@@ -137,6 +137,8 @@ jobs:
 ```
 
 Operational learning: the first live News hourly run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
+
+After enabling the Copilot PAT, one live run failed because Copilot CLI wrote JSON without the required `sections` array. The provider now treats invalid structured Copilot output as an AI-provider failure and falls back to the deterministic summary shape, recording `provider.type: copilot-cli-fallback` and the validation reason instead of failing the whole state/deploy pipeline.
 
 ## Copilot CLI workflow variant
 
@@ -260,14 +262,14 @@ Rules:
 
 ## Scheduling details
 
-Use a single hourly cron and calculate briefing windows in application code using the configured IANA time zone. This handles daylight-saving transitions better than maintaining separate UTC cron expressions.
+Use a single cron and calculate briefing windows in application code using the configured IANA time zone. This handles daylight-saving transitions better than maintaining separate UTC cron expressions. The implemented cadence is every two hours at minute 7 (`7 */2 * * *`), which is a better fit for the rolling daily briefing and avoids unnecessary AI calls when feeds are quiet.
 
 Recommended behavior:
 
-- Every hourly run fetches feeds and updates article indexes.
+- Every scheduled run fetches feeds and updates article indexes.
 - If local time is near 07:00 and no morning briefing exists for that date, generate morning briefing.
 - If local time is near 20:00 and no evening briefing exists for that date, generate evening briefing.
-- Generate hourly briefing only if there are enough high-scoring new items.
+- Generate a rolling current-day briefing from local midnight through the current run.
 - Use idempotency keys based on briefing kind, date, and time window.
 
 ## Artifact and retention strategy
