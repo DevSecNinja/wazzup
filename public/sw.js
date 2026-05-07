@@ -47,7 +47,7 @@ async function fetchLatestBriefingState() {
 async function checkForBriefingUpdate(showNotification) {
   const current = await fetchLatestBriefingState();
   const previous = await readBriefingState();
-  if (showNotification && previous?.latestBriefingUrl && previous.latestBriefingUrl !== current.latestBriefingUrl) {
+  if (showNotification && previous !== null && previous.latestBriefingUrl && previous.latestBriefingUrl !== current.latestBriefingUrl) {
     await self.registration.showNotification('Wazzup hourly update', {
       body: current.headline,
       icon: 'icons/icon-192.png',
@@ -106,10 +106,11 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
-        if ('focus' in client) return client.focus();
+      const client = clients.find((item) => 'focus' in item);
+      if (client) return client.focus();
+      if (self.clients.openWindow) {
+        return self.clients.openWindow('./');
       }
-      if (self.clients.openWindow) return self.clients.openWindow('./');
       return undefined;
     }),
   );

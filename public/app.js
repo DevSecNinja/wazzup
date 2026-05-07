@@ -260,10 +260,15 @@ async function renderFooter(buildInfo) {
 async function registerBackgroundNotifications(registration) {
   if (!registration) return;
   if ('periodicSync' in registration) {
+    let status = null;
     try {
-      const status = 'permissions' in navigator && navigator.permissions?.query
-        ? await navigator.permissions.query({ name: 'periodic-background-sync' })
-        : null;
+      if ('permissions' in navigator && navigator.permissions?.query) {
+        status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+      }
+    } catch {
+      status = null;
+    }
+    try {
       if (status?.state !== 'denied') {
         await registration.periodicSync.register(BACKGROUND_SYNC_TAG, { minInterval: 60 * 60 * 1000 });
         return;
