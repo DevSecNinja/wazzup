@@ -3,7 +3,7 @@ name: News hourly
 
 on:
   schedule:
-    - cron: "7 */2 * * *"
+    - cron: "7 * * * *"
   workflow_dispatch:
     inputs:
       forceBriefing:
@@ -44,18 +44,48 @@ jobs:
       WAZZUP_MAX_AI_COST_USD: "1.00"
       REQUESTED_AI_PROVIDER: ${{ inputs.aiProvider || 'copilot-cli' }}
     steps:
+      - name: Check scheduled cadence
+        id: cadence
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |-
+          set -euo pipefail
+
+          if [[ "${EVENT_NAME}" != "schedule" ]]; then
+            echo "should_run=true" >>"${GITHUB_OUTPUT}"
+            echo "reason=manual dispatch" >>"${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          local_hour="$(TZ="${WAZZUP_TIMEZONE}" date +%H)"
+          hour=$((10#${local_hour}))
+
+          if (( hour >= 6 && hour < 22 )); then
+            echo "should_run=true" >>"${GITHUB_OUTPUT}"
+            echo "reason=active local hour" >>"${GITHUB_OUTPUT}"
+          elif (( hour % 2 == 0 )); then
+            echo "should_run=true" >>"${GITHUB_OUTPUT}"
+            echo "reason=overnight two-hour cadence" >>"${GITHUB_OUTPUT}"
+          else
+            echo "should_run=false" >>"${GITHUB_OUTPUT}"
+            echo "reason=overnight odd local hour" >>"${GITHUB_OUTPUT}"
+          fi
+
       - name: Checkout code
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
         uses: actions/checkout@v6
         with:
           persist-credentials: false
 
       - name: Set up mise
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
         uses: jdx/mise-action@v4
         with:
           # renovate: datasource=github-releases depName=jdx/mise
           version: 2026.4.18
 
       - name: Select AI provider
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
         id: ai
         env:
           COPILOT_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
@@ -89,9 +119,11 @@ jobs:
         run: npm install -g @github/copilot
 
       - name: Install Python dependencies
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
         run: task install
 
       - name: Generate and persist retained news state
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
@@ -100,6 +132,7 @@ jobs:
         run: task news:generate
 
       - name: Upload generated public artifact
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: wazzup-public
@@ -108,6 +141,7 @@ jobs:
           retention-days: 1
 
       - name: Write workflow summary
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
         env:
           FORCE_BRIEFING: ${{ inputs.forceBriefing || 'hourly' }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
@@ -121,4 +155,17 @@ jobs:
             echo "- Effective AI provider: ${AI_PROVIDER}"
             echo "- State release: news-state"
             echo "- Pages deployment: handled by the Pages workflow after this run succeeds"
+          } >>"${GITHUB_STEP_SUMMARY}"
+
+      - name: Write skipped summary
+        if: ${{ steps.cadence.outputs.should_run != 'true' }}
+        env:
+          CADENCE_REASON: ${{ steps.cadence.outputs.reason }}
+        run: |-
+          {
+            echo "## Wazzup news state"
+            echo ""
+            echo "- Skipped scheduled run: ${CADENCE_REASON}"
+            echo "- Active cadence: hourly from 06:00 to 21:59 local time"
+            echo "- Overnight cadence: every two hours from 22:00 to 05:59 local time"
           } >>"${GITHUB_STEP_SUMMARY}"

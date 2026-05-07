@@ -59,55 +59,55 @@ Implemented deviations from the original target:
 
 ## Functional requirements
 
-| ID | Requirement | MVP priority |
-| --- | --- | --- |
-| FR-001 | Maintain a configurable list of feeds, source categories, source weights, and user interests. | Must |
-| FR-002 | Fetch configured RSS/Atom/JSON feeds hourly from GitHub Actions. | Must |
-| FR-003 | Deduplicate articles using canonical URL, feed item GUID, title similarity, and publication timestamp. | Must |
-| FR-004 | Store normalized article metadata in stable, versioned YAML with generated JSON browser mirrors, without committing generated data to `main`. | Must |
-| FR-005 | Score articles against user interests, recency, source reliability, and duplicate coverage. | Must |
-| FR-006 | Generate hourly summaries for notable changes since the previous run. | Should |
-| FR-007 | Generate a morning briefing at 07:00 local time covering the previous day plus overnight updates since 20:00. | Must |
-| FR-008 | Generate an evening briefing at 20:00 local time covering the day since 07:00. | Must |
-| FR-009 | Include citations/source links for every summary bullet. | Must |
-| FR-010 | Expose latest summaries and article indexes as static YAML plus JSON browser mirrors. | Must |
-| FR-011 | Provide a minimal responsive frontend with daily and hourly views. | Must |
-| FR-012 | Support installable PWA behavior with offline reading of recently loaded briefings. | Should |
-| FR-013 | Support user notification options without requiring a custom always-on server. | Should |
-| FR-014 | Provide a Home Assistant-friendly integration surface for briefings. | Could |
-| FR-015 | Ingest podcast releases and transcript metadata. | Could |
-| FR-016 | Recommend podcast episodes worth listening to based on interests and transcript/description relevance. | Could |
-| FR-017 | Define contracts that can later back a REST API, agent tool, or MCP server. | Must |
-| FR-018 | Provide observability outputs for workflow runs, source failures, AI provider cost, and item counts. | Should |
-| FR-019 | Support interchangeable AI runners without changing ranking, storage, or frontend contracts. | Must |
-| FR-020 | Generate a monthly recap from retained daily and evening briefings. | Could |
+| ID     | Requirement                                                                                                                                   | MVP priority |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| FR-001 | Maintain a configurable list of feeds, source categories, source weights, and user interests.                                                 | Must         |
+| FR-002 | Fetch configured RSS/Atom/JSON feeds hourly from GitHub Actions.                                                                              | Must         |
+| FR-003 | Deduplicate articles using canonical URL, feed item GUID, title similarity, and publication timestamp.                                        | Must         |
+| FR-004 | Store normalized article metadata in stable, versioned YAML with generated JSON browser mirrors, without committing generated data to `main`. | Must         |
+| FR-005 | Score articles against user interests, recency, source reliability, and duplicate coverage.                                                   | Must         |
+| FR-006 | Generate hourly summaries for notable changes since the previous run.                                                                         | Should       |
+| FR-007 | Generate a morning briefing at 07:00 local time covering the previous day plus overnight updates since 20:00.                                 | Must         |
+| FR-008 | Generate an evening briefing at 20:00 local time covering the day since 07:00.                                                                | Must         |
+| FR-009 | Include citations/source links for every summary bullet.                                                                                      | Must         |
+| FR-010 | Expose latest summaries and article indexes as static YAML plus JSON browser mirrors.                                                         | Must         |
+| FR-011 | Provide a minimal responsive frontend with daily and hourly views.                                                                            | Must         |
+| FR-012 | Support installable PWA behavior with offline reading of recently loaded briefings.                                                           | Should       |
+| FR-013 | Support user notification options without requiring a custom always-on server.                                                                | Should       |
+| FR-014 | Provide a Home Assistant-friendly integration surface for briefings.                                                                          | Could        |
+| FR-015 | Ingest podcast releases and transcript metadata.                                                                                              | Could        |
+| FR-016 | Recommend podcast episodes worth listening to based on interests and transcript/description relevance.                                        | Could        |
+| FR-017 | Define contracts that can later back a REST API, agent tool, or MCP server.                                                                   | Must         |
+| FR-018 | Provide observability outputs for workflow runs, source failures, AI provider cost, and item counts.                                          | Should       |
+| FR-019 | Support interchangeable AI runners without changing ranking, storage, or frontend contracts.                                                  | Must         |
+| FR-020 | Generate a monthly recap from retained daily and evening briefings.                                                                           | Could        |
 
 ### Functional requirement implementation notes
 
-| Requirement area | Implemented now | Deferred or partial |
-| --- | --- | --- |
-| Sources | RSS and Atom XML parsing, three configured RSS feeds, per-source health status. | JSON Feed, GitHub release feeds, podcast transcript metadata. |
-| Deduplication | Canonical URL tracking-parameter stripping, raw ref/GUID key, normalized title plus publication day, transitive duplicate groups, source-priority winner selection. | Semantic title similarity and duplicate-group publication metadata. |
-| Briefings | Hourly scheduled briefing and manually forced hourly/morning/evening generation. | Automatic morning/evening due detection based on local time. |
-| AI | `fake` deterministic provider and `copilot-cli` provider. Tokenless scheduled runs fall back to `fake`. | API providers, Ollama/Foundry providers, strict token/cost accounting. |
-| Frontend | Minimal latest briefing and source-health PWA from JSON mirrors. | Rich daily/hourly navigation, saved items, notifications, Home Assistant UI. |
-| Data validation | Runtime validation through `wazzup.validate_data` and tests. | Published JSON Schema files and schema-version migration tooling. |
+| Requirement area | Implemented now                                                                                                                                                     | Deferred or partial                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Sources          | RSS and Atom XML parsing, three configured RSS feeds, per-source health status.                                                                                     | JSON Feed, GitHub release feeds, podcast transcript metadata.                |
+| Deduplication    | Canonical URL tracking-parameter stripping, raw ref/GUID key, normalized title plus publication day, transitive duplicate groups, source-priority winner selection. | Semantic title similarity and duplicate-group publication metadata.          |
+| Briefings        | Hourly scheduled briefing and manually forced hourly/morning/evening generation.                                                                                    | Automatic morning/evening due detection based on local time.                 |
+| AI               | `fake` deterministic provider and `copilot-cli` provider. Tokenless scheduled runs fall back to `fake`.                                                             | API providers, Ollama/Foundry providers, strict token/cost accounting.       |
+| Frontend         | Minimal latest briefing and source-health PWA from JSON mirrors.                                                                                                    | Rich daily/hourly navigation, saved items, notifications, Home Assistant UI. |
+| Data validation  | Runtime validation through `wazzup.validate_data` and tests.                                                                                                        | Published JSON Schema files and schema-version migration tooling.            |
 
 ## Non-functional requirements
 
-| ID | Requirement | Target |
-| --- | --- | --- |
-| NFR-001 | Maintainability | Modular pipeline with typed contracts, adapters, and small functions. |
-| NFR-002 | Testability | Deterministic tests using fixture feeds and mocked AI provider responses. |
-| NFR-003 | Security | Secrets only in GitHub Actions secrets; no secrets in static output or logs. |
-| NFR-004 | Privacy | Explicit choice whether generated briefings and interests can be public. |
-| NFR-005 | Cost control | Configurable AI request/token budget, max items per run, and cache of article summaries. |
-| NFR-006 | Reliability | Workflow should fail gracefully per feed and continue processing healthy sources. |
-| NFR-007 | Portability | Core pipeline should run locally, in GitHub Actions, and later in an API service. |
-| NFR-008 | Performance | Frontend initial load should remain lightweight; static data should be chunked by date. |
-| NFR-009 | Accessibility | Frontend should meet WCAG 2.1 AA basics: keyboard navigation, contrast, semantic HTML. |
-| NFR-010 | Auditability | Every summary should record model/provider, prompt version, generation time, and source IDs. |
-| NFR-011 | Release hygiene | Commits must follow Conventional Commits so release-please can be introduced later. |
+| ID      | Requirement     | Target                                                                                       |
+| ------- | --------------- | -------------------------------------------------------------------------------------------- |
+| NFR-001 | Maintainability | Modular pipeline with typed contracts, adapters, and small functions.                        |
+| NFR-002 | Testability     | Deterministic tests using fixture feeds and mocked AI provider responses.                    |
+| NFR-003 | Security        | Secrets only in GitHub Actions secrets; no secrets in static output or logs.                 |
+| NFR-004 | Privacy         | Explicit choice whether generated briefings and interests can be public.                     |
+| NFR-005 | Cost control    | Configurable AI request/token budget, max items per run, and cache of article summaries.     |
+| NFR-006 | Reliability     | Workflow should fail gracefully per feed and continue processing healthy sources.            |
+| NFR-007 | Portability     | Core pipeline should run locally, in GitHub Actions, and later in an API service.            |
+| NFR-008 | Performance     | Frontend initial load should remain lightweight; static data should be chunked by date.      |
+| NFR-009 | Accessibility   | Frontend should meet WCAG 2.1 AA basics: keyboard navigation, contrast, semantic HTML.       |
+| NFR-010 | Auditability    | Every summary should record model/provider, prompt version, generation time, and source IDs. |
+| NFR-011 | Release hygiene | Commits must follow Conventional Commits so release-please can be introduced later.          |
 
 ## MVP scope
 
@@ -199,18 +199,18 @@ Define versioned contracts for sources, content items, summaries, scores, and de
 
 ## Resolved MVP decisions
 
-| Decision | MVP choice |
-| --- | --- |
-| Data visibility | Public GitHub Pages is acceptable for MVP. |
-| AI runner | Copilot CLI is the default; explore Ollama, Foundry, or API providers later. |
-| Primary delivery | PWA only for MVP. |
-| Frontend stack | Implemented as vanilla HTML/CSS/JavaScript with no frontend build step. TypeScript/Web Components can be introduced later only if they add clear value. |
-| Storage retention | Keep 35 days of Pages data to support future monthly recaps with buffer. |
-| Summary language | Always generate English briefings, including summaries of Dutch NOS articles. |
-| Implementation order | Build an end-to-end thin slice first. |
-| Time zone | Configured IANA time zone, default `Europe/Amsterdam`. |
-| Generated state | Store generated data in the `news-state` release asset, not commits on `main` or a `news` branch. |
-| Workflow automation | Keep shell logic in Task and use reusable `.github` workflows where practical. |
+| Decision             | MVP choice                                                                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Data visibility      | Public GitHub Pages is acceptable for MVP.                                                                                                              |
+| AI runner            | Copilot CLI is the default; explore Ollama, Foundry, or API providers later.                                                                            |
+| Primary delivery     | PWA only for MVP.                                                                                                                                       |
+| Frontend stack       | Implemented as vanilla HTML/CSS/JavaScript with no frontend build step. TypeScript/Web Components can be introduced later only if they add clear value. |
+| Storage retention    | Keep 35 days of Pages data to support future monthly recaps with buffer.                                                                                |
+| Summary language     | Always generate English briefings, including summaries of Dutch NOS articles.                                                                           |
+| Implementation order | Build an end-to-end thin slice first.                                                                                                                   |
+| Time zone            | Configured IANA time zone, default `Europe/Amsterdam`.                                                                                                  |
+| Generated state      | Store generated data in the `news-state` release asset, not commits on `main` or a `news` branch.                                                       |
+| Workflow automation  | Keep shell logic in Task and use reusable `.github` workflows where practical.                                                                          |
 
 ## Success metrics
 

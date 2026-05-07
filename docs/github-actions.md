@@ -2,18 +2,19 @@
 
 ## Workflow overview
 
-| Workflow | Trigger | Responsibility |
-| --- | --- | --- |
-| CI | Pull request and manual dispatch | Formatting, syntax linting, tests, compile checks, fixture generation, and generated-data validation. |
-| Lint | Pull request and manual dispatch | Reusable organization lint workflow from `DevSecNinja/.github`. |
-| News hourly | Every two hours and manual dispatch | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
-| Pages | Successful `News hourly` workflow run and manual dispatch | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow. |
-| Config Sync | Weekly and manual dispatch | Open PRs when shared repo config from `DevSecNinja/.github` drifts. |
-| Label Sync | Daily, manual dispatch, and label config changes | Sync repository labels from the org base labels plus repo-specific labels. |
-| Labeler | Pull requests, issues, and manual dispatch | Apply area/type labels using shared labeler automation. |
-| Live smoke | Not implemented yet | Optional real feed and AI provider canary checks with strict budgets. |
-| Archive cleanup | Not implemented yet | Keep release-backed rolling state compact and optionally publish monthly recap archives. |
-| Release automation | Not implemented yet | Future release-please workflow driven by Conventional Commits. |
+| Workflow            | Trigger                                                     | Responsibility                                                                                                                                   |
+| ------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CI                  | Pull request and manual dispatch                            | Formatting, syntax linting, tests, compile checks, fixture generation, and generated-data validation.                                            |
+| Lint                | Pull request and manual dispatch                            | Reusable organization lint workflow from `DevSecNinja/.github`.                                                                                  |
+| Auto-fix formatting | Manual dispatch                                             | Reusable organization formatting workflow that commits dprint/yamlfmt fixes back to the branch.                                                  |
+| News hourly         | Hourly schedule with local cadence gate and manual dispatch | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
+| Pages               | Successful `News hourly` workflow run and manual dispatch   | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.                                  |
+| Config Sync         | Weekly and manual dispatch                                  | Open PRs when shared repo config from `DevSecNinja/.github` drifts.                                                                              |
+| Label Sync          | Daily, manual dispatch, and label config changes            | Sync repository labels from the org base labels plus repo-specific labels.                                                                       |
+| Labeler             | Pull requests, issues, and manual dispatch                  | Apply area/type labels using shared labeler automation.                                                                                          |
+| Live smoke          | Not implemented yet                                         | Optional real feed and AI provider canary checks with strict budgets.                                                                            |
+| Archive cleanup     | Not implemented yet                                         | Keep release-backed rolling state compact and optionally publish monthly recap archives.                                                         |
+| Release automation  | Not implemented yet                                         | Future release-please workflow driven by Conventional Commits.                                                                                   |
 
 ## Recommended workflow boundaries
 
@@ -30,9 +31,12 @@ Implemented repository automation:
 
 - [../renovate.json5](../renovate.json5) imports the shared Renovate presets from `DevSecNinja/.github` for dependency grouping, labels, semantic commits, custom managers, and safe automerge rules.
 - Reusable workflow refs and version inputs include `# renovate:` markers where the org custom managers can maintain them through PRs.
+- [../.github/workflows/autofix.yml](../.github/workflows/autofix.yml) runs the shared auto-fix workflow on demand with the local [../dprint.json](../dprint.json), [../.yamlfmt.yaml](../.yamlfmt.yaml), and [../.yamllint.yaml](../.yamllint.yaml) configuration.
 - [../.github/workflows/config-sync.yml](../.github/workflows/config-sync.yml) runs weekly and can open PRs for shared config drift.
 - [../.github/workflows/label-sync.yml](../.github/workflows/label-sync.yml) syncs labels from [../.github/labels.yaml](../.github/labels.yaml) plus the org base labels.
 - [../.github/workflows/labeler.yml](../.github/workflows/labeler.yml) applies issue/PR labels using [../.github/issue-labeler.yaml](../.github/issue-labeler.yaml) and [../.github/pr-labeler.yaml](../.github/pr-labeler.yaml).
+
+The reusable Lint workflow is scoped to checks that are meaningful for this static Python/PWA repository. Shell script and IaC scanners are disabled because the project does not currently contain shell scripts or Terraform/Kubernetes-style IaC; gitleaks, actionlint, yamllint, yamlfmt, dprint, and zizmor remain enabled.
 
 Release Please remains deferred until the app has an explicit first release/versioning policy.
 
@@ -40,12 +44,12 @@ Release Please remains deferred until the app has an explicit first release/vers
 
 The preferred MVP path is Copilot CLI because it is GitHub-native and can run directly inside a scheduled workflow. The pipeline should still expose a provider abstraction so the same request can be handled by Copilot CLI, an API provider, Ollama, or a fake test provider.
 
-| Runner | When to use | Workflow implications |
-| --- | --- | --- |
-| Copilot CLI | Preferred first production runner. | Install `@github/copilot`, set `COPILOT_GITHUB_TOKEN` from a fine-grained PAT with Copilot Requests permission, run `copilot -p` with `--no-ask-user`, and restrict `--allow-tool`. |
-| API provider | Fallback or production runner when strict structured output, model selection, or accounting is easier through an API. | Store provider keys in Actions secrets and call through the pipeline adapter. |
-| Ollama | Optional local-model experiment or privacy-focused smoke run. | Install/start Ollama, pull/cache a small model, expect slower CPU inference on GitHub-hosted runners. |
-| Fake provider | CI and deterministic tests. | No secrets or network calls. |
+| Runner        | When to use                                                                                                           | Workflow implications                                                                                                                                                               |
+| ------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Copilot CLI   | Preferred first production runner.                                                                                    | Install `@github/copilot`, set `COPILOT_GITHUB_TOKEN` from a fine-grained PAT with Copilot Requests permission, run `copilot -p` with `--no-ask-user`, and restrict `--allow-tool`. |
+| API provider  | Fallback or production runner when strict structured output, model selection, or accounting is easier through an API. | Store provider keys in Actions secrets and call through the pipeline adapter.                                                                                                       |
+| Ollama        | Optional local-model experiment or privacy-focused smoke run.                                                         | Install/start Ollama, pull/cache a small model, expect slower CPU inference on GitHub-hosted runners.                                                                               |
+| Fake provider | CI and deterministic tests.                                                                                           | No secrets or network calls.                                                                                                                                                        |
 
 ## Implemented CI workflow
 
@@ -86,7 +90,7 @@ name: News hourly
 
 on:
   schedule:
-    - cron: "7 */2 * * *"
+    - cron: "7 * * * *"
   workflow_dispatch:
     inputs:
       forceBriefing:
@@ -150,6 +154,8 @@ jobs:
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
 ```
+
+The workflow triggers hourly because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. A first cadence step computes the local hour and continues every hour from 06:00 to 21:59, then only on even local hours from 22:00 to 05:59. Manual dispatch always runs.
 
 Operational learning: the first live News hourly run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
 
@@ -257,15 +263,15 @@ Expected future behavior:
 
 Expected MVP secrets:
 
-| Secret | Purpose |
-| --- | --- |
-| `COPILOT_REQUESTS_PAT` | Preferred repository secret containing a fine-grained PAT for Copilot CLI with Copilot Requests permission. |
-| `COPILOT_GITHUB_TOKEN` | Alternative secret name accepted by the News hourly workflow. |
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint. |
-| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key. |
-| `OPENAI_API_KEY` | Optional alternative provider. |
-| `NOTIFY_WEBHOOK_URL` | Optional delivery webhook. |
-| `HOME_ASSISTANT_WEBHOOK_URL` | Optional Home Assistant webhook. |
+| Secret                       | Purpose                                                                                                     |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `COPILOT_REQUESTS_PAT`       | Preferred repository secret containing a fine-grained PAT for Copilot CLI with Copilot Requests permission. |
+| `COPILOT_GITHUB_TOKEN`       | Alternative secret name accepted by the News hourly workflow.                                               |
+| `AZURE_OPENAI_ENDPOINT`      | Azure OpenAI endpoint.                                                                                      |
+| `AZURE_OPENAI_API_KEY`       | Azure OpenAI API key.                                                                                       |
+| `OPENAI_API_KEY`             | Optional alternative provider.                                                                              |
+| `NOTIFY_WEBHOOK_URL`         | Optional delivery webhook.                                                                                  |
+| `HOME_ASSISTANT_WEBHOOK_URL` | Optional Home Assistant webhook.                                                                            |
 
 Rules:
 
@@ -311,9 +317,9 @@ The scheduled `News hourly` workflow is responsible for mutating release-backed 
 
 Observed failure modes and fixes:
 
-| Failure | Cause | Fix |
-| --- | --- | --- |
-| News hourly failed in Copilot CLI | `COPILOT_GITHUB_TOKEN` was empty while `AI_PROVIDER=copilot-cli`. | Select effective provider first and fall back to `fake` when no Copilot token secret exists. |
+| Failure                                                  | Cause                                                                                              | Fix                                                                                                                   |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| News hourly failed in Copilot CLI                        | `COPILOT_GITHUB_TOKEN` was empty while `AI_PROVIDER=copilot-cli`.                                  | Select effective provider first and fall back to `fake` when no Copilot token secret exists.                          |
 | Pages deploy failed validating `public/data/latest.json` | Reusable workflow received empty `GH_TOKEN`, state restore skipped, and `public/data` was missing. | Restore public release asset without a token in Pages builds and make missing retained state fatal for `pages:build`. |
 
 ## Security hardening

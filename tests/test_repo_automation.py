@@ -14,12 +14,30 @@ class RepoAutomationTests(unittest.TestCase):
         self.assertIn("helpers:pinGitHubActionDigests", renovate)
 
     def test_repo_automation_workflows_are_onboarded(self) -> None:
-        for workflow in ["config-sync.yml", "label-sync.yml", "labeler.yml"]:
+        workflows = ["autofix.yml", "config-sync.yml", "label-sync.yml", "labeler.yml"]
+        for workflow in workflows:
             path = Path(".github/workflows") / workflow
             self.assertTrue(path.exists(), workflow)
             content = path.read_text(encoding="utf-8")
             self.assertIn("DevSecNinja/.github/.github/workflows/", content)
             self.assertIn("# renovate: datasource=github-tags depName=DevSecNinja/.github", content)
+
+    def test_lint_autofix_and_hooks_are_configured(self) -> None:
+        lint_config_paths = ["dprint.json", ".yamlfmt.yaml", ".yamllint.yaml", ".lefthook.toml"]
+        for path in lint_config_paths:
+            self.assertTrue(Path(path).exists(), path)
+
+        lint_workflow = Path(".github/workflows/lint.yml").read_text(encoding="utf-8")
+        self.assertIn("lint-config-dir: .", lint_workflow)
+        self.assertIn("lint-shellcheck: false", lint_workflow)
+
+        autofix_workflow = Path(".github/workflows/autofix.yml").read_text(encoding="utf-8")
+        self.assertIn("autofix-config-dir: .", autofix_workflow)
+        self.assertIn("autofix-shfmt: false", autofix_workflow)
+
+        mise = Path(".mise.toml").read_text(encoding="utf-8")
+        self.assertIn("lefthook =", mise)
+        self.assertIn("cocogitto =", mise)
 
     def test_labeler_configs_cover_key_project_areas(self) -> None:
         labels = yaml.safe_load(Path(".github/labels.yaml").read_text(encoding="utf-8"))

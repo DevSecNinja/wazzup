@@ -1,0 +1,12 @@
+---
+extends: default
+
+rules:
+  comments: disable
+  line-length: disable
+  document-start: disable
+  truthy:
+    allowed-values:
+      - "true"
+      - "false"
+    check-keys: false
