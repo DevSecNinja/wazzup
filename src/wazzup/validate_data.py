@@ -96,7 +96,7 @@ def resolve_data_url(data_dir: Path, url: Any) -> Path:
         parts = parts[1:]
     path = (data_dir.joinpath(*parts)).resolve()
     root = data_dir.resolve()
-    if path != root and root not in path.parents:
+    if root not in path.parents:
         raise ValidationError(f"Data URL escapes data directory: {url}")
     return path
 
