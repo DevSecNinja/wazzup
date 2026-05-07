@@ -86,6 +86,21 @@ def validate_articles(path: Path) -> None:
             raise ValidationError(f"Invalid article record in {path}")
 
 
+def resolve_data_url(data_dir: Path, url: Any) -> Path:
+    if not isinstance(url, str) or not url:
+        raise ValidationError(f"Invalid data URL: {url!r}")
+    if url.startswith(("http://", "https://", "/")):
+        raise ValidationError(f"Data URL must be relative: {url}")
+    parts = Path(url).parts
+    if parts and parts[0] == "data":
+        parts = parts[1:]
+    path = (data_dir.joinpath(*parts)).resolve()
+    root = data_dir.resolve()
+    if root not in path.parents:
+        raise ValidationError(f"Data URL escapes data directory: {url}")
+    return path
+
+
 def validate_data_dir(data_dir: Path) -> None:
     latest = load_json(data_dir / "latest.json")
     latest_yaml = load_yaml(data_dir / "latest.yaml")
@@ -105,12 +120,12 @@ def validate_data_dir(data_dir: Path) -> None:
     )
     if latest.get("canonicalFormat") != "yaml" or latest_yaml.get("canonicalFormat") != "yaml":
         raise ValidationError("Generated data must declare YAML as the canonical format")
-    briefing_path = data_dir / latest["latestBriefingUrl"]
-    articles_path = data_dir / latest["latestArticlesUrl"]
+    briefing_path = resolve_data_url(data_dir, latest["latestBriefingUrl"])
+    articles_path = resolve_data_url(data_dir, latest["latestArticlesUrl"])
     validate_briefing(briefing_path)
     validate_articles(articles_path)
-    load_yaml(data_dir / str(latest["latestBriefingYamlUrl"]))
-    load_yaml(data_dir / str(latest["latestArticlesYamlUrl"]))
+    load_yaml(resolve_data_url(data_dir, latest["latestBriefingYamlUrl"]))
+    load_yaml(resolve_data_url(data_dir, latest["latestArticlesYamlUrl"]))
     load_json(data_dir / "sources" / "status.json")
     load_yaml(data_dir / "sources" / "status.yaml")
     load_yaml(data_dir / "manifest.yaml")

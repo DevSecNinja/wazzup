@@ -96,6 +96,11 @@ function temperatureClass(temperature) {
   return ['hot', 'warm', 'cool'].includes(level) ? level : 'cool';
 }
 
+function resolveDataUrl(path) {
+  const value = String(path || '');
+  return value.startsWith('data/') ? value : `data/${value}`;
+}
+
 function renderBriefing(briefing) {
   const citations = citationMap(briefing);
   const sections = (briefing.sections || [])
@@ -193,7 +198,7 @@ async function findYesterdayBriefing(manifest, latest, currentBriefing) {
 
   for (const yamlPath of candidates) {
     try {
-      const briefing = await getJson(`data/${yamlPath.replace(/\.yaml$/, '.json')}`);
+      const briefing = await getJson(resolveDataUrl(yamlPath.replace(/\.yaml$/, '.json')));
       if (localDateKey(briefing.generatedAt) === yesterdayDate) return briefing;
     } catch {
       // Ignore retained manifest entries whose JSON mirror is unavailable.
@@ -279,7 +284,7 @@ async function main() {
   try {
     const [latest, buildInfo] = await Promise.all([getJson('data/latest.json'), loadBuildInfo()]);
     const [briefing, status, manifest] = await Promise.all([
-      getJson(`data/${latest.latestBriefingUrl}`),
+      getJson(resolveDataUrl(latest.latestBriefingUrl)),
       getJson('data/sources/status.json'),
       getJson('data/manifest.json'),
     ]);
