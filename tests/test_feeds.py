@@ -20,6 +20,10 @@ class FeedTests(unittest.TestCase):
         self.assertEqual(1, len(items))
         self.assertEqual("Microsoft Defender improves AI security operations", items[0].title)
         self.assertEqual("https://www.microsoft.com/en-us/security/blog/example-ai-soc/", items[0].canonical_url)
+        self.assertEqual("MS Security", items[0].source_tag)
+        self.assertIn("MS Security", items[0].tags)
+        self.assertIn("security", items[0].tags)
+        self.assertEqual(len(items[0].tags), len(set(tag.lower() for tag in items[0].tags)))
 
     def test_deduplicate_prefers_priority_source_for_same_title_day(self) -> None:
         sources = load_sources("config/sources.yml")

@@ -54,6 +54,8 @@ def build_briefing(
                 "url": item.url,
                 "sourceId": item.source_id,
                 "sourceName": item.source_name,
+                "sourceTag": item.source_tag,
+                "tags": item.tags,
                 "publishedAt": item.published_at,
                 "temperature": article_temperature(scored),
             }

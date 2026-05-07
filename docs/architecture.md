@@ -39,7 +39,7 @@ flowchart LR
 
 | Component            | Responsibility                                                                                     | MVP implementation                                                                                     |
 | -------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Source configuration | Defines feeds, categories, weights, headers, and interest hints.                                   | [../config/sources.yml](../config/sources.yml) and [../config/interests.yml](../config/interests.yml). |
+| Source configuration | Defines feeds, short source tags, categories, weights, headers, and interest hints.                | [../config/sources.yml](../config/sources.yml) and [../config/interests.yml](../config/interests.yml). |
 | Fetcher              | Retrieves RSS and Atom XML feeds.                                                                  | `urllib.request` based Python fetcher in [../src/wazzup/feeds.py](../src/wazzup/feeds.py).             |
 | Normalizer           | Converts source entries into `ContentItem` records.                                                | Pure functions with fixtures.                                                                          |
 | Deduplicator         | Groups duplicate or near-duplicate articles.                                                       | Canonical URL + raw ref/GUID + normalized title/day transitive groups.                                 |
@@ -120,6 +120,8 @@ Required fields:
 - `schemaVersion`
 - `id`
 - `sourceId`
+- `sourceName`
+- `sourceTag`
 - `sourceType`
 - `title`
 - `url`
@@ -161,7 +163,7 @@ Required fields:
 - `headline`
 - `sections`: each bullet keeps a backward-compatible `text` field and may include structured `title` and `description` fields for the PWA card layout.
 - `sourceItemIds`
-- `citations`
+- `citations`: includes article source, source tag, category tags, published timestamp, and temperature metadata.
 - `model`
 - `promptVersion`
 - `costEstimate`

@@ -81,9 +81,12 @@ function normalizeBullet(bullet, citations) {
   const fullTitle = bullet.title || firstCitation?.title || 'Update';
   const title = truncateText(fullTitle, MAX_HEADLINE_LENGTH);
   const rawDescription = bullet.description || stripLeadingTitle(bullet.text, fullTitle) || bullet.text || '';
+  const sourceTag = firstCitation?.sourceTag || firstCitation?.sourceName || '';
+  const tags = Array.from(new Set([sourceTag, ...(firstCitation?.tags || [])].filter(Boolean))).slice(0, 5);
   return {
     title,
     description: truncateText(rawDescription, MAX_DESCRIPTION_LENGTH),
+    tags,
     temperature: firstCitation?.temperature || { level: 'cool', label: 'Background', icon: '•' },
   };
 }
@@ -110,7 +113,8 @@ function renderBriefing(briefing) {
                 `<a class="citation" href="${escapeHtml(citation.url)}" target="_blank" rel="noopener noreferrer">${citation.publishedAt ? `${escapeHtml(formatDate(citation.publishedAt))} · ` : ''}${escapeHtml(citation.sourceName)}</a>`,
             )
             .join('');
-          return `<li class="bullet bullet--${temperatureLevel}"><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '•')}</span><h4>${escapeHtml(normalized.title)}</h4></div><p>${escapeHtml(normalized.description)}</p><div class="citations">${links}</div></li>`;
+          const tags = normalized.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+          return `<li class="bullet bullet--${temperatureLevel}"><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '•')}</span><h4>${escapeHtml(normalized.title)}</h4></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${links}</div></li>`;
         })
         .join('');
       return `<section class="section"><h3>${escapeHtml(section.title)}</h3><ul class="bullet-list">${bullets}</ul></section>`;

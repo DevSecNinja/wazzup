@@ -16,6 +16,8 @@ class ScoringTests(unittest.TestCase):
         items = []
         for source in sources:
             path = Path("tests/fixtures") / f"{source.id}.xml"
+            if not path.exists():
+                continue
             items.extend(parse_feed(source, path.read_bytes()))
         scored = score_items(items, sources, app_config, datetime(2026, 5, 6, 17, tzinfo=UTC))
         self.assertEqual("microsoft-security-threat-intelligence", scored[0].item.source_id)

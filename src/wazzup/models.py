@@ -11,6 +11,7 @@ BriefingKind = Literal["hourly", "morning", "evening", "manual"]
 class SourceConfig:
     id: str
     name: str
+    source_tag: str
     type: SourceType
     homepage_url: str
     feed_url: str
@@ -48,6 +49,7 @@ class ContentItem:
     id: str
     source_id: str
     source_name: str
+    source_tag: str
     source_type: SourceType
     title: str
     url: str
@@ -67,6 +69,7 @@ class ContentItem:
             "id": self.id,
             "sourceId": self.source_id,
             "sourceName": self.source_name,
+            "sourceTag": self.source_tag,
             "sourceType": self.source_type,
             "title": self.title,
             "url": self.url,

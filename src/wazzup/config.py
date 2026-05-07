@@ -67,6 +67,7 @@ def load_sources(path: str | Path = "config/sources.yml") -> list[SourceConfig]:
             SourceConfig(
                 id=_require_str(raw_source, "id"),
                 name=_require_str(raw_source, "name"),
+                source_tag=str(raw_source.get("sourceTag") or raw_source.get("name") or raw_source.get("id")).strip(),
                 type=source_type,  # type: ignore[arg-type]
                 homepage_url=_require_str(raw_source, "homepageUrl"),
                 feed_url=_require_str(raw_source, "feedUrl"),
