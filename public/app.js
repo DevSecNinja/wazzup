@@ -173,7 +173,7 @@ function createSeenBriefingState(briefing, manifest) {
   if (JSON.stringify(entries) !== JSON.stringify(parsedEntries)) {
     safeLocalStorageSet(SEEN_BRIEFING_ITEMS_STORAGE_KEY, JSON.stringify(entries));
   }
-  return { dayKey, entries };
+  return { dayKey, entries, seenKeys: new Set(Object.keys(entries)) };
 }
 
 function bulletItemIds(briefing, bullet, sectionIndex, bulletIndex) {
@@ -182,11 +182,12 @@ function bulletItemIds(briefing, bullet, sectionIndex, bulletIndex) {
 }
 
 function isSeenBriefingItem(seenState, itemIds) {
-  return itemIds.every((itemId) => hasOwn(seenState.entries, seenItemStorageKey(seenState.dayKey, itemId)));
+  return itemIds.every((itemId) => seenState.seenKeys.has(seenItemStorageKey(seenState.dayKey, itemId)));
 }
 
 function setBulletSeenState(bulletEl, seen) {
   if (!bulletEl) return;
+  if (bulletEl.dataset.seenState === (seen ? 'seen' : 'new')) return;
   const statusEl = bulletEl.querySelector('.bullet__status');
   bulletEl.dataset.seenState = seen ? 'seen' : 'new';
   bulletEl.classList.toggle('bullet--seen', seen);
@@ -200,8 +201,9 @@ function markSeenBriefingItems(seenState, itemIds) {
   let changed = false;
   itemIds.forEach((itemId) => {
     const storageKey = seenItemStorageKey(seenState.dayKey, itemId);
-    if (hasOwn(seenState.entries, storageKey)) return;
+    if (seenState.seenKeys.has(storageKey)) return;
     seenState.entries[storageKey] = new Date().toISOString();
+    seenState.seenKeys.add(storageKey);
     changed = true;
   });
   if (changed) {
