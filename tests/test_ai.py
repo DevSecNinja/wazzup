@@ -79,6 +79,8 @@ class AiProviderTests(unittest.TestCase):
     @patch("wazzup.ai.subprocess.run")
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
     def test_copilot_invalid_payload_falls_back_to_deterministic_summary(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
+        os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
         source = load_sources("config/sources.yml")[0]
         item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
         scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
@@ -89,17 +91,23 @@ class AiProviderTests(unittest.TestCase):
             return Mock(returncode=0, stdout="", stderr="")
 
         run_mock.side_effect = fake_run
-        response = CopilotCliSummaryProvider().generate_structured_summary(
-            SummaryRequest(
-                kind="hourly",
-                window_start="2026-05-06T00:00:00Z",
-                window_end="2026-05-06T21:00:00Z",
-                generated_at="2026-05-06T21:00:00Z",
-                timezone="Europe/Amsterdam",
-                summary_language="en",
-                items=scored,
+        try:
+            response = CopilotCliSummaryProvider().generate_structured_summary(
+                SummaryRequest(
+                    kind="hourly",
+                    window_start="2026-05-06T00:00:00Z",
+                    window_end="2026-05-06T21:00:00Z",
+                    generated_at="2026-05-06T21:00:00Z",
+                    timezone="Europe/Amsterdam",
+                    summary_language="en",
+                    items=scored,
+                )
             )
-        )
+        finally:
+            if previous_token is None:
+                os.environ.pop("COPILOT_GITHUB_TOKEN", None)
+            else:
+                os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
         self.assertEqual("copilot-cli-fallback", response.provider["type"])
         self.assertIn("fallbackReason", response.provider)
