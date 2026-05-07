@@ -33,7 +33,8 @@ Implemented tests:
 - [../tests/test_publisher.py](../tests/test_publisher.py): retention by path date, YAML/JSON mirror generation, and manifest updates.
 - [../tests/test_ai.py](../tests/test_ai.py): provider defaulting and Copilot token guard behavior.
 - [../tests/test_build_info.py](../tests/test_build_info.py): generated build metadata used by the footer and service worker versioning.
-- [../tests/test_pwa_assets.py](../tests/test_pwa_assets.py): install icons, 24-hour time formatting hooks, build-versioned service worker registration, footer metadata hooks, simplified header, yesterday-summary hooks, capped headlines, structured item-card hooks, and service worker cache versioning.
+- [../tests/test_pwa_assets.py](../tests/test_pwa_assets.py): install icons, 24-hour time formatting hooks, build-versioned service worker registration, footer metadata hooks, simplified header, yesterday-summary hooks, capped headlines, article-temperature hooks, structured item-card hooks, and service worker cache versioning.
+- [../tests/test_workflows.py](../tests/test_workflows.py): important workflow cadence guardrails such as the News schedule.
 
 Implemented validation commands:
 
@@ -158,6 +159,7 @@ Optional checks:
 - No accessibility automation yet for the updated logo, footer, and cards.
 - No visual regression tests for the PWA layout.
 - No live Copilot CLI canary with a real token secret yet.
+- No schema test yet for all possible Copilot malformed-output variants; invalid missing-section output is covered and falls back deterministically.
 - No tests for a daily/monthly archive release because that archive strategy is deferred.
 
 ## Coverage targets

@@ -321,11 +321,14 @@ Implemented frontend behavior:
 
 - The homepage renders a single rolling briefing for the current local day. Hourly runs start the item set fresh at local midnight, then include all retained feed items published between local midnight and the current run.
 - Each briefing item is displayed as a title plus short description with citations, instead of forcing the reader through one long paragraph.
+- Each item also receives visible temperature metadata (`hot`, `warm`, or `cool`) derived from the existing relevance score. The PWA uses this for an icon, border, and title color so important items are scannable while scrolling.
 - The hero headline is capped in the PWA and the duplicate briefing headline is replaced with a stable “Today’s rolling briefing” heading.
 - The sidebar shows source health and the latest retained summary from yesterday, rendered inline rather than linking to generated JSON.
 - It consumes JSON mirrors, not canonical YAML, to avoid a browser-side YAML parser dependency.
 - It supports opt-in local notifications when the open/installed PWA observes a new briefing URL. True background push notifications require stored subscriptions and are deferred.
 - The service worker cache is versioned by the `buildId` query string from `build-info.json`, uses `updateViaCache: 'none'`, and supports offline reading for assets/data that have already been fetched.
+
+A dedicated daily briefing kind is not implemented yet. The current site behavior is a rolling current-day briefing plus an inline yesterday card that renders the latest retained roll-up from yesterday.
 
 ## Notification architecture
 

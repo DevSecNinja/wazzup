@@ -84,7 +84,13 @@ function normalizeBullet(bullet, citations) {
   return {
     title,
     description: truncateText(rawDescription, MAX_DESCRIPTION_LENGTH),
+    temperature: firstCitation?.temperature || { level: 'cool', label: 'Background', icon: '•' },
   };
+}
+
+function temperatureClass(temperature) {
+  const level = String(temperature?.level || 'cool').toLowerCase();
+  return ['hot', 'warm', 'cool'].includes(level) ? level : 'cool';
 }
 
 function renderBriefing(briefing) {
@@ -94,6 +100,8 @@ function renderBriefing(briefing) {
       const bullets = (section.bullets || [])
         .map((bullet) => {
           const normalized = normalizeBullet(bullet, citations);
+          const temperature = normalized.temperature;
+          const temperatureLevel = temperatureClass(temperature);
           const links = (bullet.citations || [])
             .map((itemId) => citations.get(itemId))
             .filter(Boolean)
@@ -102,7 +110,7 @@ function renderBriefing(briefing) {
                 `<a class="citation" href="${escapeHtml(citation.url)}" target="_blank" rel="noopener noreferrer">${citation.publishedAt ? `${escapeHtml(formatDate(citation.publishedAt))} · ` : ''}${escapeHtml(citation.sourceName)}</a>`,
             )
             .join('');
-          return `<li class="bullet"><h4>${escapeHtml(normalized.title)}</h4><p>${escapeHtml(normalized.description)}</p><div class="citations">${links}</div></li>`;
+          return `<li class="bullet bullet--${temperatureLevel}"><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '•')}</span><h4>${escapeHtml(normalized.title)}</h4></div><p>${escapeHtml(normalized.description)}</p><div class="citations">${links}</div></li>`;
         })
         .join('');
       return `<section class="section"><h3>${escapeHtml(section.title)}</h3><ul class="bullet-list">${bullets}</ul></section>`;

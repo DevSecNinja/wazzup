@@ -40,6 +40,8 @@ class PipelineTests(unittest.TestCase):
                 self.assertEqual("2026-05-05T22:00:00Z", briefing_json["windowStart"])
                 self.assertEqual("2026-05-06T18:00:00Z", briefing_json["windowEnd"])
                 self.assertIn("publishedAt", briefing_json["citations"][0])
+                self.assertIn("temperature", briefing_json["citations"][0])
+                self.assertIn(briefing_json["citations"][0]["temperature"]["level"], {"hot", "warm", "cool"})
                 self.assertIn("title", briefing_json["sections"][0]["bullets"][0])
                 self.assertIn("description", briefing_json["sections"][0]["bullets"][0])
                 status_json = json.loads((public_dir / "data" / "sources" / "status.json").read_text(encoding="utf-8"))
