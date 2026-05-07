@@ -11,25 +11,34 @@
   --success: #86efac;
   --warning: #fca5a5;
   --shadow: 0 20px 60px rgba(2, 6, 23, 0.35);
+  --app-bg-solid: #020617;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
 
+html {
+  min-height: 100%;
+  background: var(--app-bg-solid);
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  background:
+  min-height: 100svh;
+  background-color: var(--app-bg-solid);
+  background-image:
     radial-gradient(circle at top left, rgba(34, 211, 238, 0.24), transparent 34rem),
     linear-gradient(135deg, #020617 0%, var(--bg) 52%, #111827 100%);
   color: var(--text);
+  overscroll-behavior-y: none;
 }
 
 a { color: inherit; }
 
 .hero {
-  padding: 1.25rem clamp(1rem, 4vw, 4rem) 3rem;
+  padding: calc(1.25rem + env(safe-area-inset-top, 0px)) clamp(1rem, 4vw, 4rem) 3rem;
 }
 
 .topbar {
@@ -244,7 +253,7 @@ main {
   display: grid;
   justify-items: center;
   gap: 0.65rem;
-  padding: 0 0 2rem;
+  padding: 0 0 calc(2rem + env(safe-area-inset-bottom, 0px));
   text-align: center;
 }
 
