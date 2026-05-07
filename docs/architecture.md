@@ -159,7 +159,7 @@ Required fields:
 - `generatedAt`
 - `timezone`
 - `headline`
-- `sections`
+- `sections`: each bullet keeps a backward-compatible `text` field and may include structured `title` and `description` fields for the PWA card layout.
 - `sourceItemIds`
 - `citations`
 - `model`
@@ -317,11 +317,13 @@ Use a small static PWA:
 - Service Worker for static asset and recently fetched data caching.
 - No runtime framework in the MVP unless complexity proves it adds clear design or functionality value. If introduced, keep dependencies low, stable, and well-known.
 
-Current frontend limitations:
+Implemented frontend behavior:
 
-- It renders only the latest briefing and source health.
+- The homepage renders a single rolling briefing for the current local day. Hourly runs start the item set fresh at local midnight, then include all retained feed items published between local midnight and the current run.
+- Each briefing item is displayed as a title plus short description with citations, instead of forcing the reader through one long paragraph.
+- The hero headline is capped in the PWA and the duplicate briefing headline is replaced with a stable “Today’s rolling briefing” heading.
+- The sidebar shows source health and the latest retained summary from yesterday, rendered inline rather than linking to generated JSON.
 - It consumes JSON mirrors, not canonical YAML, to avoid a browser-side YAML parser dependency.
-- It renders previous briefings from `manifest.json` once multiple hourly runs exist.
 - It supports opt-in local notifications when the open/installed PWA observes a new briefing URL. True background push notifications require stored subscriptions and are deferred.
 - The service worker cache is versioned by the `buildId` query string from `build-info.json`, uses `updateViaCache: 'none'`, and supports offline reading for assets/data that have already been fetched.
 

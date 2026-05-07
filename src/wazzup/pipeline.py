@@ -13,7 +13,7 @@ from .config import load_app_config, load_sources
 from .feeds import deduplicate, fetch_and_parse, isoformat, parse_feed, utc_now
 from .models import BriefingKind, ContentItem, SourceStatus
 from .publisher import publish_outputs
-from .scoring import score_items
+from .scoring import parse_iso, score_items
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -56,6 +56,16 @@ def briefing_window(kind: BriefingKind, now: datetime, timezone: str) -> tuple[d
     return local_start.astimezone(UTC), local_end.astimezone(UTC)
 
 
+def rolling_day_window(now: datetime, timezone: str) -> tuple[datetime, datetime]:
+    local_now = now.astimezone(ZoneInfo(timezone))
+    local_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return local_start.astimezone(UTC), now.astimezone(UTC)
+
+
+def filter_items_to_window(items: list[ContentItem], window_start: datetime, window_end: datetime) -> list[ContentItem]:
+    return [item for item in items if window_start <= parse_iso(item.published_at) <= window_end]
+
+
 def load_items_from_fixture(source_id: str, fixture_dir: Path, source) -> list[ContentItem] | None:
     fixture_path = fixture_dir / f"{source_id}.xml"
     if not fixture_path.exists():
@@ -90,13 +100,18 @@ def generate(argv: Sequence[str] | None = None) -> dict:
     now = utc_now()
     kind = choose_kind(args.force_briefing)
     window_start, window_end = briefing_window(kind, now, app_config.timezone)
-    scored = score_items(items, sources, app_config, now)[: args.max_items]
+    content_window_start = window_start
+    content_window_end = window_end
+    if kind == "hourly":
+        content_window_start, content_window_end = rolling_day_window(now, app_config.timezone)
+    window_items = filter_items_to_window(items, content_window_start, content_window_end)
+    scored = score_items(window_items, sources, app_config, now)[: args.max_items]
     provider = provider_from_env(app_config)
     summary = provider.generate_structured_summary(
         SummaryRequest(
             kind=kind,
-            window_start=isoformat(window_start),
-            window_end=isoformat(window_end),
+            window_start=isoformat(content_window_start),
+            window_end=isoformat(content_window_end),
             generated_at=isoformat(now),
             timezone=app_config.timezone,
             summary_language=app_config.summary_language,
@@ -106,8 +121,8 @@ def generate(argv: Sequence[str] | None = None) -> dict:
     latest = publish_outputs(
         Path(args.public_dir),
         kind,
-        window_start,
-        window_end,
+        content_window_start,
+        content_window_end,
         now,
         app_config,
         scored,

@@ -23,12 +23,14 @@ Wazzup is a GitHub-native personal news briefing app. It collects configured RSS
 2. Normalize articles into stable YAML records with JSON browser mirrors.
 3. Deduplicate by canonical URL, raw feed reference/GUID, and normalized title plus publication day.
 4. Rank articles using deterministic interest, source weight, and freshness scoring.
-5. Generate English summaries through an AI provider abstraction:
+5. Generate a rolling English briefing for the current local day; hourly runs start fresh at local midnight and then keep incorporating the day’s retained feed items.
+6. Render each briefing item as a title, short description, timestamped citations, and source links in the PWA.
+7. Generate English summaries through an AI provider abstraction:
    - `copilot-cli` for scheduled production-style runs when a Copilot token secret exists.
    - `fake` for deterministic CI, local development, and tokenless fallback.
-6. Persist generated state outside Git history in a mutable `news-state` GitHub Release asset named `wazzup-state.zip`.
-7. Publish the static PWA and generated data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.
-8. Run lightweight formatting, syntax linting, unit/integration tests, compile checks, fixture generation, data validation, and reusable organization lint workflows in GitHub Actions.
+8. Persist generated state outside Git history in a mutable `news-state` GitHub Release asset named `wazzup-state.zip`.
+9. Publish the static PWA and generated data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.
+10. Run lightweight formatting, syntax linting, unit/integration tests, compile checks, fixture generation, data validation, and reusable organization lint workflows in GitHub Actions.
 
 ## Repository status
 

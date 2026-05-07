@@ -22,6 +22,15 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("updateViaCache: 'none'", app)
         self.assertIn("sw.js?v=", app)
         self.assertIn("FALLBACK_TIME_ZONE = 'Europe/Amsterdam'", app)
+        self.assertIn("MAX_HEADLINE_LENGTH", app)
+        self.assertIn("normalizeBullet", app)
+        self.assertIn("renderYesterday", app)
+
+    def test_homepage_uses_simple_header_and_yesterday_card(self) -> None:
+        html = Path("public/index.html").read_text(encoding="utf-8")
+        self.assertNotIn("topbar__links", html)
+        self.assertNotIn("Previous hours", html)
+        self.assertIn("id=\"yesterday\"", html)
 
     def test_footer_contains_repo_commit_and_star_targets(self) -> None:
         html = Path("public/index.html").read_text(encoding="utf-8")

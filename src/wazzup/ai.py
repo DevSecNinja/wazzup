@@ -46,6 +46,8 @@ class FakeSummaryProvider:
             headline = "No notable updates found"
             bullets: list[dict[str, Any]] = [
                 {
+                    "title": "No notable updates",
+                    "description": "No notable updates were found in the selected window.",
                     "text": "No notable updates were found in the selected window.",
                     "citations": [],
                 }
@@ -54,6 +56,8 @@ class FakeSummaryProvider:
             headline = f"{len(items)} notable update{'s' if len(items) != 1 else ''} for {request.kind} briefing"
             bullets = [
                 {
+                    "title": scored.item.title,
+                    "description": _fake_description(scored),
                     "text": _fake_bullet(scored),
                     "citations": [scored.item.id],
                 }
@@ -141,6 +145,10 @@ class CopilotCliSummaryProvider:
 
 
 def _fake_bullet(scored: ScoredItem) -> str:
+    return f"{scored.item.title}: {_fake_description(scored)}"
+
+
+def _fake_description(scored: ScoredItem) -> str:
     summary = scored.item.summary.strip()
     if summary:
         text = summary.rstrip(".")
@@ -150,8 +158,8 @@ def _fake_bullet(scored: ScoredItem) -> str:
         text = "This update is worth scanning based on your configured interests."
     if scored.matched_interests:
         interests = ", ".join(scored.matched_interests[:3]).replace("-", " ")
-        return f"{scored.item.title}: {text}. Why it matters: it matches your {interests} interests."
-    return f"{scored.item.title}: {text}."
+        return f"{text}. Why it matters: it matches your {interests} interests."
+    return f"{text}."
 
 
 def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
@@ -172,6 +180,8 @@ def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
                     "title": "string",
                     "bullets": [
                         {
+                            "title": "short item title",
+                            "description": "1-2 sentence source-grounded description",
                             "text": "string",
                             "citations": ["ContentItem.id"],
                         }
@@ -182,6 +192,7 @@ def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
         "styleGuide": [
             "Write for a single technical reader, not as marketing copy.",
             "Summarize why each item matters to the reader's interests.",
+            "For each bullet, provide title and description separately. Avoid repeating the same title in the description.",
             "Never mention scoring internals such as source weight, score, recency bonus, or duplicate group IDs.",
             "Keep bullets concise and source-grounded.",
         ],

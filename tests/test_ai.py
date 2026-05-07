@@ -41,7 +41,10 @@ class AiProviderTests(unittest.TestCase):
             )
         )
         bullet = response.sections[0]["bullets"][0]["text"]
+        description = response.sections[0]["bullets"][0]["description"]
         self.assertIn("Why it matters", bullet)
+        self.assertIn("Why it matters", description)
+        self.assertIn("title", response.sections[0]["bullets"][0])
         self.assertIn("security", bullet)
         self.assertNotIn("source weight", bullet.lower())
 

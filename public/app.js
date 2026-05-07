@@ -1,6 +1,6 @@
 const briefingEl = document.querySelector('#briefing');
 const sourcesEl = document.querySelector('#sources');
-const archiveEl = document.querySelector('#archive');
+const yesterdayEl = document.querySelector('#yesterday');
 const heroHeadlineEl = document.querySelector('#heroHeadline');
 const heroSummaryEl = document.querySelector('#heroSummary');
 const notifyButton = document.querySelector('#notifyButton');
@@ -9,6 +9,8 @@ const starCountText = document.querySelector('#starCountText');
 
 const REPOSITORY = 'DevSecNinja/wazzup';
 const FALLBACK_TIME_ZONE = 'Europe/Amsterdam';
+const MAX_HEADLINE_LENGTH = 96;
+const MAX_DESCRIPTION_LENGTH = 320;
 
 async function getJson(path) {
   const response = await fetch(path, { cache: 'no-store' });
@@ -56,12 +58,42 @@ function citationMap(briefing) {
   return new Map((briefing.citations || []).map((citation) => [citation.itemId, citation]));
 }
 
+function truncateText(value, maxLength) {
+  const text = String(value || '').trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1).trim()}…`;
+}
+
+function stripLeadingTitle(text, title) {
+  const cleanText = String(text || '').trim();
+  const cleanTitle = String(title || '').trim();
+  if (!cleanTitle) return cleanText;
+  const lowerText = cleanText.toLowerCase();
+  const lowerTitle = cleanTitle.toLowerCase();
+  if (lowerText.startsWith(`${lowerTitle}:`)) return cleanText.slice(cleanTitle.length + 1).trim();
+  if (lowerText.startsWith(`${lowerTitle} —`)) return cleanText.slice(cleanTitle.length + 2).trim();
+  if (lowerText.startsWith(`${lowerTitle} -`)) return cleanText.slice(cleanTitle.length + 2).trim();
+  return cleanText;
+}
+
+function normalizeBullet(bullet, citations) {
+  const firstCitation = (bullet.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
+  const fullTitle = bullet.title || firstCitation?.title || 'Update';
+  const title = truncateText(fullTitle, MAX_HEADLINE_LENGTH);
+  const rawDescription = bullet.description || stripLeadingTitle(bullet.text, fullTitle) || bullet.text || '';
+  return {
+    title,
+    description: truncateText(rawDescription, MAX_DESCRIPTION_LENGTH),
+  };
+}
+
 function renderBriefing(briefing) {
   const citations = citationMap(briefing);
   const sections = (briefing.sections || [])
     .map((section) => {
       const bullets = (section.bullets || [])
         .map((bullet) => {
+          const normalized = normalizeBullet(bullet, citations);
           const links = (bullet.citations || [])
             .map((itemId) => citations.get(itemId))
             .filter(Boolean)
@@ -70,7 +102,7 @@ function renderBriefing(briefing) {
                 `<a class="citation" href="${escapeHtml(citation.url)}" target="_blank" rel="noopener noreferrer">${citation.publishedAt ? `${escapeHtml(formatDate(citation.publishedAt))} · ` : ''}${escapeHtml(citation.sourceName)}</a>`,
             )
             .join('');
-          return `<li class="bullet"><p>${escapeHtml(bullet.text)}</p><div class="citations">${links}</div></li>`;
+          return `<li class="bullet"><h4>${escapeHtml(normalized.title)}</h4><p>${escapeHtml(normalized.description)}</p><div class="citations">${links}</div></li>`;
         })
         .join('');
       return `<section class="section"><h3>${escapeHtml(section.title)}</h3><ul class="bullet-list">${bullets}</ul></section>`;
@@ -79,7 +111,7 @@ function renderBriefing(briefing) {
 
   briefingEl.innerHTML = `
     <p class="eyebrow">${escapeHtml(briefing.kind)} briefing</p>
-    <h2>${escapeHtml(briefing.headline)}</h2>
+    <h2>Today's rolling briefing</h2>
     <p class="meta">Generated ${formatDate(briefing.generatedAt)} · Window ${formatDate(briefing.windowStart)} → ${formatDate(briefing.windowEnd)}</p>
     ${sections}
     ${briefing.provider?.type === 'fake' ? '<p class="provider-note">Deterministic fallback summary. Add a Copilot token secret for AI-written briefings.</p>' : ''}
@@ -87,9 +119,11 @@ function renderBriefing(briefing) {
 }
 
 function renderHero(briefing) {
-  const topBullet = briefing.sections?.[0]?.bullets?.[0]?.text || 'No notable updates were found in this briefing window.';
-  heroHeadlineEl.textContent = briefing.headline;
-  heroSummaryEl.textContent = topBullet;
+  const citations = citationMap(briefing);
+  const topBullet = briefing.sections?.[0]?.bullets?.[0];
+  const normalized = topBullet ? normalizeBullet(topBullet, citations) : null;
+  heroHeadlineEl.textContent = truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
+  heroSummaryEl.textContent = normalized?.description || 'No notable updates were found in today’s rolling briefing.';
 }
 
 function renderSources(status) {
@@ -110,47 +144,71 @@ function renderSources(status) {
   `;
 }
 
-async function renderArchive(manifest, latest) {
-  const latestYaml = latest.latestBriefingYamlUrl;
-  const recent = (manifest.briefings || [])
-    .filter((path) => path !== latestYaml)
+function localDateKey(value) {
+  const date = new Date(value);
+  const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
+  try {
+    return localDateKeyParts(date, options);
+  } catch {
+    return localDateKeyParts(date, { ...options, timeZone: FALLBACK_TIME_ZONE });
+  }
+}
+
+function localDateKeyParts(date, options) {
+  const parts = new Intl.DateTimeFormat('en-GB', options)
+    .formatToParts(date)
+    .reduce((acc, part) => ({ ...acc, [part.type]: part.value }), {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function previousLocalDateKey(dateKey) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+async function findYesterdayBriefing(manifest, latest, currentBriefing) {
+  const yesterdayDate = previousLocalDateKey(localDateKey(currentBriefing.generatedAt));
+  const candidates = (manifest.briefings || [])
+    .filter((path) => path !== latest.latestBriefingYamlUrl)
     .slice()
     .sort()
     .reverse()
-    .slice(0, 6);
+    .slice(0, 72);
 
-  if (!recent.length) {
-    archiveEl.innerHTML = `
-      <p class="eyebrow">Previous hours</p>
-      <h2>No previous briefings yet</h2>
-      <p class="meta">The archive will fill in as more hourly runs complete.</p>
+  for (const yamlPath of candidates) {
+    try {
+      const briefing = await getJson(`data/${yamlPath.replace(/\.yaml$/, '.json')}`);
+      if (localDateKey(briefing.generatedAt) === yesterdayDate) return briefing;
+    } catch {
+      // Ignore retained manifest entries whose JSON mirror is unavailable.
+    }
+  }
+  return null;
+}
+
+async function renderYesterday(manifest, latest, currentBriefing) {
+  const briefing = await findYesterdayBriefing(manifest, latest, currentBriefing);
+  if (!briefing) {
+    yesterdayEl.innerHTML = `
+      <p class="eyebrow">Yesterday</p>
+      <h2>No yesterday summary yet</h2>
+      <p class="meta">Once yesterday has retained briefing data, its latest daily roll-up will appear here.</p>
     `;
     return;
   }
 
-  const briefings = await Promise.all(
-    recent.map(async (yamlPath) => {
-      const jsonPath = yamlPath.replace(/\.yaml$/, '.json');
-      try {
-        return { path: jsonPath, briefing: await getJson(`data/${jsonPath}`) };
-      } catch {
-        return { path: jsonPath, briefing: null };
-      }
-    }),
-  );
-  const items = briefings
-    .map(({ path, briefing }) => {
-      if (!briefing) return '';
-      return `<li><a class="archive-link" href="data/${escapeHtml(path)}" target="_blank" rel="noopener noreferrer">
-        <strong>${escapeHtml(briefing.headline)}</strong>
-        <span class="source-meta">${escapeHtml(briefing.kind)} · ${escapeHtml(formatDate(briefing.generatedAt))}</span>
-      </a></li>`;
-    })
-    .join('');
-  archiveEl.innerHTML = `
-    <p class="eyebrow">Previous hours</p>
-    <h2>Recent briefings</h2>
-    <ul class="archive-list">${items}</ul>
+  const citations = citationMap(briefing);
+  const topBullet = briefing.sections?.[0]?.bullets?.[0];
+  const normalized = topBullet ? normalizeBullet(topBullet, citations) : null;
+  yesterdayEl.innerHTML = `
+    <p class="eyebrow">Yesterday</p>
+    <h2>${escapeHtml(truncateText(briefing.headline, MAX_HEADLINE_LENGTH))}</h2>
+    <div class="yesterday-summary">
+      <p>${escapeHtml(normalized?.description || 'No summary text was available for yesterday.')}</p>
+      <p class="meta">Generated ${escapeHtml(formatDate(briefing.generatedAt))}</p>
+    </div>
   `;
 }
 
@@ -214,7 +272,7 @@ async function main() {
     renderHero(briefing);
     renderBriefing(briefing);
     renderSources(status);
-    await renderArchive(manifest, latest);
+    await renderYesterday(manifest, latest, briefing);
     await renderFooter(buildInfo);
     if ('serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(buildInfo.buildId || 'dev')}`, { updateViaCache: 'none' });
@@ -225,7 +283,7 @@ async function main() {
     heroSummaryEl.textContent = 'The latest briefing could not be loaded. Try again after the next scheduled run.';
     briefingEl.innerHTML = `<p class="eyebrow">Error</p><h2>Could not load briefing</h2><p class="meta">${escapeHtml(error.message)}</p>`;
     sourcesEl.innerHTML = '<p class="eyebrow">Source health</p><h2>Unavailable</h2>';
-    archiveEl.innerHTML = '<p class="eyebrow">Previous hours</p><h2>Unavailable</h2>';
+    yesterdayEl.innerHTML = '<p class="eyebrow">Yesterday</p><h2>Unavailable</h2>';
   }
 }
 
