@@ -191,27 +191,6 @@ sources:
       - vulnerability management
     notes: "Center for Internet Security blog feed from issue #2 OPML."
 
-  - id: ncsc-reports
-    name: NCSC Reports
-    sourceTag: NCSC
-    enabled: true
-    type: rss
-    homepageUrl: https://www.ncsc.gov.uk/
-    feedUrl: https://www.ncsc.gov.uk/feeds/reports.xml
-    language: en
-    region: uk
-    weight: 1.25
-    categories:
-      - security
-      - cybersecurity
-      - threat-intelligence
-      - reports
-    interestHints:
-      - threat intelligence
-      - incident response
-      - government advisories
-    notes: "UK NCSC reports feed from issue #2 OPML."
-
   - id: recorded-future-record
     name: The Record from Recorded Future News
     sourceTag: Record
@@ -435,23 +414,3 @@ sources:
       - Linux
       - devops
     notes: "LinuxServer.io info feed from issue #2 OPML."
-
-  - id: pcworld-latest-news
-    name: PCWorld Latest News
-    sourceTag: PCWorld
-    enabled: true
-    type: rss
-    homepageUrl: https://www.pcworld.com
-    feedUrl: https://feeds.pcworld.com/pcworld/latestnews
-    language: en
-    region: us
-    weight: 0.85
-    categories:
-      - tech
-      - consumer-tech
-      - pc
-    interestHints:
-      - consumer technology
-      - Windows
-      - hardware
-    notes: "PCWorld latest news feed from issue #2 OPML; HTTP URL normalized to HTTPS."
