@@ -1,0 +1,41 @@
+---
+area/backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/wazzup/**/*
+          - scripts/**/*
+          - pyproject.toml
+          - requirements.txt
+
+area/frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - public/**/*
+
+area/data:
+  - changed-files:
+      - any-glob-to-any-file:
+          - config/**/*
+          - tests/fixtures/**/*
+          - tests/test_pipeline.py
+          - tests/test_publisher.py
+          - tests/test_feeds.py
+
+area/docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - README.md
+          - docs/**/*
+
+area/github:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**/*
+          - .mise.toml
+          - Taskfile.yml
+
+area/renovate:
+  - changed-files:
+      - any-glob-to-any-file:
+          - renovate.json
+          - renovate.json5

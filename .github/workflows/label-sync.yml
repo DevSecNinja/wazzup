@@ -1,0 +1,27 @@
+---
+name: Label Sync
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/labels.yaml
+  schedule:
+    - cron: "0 0 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: label-sync
+  cancel-in-progress: false
+
+jobs:
+  label-sync:
+    # renovate: datasource=github-tags depName=DevSecNinja/.github
+    uses: DevSecNinja/.github/.github/workflows/label-sync.yml@af5030dd0d6f61b80fe58f949c9b985d1931ddf2 # v1.3.0
+    permissions:
+      contents: read
+      issues: write

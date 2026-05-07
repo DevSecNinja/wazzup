@@ -1,0 +1,28 @@
+---
+name: Labeler
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  issues:
+    types:
+      - opened
+      - edited
+
+permissions:
+  contents: read
+
+concurrency:
+  group: labeler-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  labeler:
+    # renovate: datasource=github-tags depName=DevSecNinja/.github
+    uses: DevSecNinja/.github/.github/workflows/labeler.yml@af5030dd0d6f61b80fe58f949c9b985d1931ddf2 # v1.3.0
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write

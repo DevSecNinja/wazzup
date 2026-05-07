@@ -30,7 +30,7 @@ Wazzup is a GitHub-native personal news briefing app. It collects configured RSS
    - `fake` for deterministic CI, local development, and tokenless fallback.
 8. Persist generated state outside Git history in a mutable `news-state` GitHub Release asset named `wazzup-state.zip`.
 9. Publish the static PWA and generated data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.
-10. Run lightweight formatting, syntax linting, unit/integration tests, compile checks, fixture generation, data validation, and reusable organization lint workflows in GitHub Actions.
+10. Run lightweight formatting, syntax linting, unit/integration tests, compile checks, fixture generation, data validation, dependency update automation, repo-label sync, and reusable organization lint workflows in GitHub Actions.
 
 ## Repository status
 
@@ -46,6 +46,7 @@ Important current limitations and deviations from the original target architectu
 - Copilot CLI is optional at runtime. If no `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret exists, News hourly falls back to the deterministic fake provider so the pipeline and Pages deployment continue to work.
 - The service worker cache is versioned from generated build metadata; the footer shows the short commit and links back to the repository.
 - Notifications are opt-in and local to the installed/open PWA. There is no server-side Web Push subscription store yet.
+- Renovate and repository automation are onboarded from `DevSecNinja/.github` through [renovate.json5](renovate.json5), labeler config, label sync, and config sync workflows.
 
 ## Local development
 
