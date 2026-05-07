@@ -57,8 +57,8 @@ class FakeSummaryProvider:
             bullets = [
                 {
                     "title": scored.item.title,
-                    "description": _fake_description(scored),
-                    "text": _fake_bullet(scored),
+                    "description": _fake_description(scored, request.kind),
+                    "text": _fake_bullet(scored, request.kind),
                     "citations": [scored.item.id],
                 }
                 for scored in items[:6]
@@ -156,11 +156,11 @@ class CopilotCliSummaryProvider:
             )
 
 
-def _fake_bullet(scored: ScoredItem) -> str:
-    return f"{scored.item.title}: {_fake_description(scored)}"
+def _fake_bullet(scored: ScoredItem, kind: BriefingKind = "hourly") -> str:
+    return f"{scored.item.title}: {_fake_description(scored, kind)}"
 
 
-def _fake_description(scored: ScoredItem) -> str:
+def _fake_description(scored: ScoredItem, kind: BriefingKind = "hourly") -> str:
     summary = scored.item.summary.strip()
     if summary:
         text = summary.rstrip(".")
@@ -170,7 +170,9 @@ def _fake_description(scored: ScoredItem) -> str:
         text = "This update is worth scanning based on your configured interests."
     if scored.matched_interests:
         interests = ", ".join(scored.matched_interests[:3]).replace("-", " ")
-        return f"{text}. Why it matters: it matches your {interests} interests."
+        if kind == "hourly":
+            return f"{text}. Relevant to your {interests} interests."
+        return f"{text}. It matches your {interests} interests."
     return f"{text}."
 
 
@@ -203,7 +205,7 @@ def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
         },
         "styleGuide": [
             "Write for a single technical reader, not as marketing copy.",
-            "Summarize why each item matters to the reader's interests.",
+            "Describe relevance directly without labels like 'Why it matters'.",
             "For each bullet, provide title and description separately. Avoid repeating the same title in the description.",
             "Never mention scoring internals such as source weight, score, recency bonus, or duplicate group IDs.",
             "Keep bullets concise and source-grounded.",

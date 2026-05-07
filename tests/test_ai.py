@@ -7,7 +7,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from wazzup.ai import CopilotCliSummaryProvider, FakeSummaryProvider, SummaryRequest, provider_from_env
+from wazzup.ai import (
+    CopilotCliSummaryProvider,
+    FakeSummaryProvider,
+    SummaryRequest,
+    build_prompt_payload,
+    provider_from_env,
+)
 from wazzup.config import load_app_config, load_sources
 from wazzup.feeds import parse_feed
 from wazzup.scoring import score_items
@@ -24,7 +30,7 @@ class AiProviderTests(unittest.TestCase):
             if previous_provider is not None:
                 os.environ["AI_PROVIDER"] = previous_provider
 
-    def test_fake_provider_summarizes_without_scoring_jargon(self) -> None:
+    def test_fake_provider_standardizes_hourly_descriptions(self) -> None:
         source = load_sources("config/sources.yml")[0]
         item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
         item = replace(item, summary="Microsoft Defender adds AI-assisted triage for security operations teams.")
@@ -42,11 +48,27 @@ class AiProviderTests(unittest.TestCase):
         )
         bullet = response.sections[0]["bullets"][0]["text"]
         description = response.sections[0]["bullets"][0]["description"]
-        self.assertIn("Why it matters", bullet)
-        self.assertIn("Why it matters", description)
+        self.assertNotIn("Why it matters", bullet)
+        self.assertNotIn("Why it matters", description)
+        self.assertIn("Relevant to your", description)
         self.assertIn("title", response.sections[0]["bullets"][0])
         self.assertIn("security", bullet)
         self.assertNotIn("source weight", bullet.lower())
+
+    def test_prompt_style_guide_discourages_why_it_matters_label(self) -> None:
+        payload = build_prompt_payload(
+            SummaryRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                summary_language="en",
+                items=[],
+            )
+        )
+        style_guide = payload["styleGuide"]
+        self.assertIn("Describe relevance directly without labels like 'Why it matters'.", style_guide)
 
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
     def test_copilot_requires_token_in_github_actions(self, _which) -> None:  # type: ignore[no-untyped-def]
