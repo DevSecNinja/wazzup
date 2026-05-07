@@ -45,7 +45,11 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("IntersectionObserver", app)
         self.assertIn("threshold: [0.6]", app)
         self.assertIn("bullet__status--", app)
+        self.assertIn("id=\"hideSeenButton\"", app)
+        self.assertIn("Hide seen", app)
+        self.assertIn("Show seen", app)
         self.assertIn(".bullet--seen", css)
+        self.assertIn(".bullet--hidden", css)
         self.assertIn(".bullet__status--new", css)
         self.assertIn(".bullet__status--seen", css)
 

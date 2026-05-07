@@ -110,6 +110,11 @@ footer {
 }
 
 .button:hover { background: rgba(34, 211, 238, 0.2); }
+.button--compact {
+  margin-top: 0;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+}
 
 .eyebrow {
   color: var(--accent);
@@ -156,6 +161,11 @@ main {
 .section {
   margin-top: 1.5rem;
 }
+.briefing-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0.5rem 0 0.75rem;
+}
 
 .section h3 {
   margin-bottom: 0.75rem;
@@ -185,6 +195,7 @@ main {
   opacity: 0.72;
   background: rgba(15, 23, 42, 0.35);
 }
+.bullet--hidden { display: none; }
 
 .bullet__heading {
   display: flex;

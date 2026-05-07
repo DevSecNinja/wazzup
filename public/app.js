@@ -16,6 +16,7 @@ const DEFAULT_RETENTION_DAYS = 35;
 const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 
 let briefingSeenObserver = null;
+let hideSeenEnabled = false;
 
 async function getJson(path) {
   const response = await fetch(path, { cache: 'no-store' });
@@ -192,10 +193,32 @@ function setBulletSeenState(bulletEl, seen) {
   const statusEl = bulletEl.querySelector('.bullet__status');
   bulletEl.dataset.seenState = seen ? 'seen' : 'new';
   bulletEl.classList.toggle('bullet--seen', seen);
+  bulletEl.classList.toggle('bullet--hidden', hideSeenEnabled && seen);
   if (!statusEl) return;
   statusEl.textContent = seen ? 'Seen' : 'New';
   statusEl.classList.toggle('bullet__status--seen', seen);
   statusEl.classList.toggle('bullet__status--new', !seen);
+}
+
+function applyHideSeenFilter() {
+  const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-state]'));
+  bullets.forEach((bulletEl) => {
+    bulletEl.classList.toggle('bullet--hidden', hideSeenEnabled && bulletEl.dataset.seenState === 'seen');
+  });
+  const button = briefingEl.querySelector('#hideSeenButton');
+  if (!button) return;
+  button.textContent = hideSeenEnabled ? 'Show seen' : 'Hide seen';
+  button.setAttribute('aria-pressed', hideSeenEnabled ? 'true' : 'false');
+}
+
+function bindHideSeenButton() {
+  const button = briefingEl.querySelector('#hideSeenButton');
+  if (!button) return;
+  button.addEventListener('click', () => {
+    hideSeenEnabled = !hideSeenEnabled;
+    applyHideSeenFilter();
+  });
+  applyHideSeenFilter();
 }
 
 function markSeenBriefingItems(seenState, itemIds) {
@@ -281,9 +304,11 @@ function renderBriefing(briefing, seenState) {
     <p class="eyebrow">${escapeHtml(briefing.kind)} briefing</p>
     <h2>Today's rolling briefing</h2>
     <p class="meta">Generated ${formatDate(briefing.generatedAt)} · Window ${formatDate(briefing.windowStart)} → ${formatDate(briefing.windowEnd)}</p>
+    <div class="briefing-controls"><button id="hideSeenButton" class="button button--compact" type="button" aria-pressed="false">Hide seen</button></div>
     ${sections}
     ${briefing.provider?.type === 'fake' ? '<p class="provider-note">Deterministic fallback summary. Add a Copilot token secret for AI-written briefings.</p>' : ''}
   `;
+  bindHideSeenButton();
 }
 
 function renderHero(briefing) {
