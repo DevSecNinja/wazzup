@@ -103,7 +103,7 @@ def prioritize_hourly_new_items(scored_items: list[ScoredItem], now: datetime) -
         else:
             older_items.append(scored)
     # New hourly articles stay above older high-scoring items; score only breaks ties among recent items.
-    return sorted(recent_items, key=lambda scored: (parse_iso(scored.item.published_at), scored.score), reverse=True) + older_items
+    return sorted(recent_items, key=lambda scored: (-parse_iso(scored.item.published_at).timestamp(), -scored.score)) + older_items
 
 
 def load_items_from_fixture(source_id: str, fixture_dir: Path, source) -> list[ContentItem] | None:
