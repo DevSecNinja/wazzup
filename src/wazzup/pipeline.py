@@ -102,8 +102,13 @@ def prioritize_hourly_new_items(scored_items: list[ScoredItem], now: datetime) -
             recent_items.append((published_at, scored))
         else:
             older_items.append(scored)
+
+    def newest_first(item: tuple[datetime, ScoredItem]) -> tuple[float, float]:
+        published_at, scored = item
+        return -published_at.timestamp(), -scored.score
+
     # New hourly articles stay above older high-scoring items; score only breaks ties among recent items.
-    return [scored for _, scored in sorted(recent_items, key=lambda item: (-item[0].timestamp(), -item[1].score))] + older_items
+    return [scored for _, scored in sorted(recent_items, key=newest_first)] + older_items
 
 
 def load_items_from_fixture(source_id: str, fixture_dir: Path, source) -> list[ContentItem] | None:
