@@ -10,6 +10,12 @@ function resolveDataUrl(path) {
   return value.startsWith('data/') ? value : `data/${value}`;
 }
 
+function formatNotificationBody(headline, summary = '') {
+  const normalizedHeadline = String(headline || 'A new hourly update is ready').trim();
+  const normalizedSummary = String(summary || '').trim();
+  return normalizedSummary ? `📰 ${normalizedHeadline}\n${normalizedSummary}` : `📰 ${normalizedHeadline}`;
+}
+
 async function readBriefingState() {
   const cache = await caches.open(STATE_CACHE_NAME);
   const response = await cache.match(BRIEFING_STATE_KEY);
@@ -38,9 +44,11 @@ async function fetchLatestBriefingState() {
   const briefingResponse = await fetch(resolveDataUrl(latest.latestBriefingUrl), { cache: 'no-store' });
   if (!briefingResponse.ok) throw new Error(`Failed to load latest briefing: ${briefingResponse.status}`);
   const briefing = await briefingResponse.json();
+  const topBullet = briefing.sections?.[0]?.bullets?.[0];
+  const summary = (topBullet?.description || topBullet?.text || '').trim();
   return {
     latestBriefingUrl: latest.latestBriefingUrl,
-    headline: briefing.headline || 'A new hourly update is ready',
+    body: formatNotificationBody(briefing.headline, summary),
   };
 }
 
@@ -49,7 +57,7 @@ async function checkForBriefingUpdate(showNotification) {
   const previous = await readBriefingState();
   if (showNotification && previous !== null && previous.latestBriefingUrl && previous.latestBriefingUrl !== current.latestBriefingUrl) {
     await self.registration.showNotification('Wazzup hourly update', {
-      body: current.headline,
+      body: current.body,
       icon: 'icons/icon-192.png',
       badge: 'icons/icon-192.png',
       tag: BACKGROUND_SYNC_TAG,
@@ -87,7 +95,7 @@ self.addEventListener('message', (event) => {
   event.waitUntil(
     writeBriefingState({
       latestBriefingUrl: event.data.latestBriefingUrl,
-      headline: event.data.headline || 'A new hourly update is ready',
+      body: event.data.body || formatNotificationBody(event.data.headline),
     }),
   );
 });
