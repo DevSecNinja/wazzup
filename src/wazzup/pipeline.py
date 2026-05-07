@@ -94,16 +94,16 @@ def filter_items_to_window(items: list[ContentItem], window_start: datetime, win
 def prioritize_hourly_new_items(scored_items: list[ScoredItem], now: datetime) -> list[ScoredItem]:
     recent_start = now.astimezone(UTC) - timedelta(hours=1)
     recent_end = now.astimezone(UTC)
-    recent_items = []
+    recent_items: list[tuple[datetime, ScoredItem]] = []
     older_items = []
     for scored in scored_items:
         published_at = parse_iso(scored.item.published_at)
         if recent_start <= published_at <= recent_end:
-            recent_items.append(scored)
+            recent_items.append((published_at, scored))
         else:
             older_items.append(scored)
     # New hourly articles stay above older high-scoring items; score only breaks ties among recent items.
-    return sorted(recent_items, key=lambda scored: (-parse_iso(scored.item.published_at).timestamp(), -scored.score)) + older_items
+    return [scored for _, scored in sorted(recent_items, key=lambda item: (-item[0].timestamp(), -item[1].score))] + older_items
 
 
 def load_items_from_fixture(source_id: str, fixture_dir: Path, source) -> list[ContentItem] | None:
