@@ -306,7 +306,7 @@ function renderBriefing(briefing, seenState) {
     <p class="eyebrow">${escapeHtml(briefing.kind)} briefing</p>
     <h2>Today's rolling briefing</h2>
     <p class="meta">Generated ${formatDate(briefing.generatedAt)} · Window ${formatDate(briefing.windowStart)} → ${formatDate(briefing.windowEnd)}</p>
-    <div class="briefing-controls"><button id="hideSeenButton" class="button button--compact" type="button" aria-pressed="false">Hide seen</button></div>
+    <div class="briefing-controls"><button id="hideSeenButton" class="button button--compact" type="button" aria-pressed="${hideSeenEnabled ? 'true' : 'false'}">${hideSeenEnabled ? 'Show seen' : 'Hide seen'}</button></div>
     ${sections}
     ${briefing.provider?.type === 'fake' ? '<p class="provider-note">Deterministic fallback summary. Add a Copilot token secret for AI-written briefings.</p>' : ''}
   `;
