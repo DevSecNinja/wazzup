@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Jean-Paul van Ravensberg" }]
-dependencies = ["PyYAML>=6.0"]
+dependencies = ["PyYAML==6.0.3"]
 
 [project.scripts]
 wazzup = "wazzup.pipeline:main"
