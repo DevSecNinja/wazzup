@@ -8,7 +8,7 @@
 | Lint                | Pull request and manual dispatch                            | Reusable organization lint workflow from `DevSecNinja/.github`.                                                                                  |
 | Auto-fix formatting | Manual dispatch                                             | Reusable organization formatting workflow that commits dprint/yamlfmt fixes back to the branch.                                                  |
 | News hourly         | Hourly schedule with local cadence gate and manual dispatch | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
-| Pages               | Successful `News hourly` workflow run and manual dispatch   | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.                                  |
+| Pages               | Successful `News hourly` workflow run, push to `main`, and manual dispatch | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.                                  |
 | Config Sync         | Weekly and manual dispatch                                  | Open PRs when shared repo config from `DevSecNinja/.github` drifts.                                                                              |
 | Label Sync          | Daily, manual dispatch, and label config changes            | Sync repository labels from the org base labels plus repo-specific labels.                                                                       |
 | Labeler             | Pull requests, issues, and manual dispatch                  | Apply area/type labels using shared labeler automation.                                                                                          |
@@ -244,7 +244,7 @@ Use pinned tags or SHA references for reusable workflows. Avoid using a moving b
 
 ## Implemented Pages workflow
 
-[../.github/workflows/pages.yml](../.github/workflows/pages.yml) runs after successful `News hourly` completion or by manual dispatch. It delegates deployment to the reusable Pages workflow with these important inputs:
+[../.github/workflows/pages.yml](../.github/workflows/pages.yml) runs after successful `News hourly` completion, on pushes to `main`, or by manual dispatch. This means content and PWA shell changes deploy when they merge, while scheduled news runs still deploy freshly generated data after state persistence succeeds. It delegates deployment to the reusable Pages workflow with these important inputs:
 
 - `artifact-path: public`
 - `install-command`: install mise, trust config, install tools, and run `task install`

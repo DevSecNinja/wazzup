@@ -17,6 +17,15 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("overnight two-hour cadence", workflow)
         self.assertNotIn('cron: "d"', workflow)
 
+    def test_pages_workflow_runs_after_main_updates(self) -> None:
+        workflow = Path(".github/workflows/pages.yml").read_text(encoding="utf-8")
+        self.assertIn("push:", workflow)
+        self.assertIn("branches:", workflow)
+        self.assertIn("- main", workflow)
+        self.assertIn("workflow_run:", workflow)
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertIn("build-command: ~/.local/bin/mise exec -- task pages:build", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
