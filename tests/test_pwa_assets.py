@@ -17,13 +17,15 @@ class PwaAssetTests(unittest.TestCase):
         self.assertTrue(Path("public/icons/apple-touch-icon.png").exists())
         self.assertTrue(Path("public/icons/favicon.svg").exists())
 
-    def test_svg_icons_use_edge_to_edge_gradient_background(self) -> None:
+    def test_svg_icons_use_centered_gradient_mark(self) -> None:
         icon = Path("public/icons/icon.svg").read_text(encoding="utf-8")
         favicon = Path("public/icons/favicon.svg").read_text(encoding="utf-8")
-        self.assertIn('<rect x="0" y="0" width="512" height="512" rx="116" fill="url(#bg)"', icon)
-        self.assertNotIn('<rect x="58" y="58" width="396" height="396" rx="96" fill="url(#bg)"', icon)
-        self.assertIn('<rect x="0" y="0" width="64" height="64" rx="15" fill="url(#g)"', favicon)
-        self.assertNotIn('<rect x="7" y="7" width="50" height="50" rx="13" fill="url(#g)"', favicon)
+        self.assertIn('<rect x="56" y="56" width="400" height="400" rx="104" fill="url(#bg)"', icon)
+        self.assertIn('d="M124 166 176 348 256 188 336 348 388 166"', icon)
+        self.assertNotIn('d="M142 130h148"', icon)
+        self.assertNotIn('d="M336 130h34"', icon)
+        self.assertIn('<rect x="7" y="7" width="50" height="50" rx="13" fill="url(#g)"', favicon)
+        self.assertIn('d="M15.5 20.75 22 43.5 32 23.5 42 43.5 48.5 20.75"', favicon)
 
     def test_apple_touch_icon_is_opaque_rgb_png(self) -> None:
         data = Path("public/icons/apple-touch-icon.png").read_bytes()
