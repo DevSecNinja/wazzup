@@ -277,6 +277,7 @@ function observeBriefingItems(seenState) {
 
 function renderBriefing(briefing, seenState) {
   const citations = citationMap(briefing);
+  const hasMultipleSections = (briefing.sections || []).length > 1;
   const sections = (briefing.sections || [])
     .map((section, sectionIndex) => {
       const bullets = (section.bullets || [])
@@ -298,14 +299,12 @@ function renderBriefing(briefing, seenState) {
           return `<li class="bullet bullet--${temperatureLevel}${seen ? ' bullet--seen' : ''}" data-seen-item-ids="${escapeHtml(itemIds.join(','))}" data-seen-state="${seen ? 'seen' : 'new'}"><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '•')}</span><h4>${escapeHtml(normalized.title)}</h4><span class="bullet__status bullet__status--${seen ? 'seen' : 'new'}">${seen ? 'Seen' : 'New'}</span></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${links}</div></li>`;
         })
         .join('');
-      return `<section class="section"><h3>${escapeHtml(section.title)}</h3><ul class="bullet-list">${bullets}</ul></section>`;
+      return `<section class="section">${hasMultipleSections ? `<h3>${escapeHtml(section.title)}</h3>` : ''}<ul class="bullet-list">${bullets}</ul></section>`;
     })
     .join('');
 
   briefingEl.innerHTML = `
-    <p class="eyebrow">${escapeHtml(briefing.kind)} briefing</p>
-    <h2>Today's rolling briefing</h2>
-    <p class="meta">Generated ${formatDate(briefing.generatedAt)} · Window ${formatDate(briefing.windowStart)} → ${formatDate(briefing.windowEnd)}</p>
+    <p class="meta">Generated ${formatDate(briefing.generatedAt)}</p>
     <div class="briefing-controls"><button id="hideSeenButton" class="button button--compact" type="button" aria-pressed="${hideSeenEnabled ? 'true' : 'false'}">${hideSeenEnabled ? 'Show seen' : 'Hide seen'}</button></div>
     ${sections}
     ${briefing.provider?.type === 'fake' ? '<p class="provider-note">Deterministic fallback summary. Add a Copilot token secret for AI-written briefings.</p>' : ''}

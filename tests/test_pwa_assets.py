@@ -62,6 +62,15 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn(".bullet__status--new", css)
         self.assertIn(".bullet__status--seen", css)
 
+    def test_briefing_card_header_is_minimal(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        self.assertRegex(app, r'<p class="meta">\s*Generated \$\{formatDate\(briefing\.generatedAt\)\}\s*</p>')
+        self.assertNotIn("Today's rolling briefing", app)
+        self.assertNotIn('${escapeHtml(briefing.kind)} briefing', app)
+        self.assertNotIn("Window ${formatDate(briefing.windowStart)}", app)
+        self.assertRegex(app, r"const\s+hasMultipleSections\s*=\s*\(briefing\.sections\s*\|\|\s*\[\]\)\.length\s*>\s*1;")
+        self.assertRegex(app, r"hasMultipleSections\s*\?\s*`<h3>\$\{escapeHtml\(section\.title\)\}</h3>`\s*:\s*''")
+
     def test_homepage_uses_simple_header_and_yesterday_card(self) -> None:
         html = Path("public/index.html").read_text(encoding="utf-8")
         self.assertIn("viewport-fit=cover", html)
