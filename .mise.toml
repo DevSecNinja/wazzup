@@ -13,7 +13,7 @@ cocogitto = "7.0.0"
 dprint = "0.54.0"
 yamlfmt = "0.21.0"
 # renovate: datasource=pypi depName=pipx
-pipx = "1.8.0"
+pipx = "1.11.1"
 "pipx:yamllint" = "1.38.0"
 actionlint = "1.7.12"
 gitleaks = "8.30.1"
