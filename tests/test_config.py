@@ -24,6 +24,10 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual("en", config.summary_language)
         self.assertEqual(35, config.retention_days)
         self.assertGreaterEqual(len(config.interests), 3)
+        negative_interests = {interest.id: interest for interest in config.interests if interest.weight < 0}
+        self.assertIn("uk-politics", negative_interests)
+        self.assertIn("celebrity-entertainment", negative_interests)
+        self.assertIn("glamour", negative_interests["celebrity-entertainment"].keywords)
 
 
 if __name__ == "__main__":

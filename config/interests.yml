@@ -47,3 +47,21 @@ interests:
       - defender
       - entra
       - windows
+  - id: uk-politics
+    name: UK politics
+    weight: -0.8
+    keywords:
+      - uk politics
+      - british politics
+      - downing street
+      - westminster
+      - parliament
+  - id: celebrity-entertainment
+    name: Celebrity and entertainment
+    weight: -0.7
+    keywords:
+      - celebrity
+      - celebrities
+      - glamour
+      - entertainment
+      - showbiz

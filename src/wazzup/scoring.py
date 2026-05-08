@@ -45,10 +45,13 @@ def score_items(
         for interest in app_config.interests:
             matches = [keyword for keyword in interest.keywords if keyword.lower() in haystack]
             if matches:
-                matched_interests.append(interest.id)
                 increment = min(len(matches), 3) * 4.0 * interest.weight
                 score += increment
-                reasons.append(f"matches {interest.name}: {', '.join(matches[:3])}")
+                if interest.weight >= 0:
+                    matched_interests.append(interest.id)
+                    reasons.append(f"matches {interest.name}: {', '.join(matches[:3])}")
+                else:
+                    reasons.append(f"demotes {interest.name}: {', '.join(matches[:3])}")
 
         published = parse_iso(item.published_at)
         age_hours = max((now - published).total_seconds() / 3600, 0)
