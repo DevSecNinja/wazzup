@@ -83,11 +83,24 @@ function stripLeadingTitle(text, title) {
   return cleanText;
 }
 
+function stripInterestBoilerplate(text) {
+  if (typeof text !== 'string') return text;
+  // Strip trailing AI-generated interest-match boilerplate appended during scoring.
+  // Handles: "… Relevant to your X interests.", "… It matches your X interests.",
+  //          "… Why it matters: …"
+  return text
+    .replace(/ (?:It matches|Relevant to) your\b[^.]*\binterests\.?\s*$/, '')
+    .replace(/ Why it matters:[\s\S]*$/, '')
+    .trimEnd();
+}
+
 function normalizeBullet(bullet, citations) {
   const firstCitation = (bullet.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
   const fullTitle = bullet.title || firstCitation?.title || 'Update';
   const title = truncateText(fullTitle, MAX_HEADLINE_LENGTH);
-  const rawDescription = bullet.description || stripLeadingTitle(bullet.text, fullTitle) || bullet.text || '';
+  const rawDescription = stripInterestBoilerplate(
+    bullet.description || stripLeadingTitle(bullet.text, fullTitle) || bullet.text || '',
+  );
   const sourceTag = firstCitation?.sourceTag || firstCitation?.sourceName || '';
   const tags = Array.from(new Set([sourceTag, ...(firstCitation?.tags || [])].filter(Boolean))).slice(0, 5);
   return {
@@ -316,7 +329,7 @@ function renderHero(briefing) {
   const citations = citationMap(briefing);
   const topBullet = briefing.sections?.[0]?.bullets?.[0];
   const normalized = topBullet ? normalizeBullet(topBullet, citations) : null;
-  heroHeadlineEl.textContent = truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
+  heroHeadlineEl.textContent = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
   heroSummaryEl.textContent = normalized?.description || 'No notable updates were found in today’s rolling briefing.';
 }
 
