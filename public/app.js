@@ -351,8 +351,10 @@ function renderBriefing(briefing, seenState) {
     .join('');
 
   briefingEl.innerHTML = `
-    <p class="meta">Generated ${formatDate(briefing.generatedAt)}</p>
-    <div class="briefing-controls"><button id="hideSeenButton" class="button button--compact" type="button" aria-pressed="${hideSeenEnabled ? 'true' : 'false'}">${hideSeenEnabled ? 'Show seen' : 'Hide seen'}</button></div>
+    <div class="briefing-header">
+      <p class="meta">Generated ${formatDate(briefing.generatedAt)}</p>
+      <div class="briefing-controls"><button id="hideSeenButton" class="button button--compact" type="button" aria-pressed="${hideSeenEnabled ? 'true' : 'false'}">${hideSeenEnabled ? 'Show seen' : 'Hide seen'}</button></div>
+    </div>
     ${sections}
     ${briefing.provider?.type === 'fake' ? '<p class="provider-note">Deterministic fallback summary. Add a Copilot token secret for AI-written briefings.</p>' : ''}
   `;

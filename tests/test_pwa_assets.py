@@ -80,7 +80,12 @@ class PwaAssetTests(unittest.TestCase):
 
     def test_briefing_card_header_is_minimal(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
+        css = Path("public/styles.css").read_text(encoding="utf-8")
+        self.assertIn('<div class="briefing-header">', app)
         self.assertRegex(app, r'<p class="meta">\s*Generated \$\{formatDate\(briefing\.generatedAt\)\}\s*</p>')
+        self.assertIn(".briefing-header", css)
+        self.assertIn("align-items: center", css)
+        self.assertIn("justify-content: space-between", css)
         self.assertNotIn("Today's rolling briefing", app)
         self.assertNotIn('${escapeHtml(briefing.kind)} briefing', app)
         self.assertNotIn("Window ${formatDate(briefing.windowStart)}", app)

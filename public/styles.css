@@ -168,10 +168,23 @@ main {
 .section {
   margin-top: 1.5rem;
 }
+
+.briefing-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.briefing-header .meta {
+  margin: 0;
+}
+
 .briefing-controls {
   display: flex;
   justify-content: flex-end;
-  margin: 0.5rem 0 0.75rem;
 }
 
 .section h3 {
