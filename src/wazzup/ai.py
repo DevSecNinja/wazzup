@@ -229,8 +229,19 @@ def response_from_payload(payload: dict[str, Any], provider: dict[str, Any]) -> 
         if not isinstance(bullets, list):
             raise ValueError("AI response section missing bullets")
         for bullet in bullets:
-            if not isinstance(bullet, dict) or not isinstance(bullet.get("text"), str):
+            if not isinstance(bullet, dict):
                 raise ValueError("AI response bullet missing text")
+            if not isinstance(bullet.get("text"), str):
+                title = bullet.get("title")
+                description = bullet.get("description")
+                if isinstance(title, str) and isinstance(description, str) and description.strip():
+                    bullet["text"] = f"{title.strip()}: {description.strip()}" if title.strip() else description.strip()
+                elif isinstance(description, str) and description.strip():
+                    bullet["text"] = description.strip()
+                else:
+                    raise ValueError("AI response bullet missing text")
+            if not isinstance(bullet.get("description"), str):
+                bullet["description"] = bullet["text"]
             citations = bullet.get("citations")
             if not isinstance(citations, list) or not all(isinstance(citation, str) for citation in citations):
                 raise ValueError("AI response bullet missing citations")

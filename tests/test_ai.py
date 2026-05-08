@@ -13,6 +13,7 @@ from wazzup.ai import (
     SummaryRequest,
     build_prompt_payload,
     provider_from_env,
+    response_from_payload,
 )
 from wazzup.config import load_app_config, load_sources
 from wazzup.feeds import parse_feed
@@ -99,6 +100,32 @@ class AiProviderTests(unittest.TestCase):
         )
         style_guide = payload["styleGuide"]
         self.assertIn("Describe relevance directly without labels like 'Why it matters'.", style_guide)
+
+    def test_response_from_payload_accepts_description_without_text(self) -> None:
+        response = response_from_payload(
+            {
+                "headline": "Important updates",
+                "sections": [
+                    {
+                        "title": "Top updates",
+                        "bullets": [
+                            {
+                                "title": "Microsoft ships a security update",
+                                "description": "The release improves defender triage workflows.",
+                                "citations": ["item-1"],
+                            }
+                        ],
+                    }
+                ],
+            },
+            provider={"type": "copilot-cli", "validated": True},
+        )
+
+        bullet = response.sections[0]["bullets"][0]
+        self.assertEqual(
+            "Microsoft ships a security update: The release improves defender triage workflows.", bullet["text"]
+        )
+        self.assertEqual("The release improves defender triage workflows.", bullet["description"])
 
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
     def test_copilot_requires_token_in_github_actions(self, _which) -> None:  # type: ignore[no-untyped-def]
