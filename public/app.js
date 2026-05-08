@@ -85,20 +85,7 @@ function stripLeadingTitle(text, title) {
 
 function stripInterestBoilerplate(text) {
   if (typeof text !== 'string') return text;
-  const markers = [' Why it matters:', ' It matches your', ' Relevant to your'];
-  let result = text;
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const marker of markers) {
-      const idx = result.lastIndexOf(marker);
-      if (idx !== -1) {
-        result = result.slice(0, idx).trimEnd();
-        changed = true;
-      }
-    }
-  }
-  return result;
+  return text.replace(/ (?:Why it matters:|It matches your|Relevant to your)[\s\S]*$/, '').trimEnd();
 }
 
 function normalizeBullet(bullet, citations) {
