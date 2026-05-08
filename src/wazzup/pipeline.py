@@ -133,7 +133,7 @@ def featured_hourly_item_ids_for_local_day(data_dir: Path, now: datetime, timezo
 def exclude_already_featured_hourly_items(scored_items: list[ScoredItem], featured_item_ids: set[str]) -> list[ScoredItem]:
     if not featured_item_ids:
         return scored_items
-    fresh_items = [scored for scored in scored_items if not featured_item_ids.intersection(scored_source_item_ids(scored))]
+    fresh_items = [scored for scored in scored_items if not scored_source_item_ids(scored).issubset(featured_item_ids)]
     # On slow news days, keep existing ranking if there are no fresh items to show.
     return fresh_items if fresh_items else scored_items
 

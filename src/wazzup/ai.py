@@ -122,7 +122,9 @@ class CopilotCliSummaryProvider:
                 f"Read {input_path}, summarize in English, and write strict JSON to {output_path}. "
                 "The JSON object must contain headline and sections. "
                 "Every bullet must include citations containing source item IDs from the input. "
-                "Create one bullet for each input item, preserving the input order. "
+                "Merge input items into one bullet when they describe the same story, campaign, incident, vendor, "
+                "product, or affected organization; cite every source item ID that supports the merged bullet. "
+                "Otherwise preserve the input order so newly published hourly articles stay at the top. "
                 "Do not include Markdown fences or commentary."
             )
             command = [
@@ -241,7 +243,8 @@ def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
             "For each bullet, provide title and description separately. Avoid repeating the same title in the description.",
             "Never mention scoring internals such as source weight, score, recency bonus, or duplicate group IDs.",
             "Keep bullets concise and source-grounded.",
-            "Preserve the input item order so newly published hourly articles stay at the top.",
+            "Preserve the input item order so newly published hourly articles stay at the top, except when merging related items into one synthesized bullet.",
+            "Merge closely related input items into one synthesized bullet when they describe the same story, campaign, incident, vendor, product, or affected organization; cite every source item ID that supports the merged bullet.",
             "When an input item includes relatedItems, treat the item and relatedItems as one correlated story and cite every source item ID that supports the bullet.",
         ],
     }

@@ -162,6 +162,23 @@ class AiProviderTests(unittest.TestCase):
         self.assertIn("relatedItems", style_guide)
         self.assertIn("one correlated story", style_guide)
 
+    def test_prompt_allows_synthesized_bullets_for_related_items(self) -> None:
+        payload = build_prompt_payload(
+            SummaryRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                summary_language="en",
+                items=[],
+            )
+        )
+        style_guide = "\n".join(payload["styleGuide"])
+        self.assertIn("Merge closely related input items into one synthesized bullet", style_guide)
+        self.assertIn("same story", style_guide)
+        self.assertIn("cite every source item ID", style_guide)
+
     def test_prompt_style_guide_requires_english_translation(self) -> None:
         payload = build_prompt_payload(
             SummaryRequest(
@@ -223,6 +240,9 @@ class AiProviderTests(unittest.TestCase):
             self.assertEqual(DEFAULT_COPILOT_MODEL, command[command.index("--model") + 1])
             self.assertIn("--agent", command)
             self.assertEqual(DEFAULT_COPILOT_AGENT, command[command.index("--agent") + 1])
+            prompt = command[command.index("-p") + 1]
+            self.assertIn("Merge input items into one bullet", prompt)
+            self.assertNotIn("Create one bullet for each input item", prompt)
             return Mock(returncode=0, stdout="", stderr="")
 
         run_mock.side_effect = fake_run
