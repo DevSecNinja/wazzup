@@ -17,7 +17,8 @@ const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
 const SEEN_VISIBILITY_RATIO = 0.85;
 const SEEN_DWELL_MS = 1500;
-const STALE_RUN_THRESHOLD_MINUTES = 150;
+const STALE_RUN_THRESHOLD_MINUTES = 2 * 60 + 30;
+const CATCH_UP_WORKFLOW_NAME = 'News hourly';
 
 let briefingSeenObserver = null;
 let briefingSeenTimers = new WeakMap();
@@ -544,7 +545,7 @@ function renderSources(status, latest) {
   const provider = runStatus.provider || 'unknown';
   const generatedItemCount = Number(runStatus.generatedItemCount || 0);
   const staleHint = stale
-    ? '<p class="source-meta">Latest pipeline run looks stale. Trigger <code>News hourly</code> manually from Actions &rarr; workflow_dispatch.</p>'
+    ? `<p class="source-meta">Latest pipeline run looks stale. Trigger <code>${escapeHtml(CATCH_UP_WORKFLOW_NAME)}</code> manually from Actions &rarr; workflow_dispatch.</p>`
     : '';
   const badgeClassName = pipelineStatusClassName(badge);
   const items = sources

@@ -183,7 +183,7 @@ class PipelineTests(unittest.TestCase):
                 self.assertEqual("fake", run_status["provider"])
                 self.assertEqual("hourly", run_status["briefingKind"])
                 self.assertEqual(len(status_json["sources"]), run_status["sourceCount"])
-                self.assertEqual(len([source for source in status_json["sources"] if not source["ok"]]), run_status["failedSourceCount"])
+                self.assertEqual(latest["health"]["failedSourceCount"], run_status["failedSourceCount"])
                 self.assertEqual(len(articles_json["items"]), run_status["generatedItemCount"])
                 self.assertEqual(latest["generatedAt"], run_status["lastAttemptedRunAt"])
                 self.assertEqual(latest["generatedAt"], run_status["lastSuccessfulRunAt"])

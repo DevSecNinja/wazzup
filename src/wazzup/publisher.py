@@ -217,7 +217,7 @@ def build_run_status(
         "lastAttemptedRunAt": isoformat(generated_at),
         "lastSuccessfulRunAt": isoformat(generated_at),
         "provider": provider,
-        "briefingKind": kind,
+        "briefingKind": str(kind),
         "sourceCount": len(statuses),
         "failedSourceCount": failed_source_count,
         "generatedItemCount": len(scored_items),
