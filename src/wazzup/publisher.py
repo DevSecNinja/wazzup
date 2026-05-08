@@ -86,7 +86,7 @@ def article_temperature(scored: ScoredItem) -> dict[str, Any]:
         return {"level": "hot", "label": "High priority", "icon": "🔥"}
     if scored.score >= 24:
         return {"level": "warm", "label": "Worth knowing", "icon": "⚡"}
-    return {"level": "cool", "label": "Background", "icon": "•"}
+    return {"level": "cool", "label": "Background", "icon": "📄"}
 
 
 def briefing_path(data_dir: Path, kind: BriefingKind, window_end: datetime) -> Path:

@@ -97,6 +97,14 @@ function stripInterestBoilerplate(text) {
     .trimEnd();
 }
 
+function normalizeTemperature(temperature) {
+  const normalized = temperature || { level: 'cool', label: 'Background', icon: '📄' };
+  if (temperatureClass(normalized) === 'cool' && (!normalized.icon || normalized.icon === '•')) {
+    return { ...normalized, icon: '📄' };
+  }
+  return normalized;
+}
+
 function normalizeBullet(bullet, citations) {
   const firstCitation = (bullet.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
   const fullTitle = bullet.title || firstCitation?.title || 'Update';
@@ -110,7 +118,8 @@ function normalizeBullet(bullet, citations) {
     title,
     description: truncateText(rawDescription, MAX_DESCRIPTION_LENGTH),
     tags,
-    temperature: firstCitation?.temperature || { level: 'cool', label: 'Background', icon: '•' },
+    primaryUrl: firstCitation?.url || '',
+    temperature: normalizeTemperature(firstCitation?.temperature),
   };
 }
 
@@ -239,6 +248,33 @@ function bindHideSeenButton() {
   applyHideSeenFilter();
 }
 
+function isInteractiveTarget(target) {
+  return Boolean(target?.closest('a, button'));
+}
+
+function openPrimaryBulletUrl(bulletEl) {
+  const url = bulletEl?.dataset?.primaryUrl;
+  if (!url) return;
+  const opened = window.open(url, '_blank', 'noopener,noreferrer');
+  if (opened) opened.opener = null;
+}
+
+function bindBriefingBulletLinks() {
+  const bullets = Array.from(briefingEl.querySelectorAll('.bullet[data-primary-url]'));
+  bullets.forEach((bulletEl) => {
+    bulletEl.addEventListener('click', (event) => {
+      if (isInteractiveTarget(event.target)) return;
+      openPrimaryBulletUrl(bulletEl);
+    });
+    bulletEl.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      if (isInteractiveTarget(event.target)) return;
+      event.preventDefault();
+      openPrimaryBulletUrl(bulletEl);
+    });
+  });
+}
+
 function markSeenBriefingItems(seenState, itemIds) {
   let changed = false;
   itemIds.forEach((itemId) => {
@@ -334,6 +370,9 @@ function renderBriefing(briefing, seenState) {
           const temperatureLevel = temperatureClass(temperature);
           const itemIds = bulletItemIds(briefing, bullet, sectionIndex, bulletIndex);
           const seen = isSeenBriefingItem(seenState, itemIds);
+          const primaryUrlAttrs = normalized.primaryUrl
+            ? ` data-primary-url="${escapeHtml(normalized.primaryUrl)}" role="link" tabindex="0" aria-label="Open ${escapeHtml(normalized.title)}"`
+            : '';
           const links = (bullet.citations || [])
             .map((itemId) => citations.get(itemId))
             .filter(Boolean)
@@ -343,7 +382,7 @@ function renderBriefing(briefing, seenState) {
             )
             .join('');
           const tags = normalized.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
-          return `<li class="bullet bullet--${temperatureLevel}${seen ? ' bullet--seen' : ''}" data-seen-item-ids="${escapeHtml(itemIds.join(','))}" data-seen-state="${seen ? 'seen' : 'new'}"><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '•')}</span><h4>${escapeHtml(normalized.title)}</h4><span class="bullet__status bullet__status--${seen ? 'seen' : 'new'}">${seen ? 'Seen' : 'New'}</span></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${links}</div></li>`;
+          return `<li class="bullet bullet--${temperatureLevel}${seen ? ' bullet--seen' : ''}" data-seen-item-ids="${escapeHtml(itemIds.join(','))}" data-seen-state="${seen ? 'seen' : 'new'}"${primaryUrlAttrs}><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '📄')}</span><h4>${escapeHtml(normalized.title)}</h4><span class="bullet__status bullet__status--${seen ? 'seen' : 'new'}">${seen ? 'Seen' : 'New'}</span></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${links}</div></li>`;
         })
         .join('');
       return `<section class="section">${hasMultipleSections ? `<h3>${escapeHtml(section.title)}</h3>` : ''}<ul class="bullet-list">${bullets}</ul></section>`;
@@ -359,6 +398,7 @@ function renderBriefing(briefing, seenState) {
     ${briefing.provider?.type === 'fake' ? '<p class="provider-note">Deterministic fallback summary. Add a Copilot token secret for AI-written briefings.</p>' : ''}
   `;
   bindHideSeenButton();
+  bindBriefingBulletLinks();
 }
 
 function renderHero(briefing) {

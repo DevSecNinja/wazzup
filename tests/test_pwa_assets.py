@@ -38,9 +38,31 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("MAX_HEADLINE_LENGTH", app)
         self.assertIn("normalizeBullet", app)
         self.assertIn("temperatureClass", app)
+        self.assertIn("primaryUrl", app)
+        self.assertIn("bindBriefingBulletLinks", app)
+        self.assertIn("data-primary-url", app)
+        self.assertIn("role=\"link\"", app)
         self.assertIn("bullet--", app)
         self.assertIn("tag-list", app)
         self.assertIn("renderYesterday", app)
+
+    def test_briefing_items_open_first_citation_url(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        css = Path("public/styles.css").read_text(encoding="utf-8")
+        self.assertIn("primaryUrl: firstCitation?.url || ''", app)
+        self.assertIn("window.open(url, '_blank', 'noopener,noreferrer')", app)
+        self.assertIn("isInteractiveTarget(event.target)", app)
+        self.assertIn("keydown", app)
+        self.assertIn(".bullet[data-primary-url]", css)
+        self.assertIn("cursor: pointer", css)
+
+    def test_background_news_uses_page_icon(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        publisher = Path("src/wazzup/publisher.py").read_text(encoding="utf-8")
+        self.assertIn("normalizeTemperature", app)
+        self.assertIn("normalized.icon === '•'", app)
+        self.assertIn("icon: '📄'", app)
+        self.assertIn('"icon": "📄"', publisher)
 
     def test_desktop_sources_card_aligns_with_briefing_card(self) -> None:
         css = Path("public/styles.css").read_text(encoding="utf-8")
