@@ -115,6 +115,7 @@ def validate_data_dir(data_dir: Path) -> None:
             "latestBriefingUrl",
             "latestArticlesUrl",
             "health",
+            "runStatus",
         ],
         "latest.json",
     )
@@ -129,6 +130,26 @@ def validate_data_dir(data_dir: Path) -> None:
     load_json(data_dir / "sources" / "status.json")
     load_yaml(data_dir / "sources" / "status.yaml")
     load_yaml(data_dir / "manifest.yaml")
+    run_status = latest.get("runStatus")
+    if not isinstance(run_status, dict):
+        raise ValidationError("latest.json runStatus must be an object")
+    require_keys(
+        run_status,
+        [
+            "schemaVersion",
+            "status",
+            "sourceStatus",
+            "providerStatus",
+            "lastAttemptedRunAt",
+            "lastSuccessfulRunAt",
+            "provider",
+            "briefingKind",
+            "sourceCount",
+            "failedSourceCount",
+            "generatedItemCount",
+        ],
+        "latest.json runStatus",
+    )
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

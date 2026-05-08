@@ -17,6 +17,7 @@ const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
 const SEEN_VISIBILITY_RATIO = 0.85;
 const SEEN_DWELL_MS = 1500;
+const STALE_RUN_THRESHOLD_MINUTES = 150;
 
 let briefingSeenObserver = null;
 let briefingSeenTimers = new WeakMap();
@@ -500,10 +501,45 @@ function renderHero(briefing) {
   heroSummaryEl.textContent = normalized?.description || 'No notable updates were found in today’s rolling briefing.';
 }
 
-function renderSources(status) {
+function pipelineStatusBadge(runStatus, stale) {
+  if (stale) return { text: 'Stale', bad: true, warn: false };
+  switch (runStatus?.status) {
+    case 'degraded_provider':
+    case 'degraded_provider_and_sources':
+      return { text: 'AI degraded', bad: true, warn: false };
+    case 'degraded_sources':
+      return { text: 'Source degraded', bad: false, warn: true };
+    default:
+      return { text: 'Healthy', bad: false, warn: false };
+  }
+}
+
+function runAgeMinutes(runStatus) {
+  const lastAttemptedRunAt = runStatus?.lastAttemptedRunAt;
+  if (!lastAttemptedRunAt) return null;
+  const ageMs = Date.now() - new Date(lastAttemptedRunAt).getTime();
+  if (!Number.isFinite(ageMs) || ageMs < 0) return null;
+  return Math.floor(ageMs / 60000);
+}
+
+function runIsStale(runStatus) {
+  const ageMinutes = runAgeMinutes(runStatus);
+  return ageMinutes !== null && ageMinutes > STALE_RUN_THRESHOLD_MINUTES;
+}
+
+function renderSources(status, latest) {
   const sources = (status.sources || [])
     .slice()
     .sort((sourceA, sourceB) => sourceA.sourceId.localeCompare(sourceB.sourceId));
+  const runStatus = latest?.runStatus || {};
+  const stale = runIsStale(runStatus);
+  const badge = pipelineStatusBadge(runStatus, stale);
+  const generatedAt = runStatus.lastSuccessfulRunAt || latest?.generatedAt;
+  const provider = runStatus.provider || 'unknown';
+  const generatedItemCount = Number(runStatus.generatedItemCount || 0);
+  const staleHint = stale
+    ? '<p class="source-meta">Latest pipeline run looks stale. Trigger <code>News hourly</code> manually from Actions → workflow_dispatch.</p>'
+    : '';
   const items = sources
     .map(
       (source) => `<li>
@@ -516,6 +552,8 @@ function renderSources(status) {
   sourcesEl.innerHTML = `
     <p class="eyebrow">Source health</p>
     <h2>${sources.filter((source) => source.ok).length}/${sources.length} sources healthy</h2>
+    <p class="source-meta pipeline-meta"><span class="status ${badge.bad ? 'status--bad' : ''}${badge.warn ? ' status--warn' : ''}">${badge.text}</span> ${generatedAt ? `Generated ${escapeHtml(formatDate(generatedAt))}` : 'Generated time unavailable'} · ${escapeHtml(provider)} · ${escapeHtml(generatedItemCount)} items</p>
+    ${staleHint}
     <ul class="source-list">${items}</ul>
   `;
 }
@@ -744,7 +782,7 @@ async function main() {
     renderHero(briefing);
     renderBriefing(todayBriefing, seenState);
     observeBriefingItems(seenState);
-    renderSources(status);
+    renderSources(status, latest);
     await renderYesterday(manifest, latest, briefing);
     await renderFooter(buildInfo);
     if ('serviceWorker' in navigator) {

@@ -151,6 +151,8 @@ def publish_outputs(
             "sources": [status.to_dict() for status in statuses],
         },
     )
+    failed_source_count = len([status for status in statuses if not status.ok])
+    run_status = build_run_status(kind, generated_at, scored_items, summary, statuses, failed_source_count)
     latest = {
         "schemaVersion": 1,
         "canonicalFormat": "yaml",
@@ -177,13 +179,52 @@ def publish_outputs(
         "health": {
             "ok": all(status.ok for status in statuses),
             "sourceCount": len(statuses),
-            "failedSourceCount": len([status for status in statuses if not status.ok]),
+            "failedSourceCount": failed_source_count,
         },
+        "runStatus": run_status,
     }
     write_data(data_dir / "latest.yaml", latest)
     enforce_retention(data_dir, generated_at, app_config.retention_days)
     write_manifest(data_dir, generated_at, app_config.retention_days)
     return latest
+
+
+def build_run_status(
+    kind: BriefingKind,
+    generated_at: datetime,
+    scored_items: list[ScoredItem],
+    summary: SummaryResponse,
+    statuses: list[SourceStatus],
+    failed_source_count: int,
+) -> dict[str, Any]:
+    provider = str(summary.provider.get("type", "unknown"))
+    provider_fallback_reason = summary.provider.get("fallbackReason")
+    provider_status = "degraded" if provider.endswith("-fallback") else "ok"
+    source_status = "degraded" if failed_source_count > 0 else "ok"
+    if provider_status == "degraded" and source_status == "degraded":
+        status = "degraded_provider_and_sources"
+    elif provider_status == "degraded":
+        status = "degraded_provider"
+    elif source_status == "degraded":
+        status = "degraded_sources"
+    else:
+        status = "ok"
+    run_status = {
+        "schemaVersion": 1,
+        "status": status,
+        "sourceStatus": source_status,
+        "providerStatus": provider_status,
+        "lastAttemptedRunAt": isoformat(generated_at),
+        "lastSuccessfulRunAt": isoformat(generated_at),
+        "provider": provider,
+        "briefingKind": kind,
+        "sourceCount": len(statuses),
+        "failedSourceCount": failed_source_count,
+        "generatedItemCount": len(scored_items),
+    }
+    if provider_status == "degraded" and isinstance(provider_fallback_reason, str) and provider_fallback_reason.strip():
+        run_status["providerFallbackReason"] = provider_fallback_reason
+    return run_status
 
 
 def relative_data_url(data_dir: Path, path: Path) -> str:

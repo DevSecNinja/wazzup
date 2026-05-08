@@ -159,6 +159,19 @@ jobs:
 
 The workflow triggers hourly because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. A first cadence step computes the local hour and continues every hour from 06:00 to 21:59, then only on even local hours from 22:00 to 05:59. Manual dispatch always runs.
 
+### Manual catch-up for delayed or missed runs
+
+When cron delivery is delayed, use the existing **News hourly** `workflow_dispatch` path:
+
+1. Open **Actions → News hourly → Run workflow**.
+2. Keep `forceBriefing=auto` for normal catch-up, or select `hourly`/`morning`/`evening` for an explicit run.
+3. Keep `aiProvider=copilot-cli` unless you intentionally want deterministic fallback with `fake`.
+4. Run once, then verify `public/data/latest.json` shows a fresh `runStatus.lastSuccessfulRunAt`.
+
+### Lightweight stale-run alert path
+
+The PWA now marks pipeline status as **Stale** when the last attempted run age exceeds the UI threshold. For an operational alert, add a small scheduled workflow that checks `public/data/latest.json` (`runStatus.lastAttemptedRunAt`) and opens an issue or sends a notification when stale for too long.
+
 Operational learning: the first live News hourly run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
 
 After enabling the Copilot PAT, one live run failed because Copilot CLI wrote JSON without the required `sections` array. The provider now treats invalid structured Copilot output as an AI-provider failure and falls back to the deterministic summary shape, recording `provider.type: copilot-cli-fallback` and the validation reason instead of failing the whole state/deploy pipeline.

@@ -249,6 +249,7 @@ Example fields:
 - `latestEveningBriefingUrl`
 - `generatedAt`
 - `health`
+- `runStatus` (last attempted/successful run timestamps, provider, briefing kind, item/source counts, and status)
 
 ## Scheduling model
 

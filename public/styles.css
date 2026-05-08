@@ -345,6 +345,21 @@ main {
 
 .status { color: var(--success); }
 .status--bad { color: var(--warning); }
+.status--warn { color: #fcd34d; }
+
+.pipeline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pipeline-meta code {
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  background: rgba(15, 23, 42, 0.5);
+}
 
 .source-list,
 .yesterday-summary {
