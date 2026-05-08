@@ -226,8 +226,10 @@ class AiProviderTests(unittest.TestCase):
     def test_copilot_cli_uses_default_model_and_writer_agent(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
         previous_model = os.environ.get("COPILOT_MODEL")
         previous_agent = os.environ.get("COPILOT_AGENT")
+        previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
         os.environ.pop("COPILOT_MODEL", None)
         os.environ.pop("COPILOT_AGENT", None)
+        os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
 
         def fake_run(command, capture_output, cwd, env, text):  # type: ignore[no-untyped-def]
             del capture_output, text
@@ -267,6 +269,10 @@ class AiProviderTests(unittest.TestCase):
                 os.environ.pop("COPILOT_AGENT", None)
             else:
                 os.environ["COPILOT_AGENT"] = previous_agent
+            if previous_token is None:
+                os.environ.pop("COPILOT_GITHUB_TOKEN", None)
+            else:
+                os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
         self.assertEqual(DEFAULT_COPILOT_MODEL, response.provider["model"])
         self.assertEqual(DEFAULT_COPILOT_AGENT, response.provider["agent"])
