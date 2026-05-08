@@ -22,7 +22,7 @@
   <rect width="512" height="512" rx="116" fill="#020617" />
   <circle cx="130" cy="110" r="180" fill="#22d3ee" opacity="0.2" />
   <circle cx="418" cy="414" r="172" fill="#8b5cf6" opacity="0.24" />
-  <rect x="58" y="58" width="396" height="396" rx="96" fill="url(#bg)" opacity="0.92" />
+  <rect x="0" y="0" width="512" height="512" rx="116" fill="url(#bg)" opacity="0.92" />
   <path d="M118 176h58l38 146 46-146h49l46 146 38-146h58l-67 202h-57l-43-132-43 132h-57L118 176Z" fill="url(#mark)" filter="url(#glow)" />
   <path d="M142 130h148" stroke="#e0f2fe" stroke-width="24" stroke-linecap="round" opacity="0.95" />
   <path d="M336 130h34" stroke="#e0f2fe" stroke-width="24" stroke-linecap="round" opacity="0.75" />

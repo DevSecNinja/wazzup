@@ -16,6 +16,14 @@ class PwaAssetTests(unittest.TestCase):
         self.assertTrue(Path("public/icons/apple-touch-icon.png").exists())
         self.assertTrue(Path("public/icons/favicon.svg").exists())
 
+    def test_svg_icons_use_edge_to_edge_gradient_background(self) -> None:
+        icon = Path("public/icons/icon.svg").read_text(encoding="utf-8")
+        favicon = Path("public/icons/favicon.svg").read_text(encoding="utf-8")
+        self.assertIn('<rect x="0" y="0" width="512" height="512" rx="116" fill="url(#bg)"', icon)
+        self.assertNotIn('<rect x="58" y="58" width="396" height="396" rx="96" fill="url(#bg)"', icon)
+        self.assertIn('<rect x="0" y="0" width="64" height="64" rx="15" fill="url(#g)"', favicon)
+        self.assertNotIn('<rect x="7" y="7" width="50" height="50" rx="13" fill="url(#g)"', favicon)
+
     def test_app_uses_24_hour_browser_time_and_build_versioned_sw(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
         self.assertIn("hourCycle: 'h23'", app)
