@@ -44,8 +44,15 @@ class PwaAssetTests(unittest.TestCase):
 
     def test_desktop_sources_card_aligns_with_briefing_card(self) -> None:
         css = Path("public/styles.css").read_text(encoding="utf-8")
-        self.assertIn("#briefing { grid-row: span 3; }", css)
-        self.assertIn("#sources { grid-row: span 2; }", css)
+        self.assertIn("grid-template-rows: auto 1fr", css)
+        self.assertIn("#briefing { grid-row: 1 / span 2; }", css)
+        self.assertIn("#sources { grid-row: 2; }", css)
+
+    def test_sidebar_headings_use_compact_scale(self) -> None:
+        css = Path("public/styles.css").read_text(encoding="utf-8")
+        self.assertIn("#yesterday h2,\n#sources h2", css)
+        self.assertIn("font-size: clamp(1.35rem, 2.2vw, 1.8rem)", css)
+        self.assertIn("letter-spacing: 0", css)
 
     def test_pwa_tracks_seen_briefing_items_locally(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")

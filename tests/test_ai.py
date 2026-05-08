@@ -103,6 +103,24 @@ class AiProviderTests(unittest.TestCase):
         style_guide = payload["styleGuide"]
         self.assertIn("Describe relevance directly without labels like 'Why it matters'.", style_guide)
 
+    def test_prompt_style_guide_requires_topic_only_headline(self) -> None:
+        payload = build_prompt_payload(
+            SummaryRequest(
+                kind="evening",
+                window_start="2026-05-06T05:00:00Z",
+                window_end="2026-05-06T18:00:00Z",
+                generated_at="2026-05-06T18:00:00Z",
+                timezone="Europe/Amsterdam",
+                summary_language="en",
+                items=[],
+            )
+        )
+        style_guide = "\n".join(payload["styleGuide"])
+        self.assertIn("topic-only news headline", style_guide)
+        self.assertIn("under 80 characters", style_guide)
+        self.assertIn("Evening Briefing", style_guide)
+        self.assertIn("date", style_guide)
+
     def test_response_from_payload_accepts_description_without_text(self) -> None:
         response = response_from_payload(
             {

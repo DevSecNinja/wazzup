@@ -147,6 +147,13 @@ main {
   letter-spacing: -0.05em;
 }
 
+#yesterday h2,
+#sources h2 {
+  font-size: clamp(1.35rem, 2.2vw, 1.8rem);
+  line-height: 1.18;
+  letter-spacing: 0;
+}
+
 .meta,
 .source-meta {
   color: var(--muted);
@@ -340,9 +347,12 @@ main {
 }
 
 @media (width >= 900px) {
-  main { grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr); }
-  #briefing { grid-row: span 3; }
-  #sources { grid-row: span 2; }
+  main {
+    grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+  #briefing { grid-row: 1 / span 2; }
+  #sources { grid-row: 2; }
 }
 
 @media (width < 720px) {
