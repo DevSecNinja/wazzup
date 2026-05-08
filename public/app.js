@@ -328,13 +328,20 @@ function applyHideSeenFilter() {
   button.setAttribute('aria-pressed', hideSeenEnabled ? 'true' : 'false');
 }
 
-function bindHideSeenButton() {
+function bindHideSeenButton(seenState) {
   const button = briefingEl.querySelector('#hideSeenButton');
   if (!button) return;
   button.addEventListener('click', () => {
     hideSeenEnabled = !hideSeenEnabled;
     safeLocalStorageSet(HIDE_SEEN_STORAGE_KEY, hideSeenEnabled ? '1' : '0');
     applyHideSeenFilter();
+    if (hideSeenEnabled) {
+      briefingSeenObserver?.disconnect();
+      briefingSeenObserver = null;
+      clearPendingSeenTimers();
+      return;
+    }
+    observeBriefingItems(seenState);
   });
   applyHideSeenFilter();
 }
@@ -425,6 +432,7 @@ function observeBriefingItems(seenState) {
     briefingSeenObserver = null;
   }
   clearPendingSeenTimers();
+  if (hideSeenEnabled) return;
   const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
   if (!bullets.length) return;
   if (!('IntersectionObserver' in window)) {
@@ -488,7 +496,7 @@ function renderBriefing(briefing, seenState) {
     ${sections}
     ${briefing.provider?.type === 'fake' ? '<p class="provider-note">Deterministic fallback summary. Add a Copilot token secret for AI-written briefings.</p>' : ''}
   `;
-  bindHideSeenButton();
+  bindHideSeenButton(seenState);
   bindBriefingBulletLinks();
 }
 
