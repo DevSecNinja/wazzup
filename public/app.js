@@ -17,7 +17,8 @@ const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
 const SEEN_VISIBILITY_RATIO = 0.85;
 const SEEN_DWELL_MS = 1500;
-const STALE_RUN_THRESHOLD_MINUTES = 2 * 60 + 30;
+const HOURS_TO_MINUTES = 60;
+const STALE_RUN_THRESHOLD_MINUTES = 2 * HOURS_TO_MINUTES + 30;
 const CATCH_UP_WORKFLOW_NAME = 'News hourly';
 
 let briefingSeenObserver = null;
@@ -525,7 +526,8 @@ function runAgeMinutes(runStatus) {
   const lastAttemptedRunAt = runStatus?.lastAttemptedRunAt;
   if (!lastAttemptedRunAt) return null;
   const ageMs = Date.now() - new Date(lastAttemptedRunAt).getTime();
-  if (!Number.isFinite(ageMs) || ageMs < 0) return null;
+  if (!Number.isFinite(ageMs)) return null;
+  if (ageMs < 0) return 0;
   return Math.floor(ageMs / 60000);
 }
 

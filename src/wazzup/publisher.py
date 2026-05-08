@@ -197,7 +197,8 @@ def build_run_status(
     statuses: list[SourceStatus],
     failed_source_count: int,
 ) -> dict[str, Any]:
-    provider = str(summary.provider.get("type", "unknown"))
+    provider_type = summary.provider.get("type")
+    provider = provider_type.strip() if isinstance(provider_type, str) and provider_type.strip() else "unknown"
     provider_fallback_reason = summary.provider.get("fallbackReason")
     provider_status = "degraded" if provider.endswith("-fallback") else "ok"
     source_status = "degraded" if failed_source_count > 0 else "ok"
