@@ -226,6 +226,12 @@ main {
   outline-offset: 3px;
 }
 
+.bullet[data-primary-url]:hover h4,
+.bullet[data-primary-url]:focus-visible h4 {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
 .bullet__heading {
   display: flex;
   align-items: flex-start;

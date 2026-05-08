@@ -55,6 +55,9 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("keydown", app)
         self.assertIn(".bullet[data-primary-url]", css)
         self.assertIn("cursor: pointer", css)
+        self.assertIn(".bullet[data-primary-url]:hover h4", css)
+        self.assertIn(".bullet[data-primary-url]:focus-visible h4", css)
+        self.assertIn("text-decoration: underline", css)
 
     def test_background_news_uses_page_icon(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
