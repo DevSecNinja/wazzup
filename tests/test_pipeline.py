@@ -383,6 +383,8 @@ class PipelineTests(unittest.TestCase):
 
                 self.assertEqual(1, len(articles["items"]))
                 self.assertEqual({"item-primary", "item-related"}, set(briefing["sourceItemIds"]))
+                self.assertGreater(len(briefing["sections"]), 0)
+                self.assertGreater(len(briefing["sections"][0]["bullets"]), 0)
                 self.assertEqual(1, len(briefing["sections"][0]["bullets"]))
                 self.assertEqual({"item-primary", "item-related"}, set(briefing["sections"][0]["bullets"][0]["citations"]))
         finally:

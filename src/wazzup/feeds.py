@@ -323,8 +323,16 @@ def _parse_content_timestamp(value: str) -> datetime:
     return parsed.astimezone(UTC)
 
 
-def _story_related(left: ContentItem, right: ContentItem) -> bool:
-    if abs(_parse_content_timestamp(left.published_at) - _parse_content_timestamp(right.published_at)) > MAX_STORY_TIME_DELTA:
+def _story_related(left: ContentItem, right: ContentItem, published_at_by_item_id: dict[str, datetime] | None = None) -> bool:
+    published_left = (
+        published_at_by_item_id[left.id] if published_at_by_item_id and left.id in published_at_by_item_id else _parse_content_timestamp(left.published_at)
+    )
+    published_right = (
+        published_at_by_item_id[right.id]
+        if published_at_by_item_id and right.id in published_at_by_item_id
+        else _parse_content_timestamp(right.published_at)
+    )
+    if abs(published_left - published_right) > MAX_STORY_TIME_DELTA:
         return False
     left_title = normalize_title(left.title)
     right_title = normalize_title(right.title)
@@ -337,7 +345,9 @@ def _story_related(left: ContentItem, right: ContentItem) -> bool:
     shared_keywords = left_keywords & right_keywords
     if len(shared_keywords) < MIN_STORY_SHARED_KEYWORDS:
         return False
-    if not (_story_anchor_tokens(shared_keywords) | (_canonical_path_tokens(left) & _canonical_path_tokens(right))):
+    has_anchor_tokens = bool(_story_anchor_tokens(shared_keywords))
+    has_shared_path_tokens = bool(_canonical_path_tokens(left) & _canonical_path_tokens(right))
+    if not (has_anchor_tokens or has_shared_path_tokens):
         return False
     overlap = len(shared_keywords) / max(1, min(len(left_keywords), len(right_keywords)))
     return overlap >= 0.5
@@ -349,9 +359,12 @@ def _flatten_group_items(item: ContentItem) -> list[ContentItem]:
 
 def cluster_related_stories(items: list[ContentItem]) -> list[ContentItem]:
     groups: list[list[ContentItem]] = []
+    published_at_by_item_id = {item.id: _parse_content_timestamp(item.published_at) for item in items}
     for item in items:
         matching_indexes = [
-            index for index, group_items in enumerate(groups) if any(_story_related(item, candidate) for candidate in group_items)
+            index
+            for index, group_items in enumerate(groups)
+            if any(_story_related(item, candidate, published_at_by_item_id) for candidate in group_items)
         ]
         if not matching_indexes:
             groups.append([item])
@@ -364,13 +377,13 @@ def cluster_related_stories(items: list[ContentItem]) -> list[ContentItem]:
 
     winners: list[ContentItem] = []
     for group_items in groups:
-        expanded = [entry for grouped in group_items for entry in _flatten_group_items(grouped)]
-        deduped_by_id: dict[str, ContentItem] = {item.id: item for item in expanded}
-        flattened = list(deduped_by_id.values())
-        winner = max(flattened, key=item_priority)
+        flattened_items = [entry for grouped in group_items for entry in _flatten_group_items(grouped)]
+        deduped_by_id: dict[str, ContentItem] = {item.id: item for item in flattened_items}
+        clustered_items = list(deduped_by_id.values())
+        winner = max(clustered_items, key=item_priority)
         related_items = tuple(
             sorted(
-                (replace(item, related_items=()) for item in flattened if item.id != winner.id),
+                (replace(item, related_items=()) for item in clustered_items if item.id != winner.id),
                 key=item_priority,
                 reverse=True,
             )
