@@ -64,7 +64,8 @@ def score_items(
             score += 6.0
             reasons.append("priority threat intelligence source")
 
-        duplicate_group_id = f"dup-{stable_hash(*sorted([item.id, *(related.id for related in item.related_items)]))}"
+        grouped_item_ids = sorted([item.id, *(related.id for related in item.related_items)])
+        duplicate_group_id = f"dup-{stable_hash(*grouped_item_ids)}"
         scored.append(
             ScoredItem(
                 item=item,

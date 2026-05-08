@@ -48,7 +48,9 @@ def scored_item(item_id: str, published_at: str, score: float) -> ScoredItem:
     )
 
 
-def content_item(item_id: str, source_id: str, title: str, canonical_url: str, published_at: str, summary: str) -> ContentItem:
+def make_test_content_item(
+    item_id: str, source_id: str, title: str, canonical_url: str, published_at: str, summary: str
+) -> ContentItem:
     return ContentItem(
         schema_version=1,
         id=item_id,
@@ -340,7 +342,7 @@ class PipelineTests(unittest.TestCase):
                 public_dir = Path(tmp_dir)
                 fixed_now = datetime(2026, 5, 6, 10, 30, tzinfo=UTC)
                 grouped_items = [
-                    content_item(
+                    make_test_content_item(
                         "item-primary",
                         "source-a",
                         "Acme VPN CVE-2026-4242 exploited in active campaign",
@@ -348,7 +350,7 @@ class PipelineTests(unittest.TestCase):
                         "2026-05-06T09:20:00Z",
                         "Researchers report active exploitation of Acme VPN CVE-2026-4242.",
                     ),
-                    content_item(
+                    make_test_content_item(
                         "item-related",
                         "source-b",
                         "Emergency patch for Acme VPN after CVE-2026-4242 exploitation",
@@ -384,7 +386,6 @@ class PipelineTests(unittest.TestCase):
                 self.assertEqual(1, len(articles["items"]))
                 self.assertEqual({"item-primary", "item-related"}, set(briefing["sourceItemIds"]))
                 self.assertGreater(len(briefing["sections"]), 0)
-                self.assertGreater(len(briefing["sections"][0]["bullets"]), 0)
                 self.assertEqual(1, len(briefing["sections"][0]["bullets"]))
                 self.assertEqual({"item-primary", "item-related"}, set(briefing["sections"][0]["bullets"][0]["citations"]))
         finally:

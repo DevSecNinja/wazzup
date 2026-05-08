@@ -30,6 +30,9 @@ WHITESPACE_RE = re.compile(r"\s+")
 NON_WORD_RE = re.compile(r"[^\w\s-]", re.UNICODE)
 MIN_STORY_SHARED_KEYWORDS = 2
 MAX_STORY_TIME_DELTA = timedelta(hours=18)
+MIN_KEYWORD_LENGTH = 4
+MIN_ANCHOR_TOKEN_LENGTH = 8
+MIN_STORY_KEYWORD_OVERLAP_RATIO = 0.5
 STORY_STOPWORDS = {
     "about",
     "after",
@@ -294,7 +297,7 @@ def _keyword_tokens(value: str) -> set[str]:
     return {
         token
         for token in text.split(" ")
-        if token and (len(token) >= 4 or any(char.isdigit() for char in token)) and token not in STORY_STOPWORDS
+        if token and (len(token) >= MIN_KEYWORD_LENGTH or any(char.isdigit() for char in token)) and token not in STORY_STOPWORDS
     }
 
 
@@ -311,7 +314,9 @@ def _story_anchor_tokens(tokens: set[str]) -> set[str]:
     return {
         token
         for token in tokens
-        if any(char.isdigit() for char in token) or token.startswith(("cve", "apt", "kb")) or len(token) >= 8
+        if any(char.isdigit() for char in token)
+        or token.startswith(("cve", "apt", "kb"))
+        or len(token) >= MIN_ANCHOR_TOKEN_LENGTH
     }
 
 
@@ -350,7 +355,7 @@ def _story_related(left: ContentItem, right: ContentItem, published_at_by_item_i
     if not (has_anchor_tokens or has_shared_path_tokens):
         return False
     overlap = len(shared_keywords) / max(1, min(len(left_keywords), len(right_keywords)))
-    return overlap >= 0.5
+    return overlap >= MIN_STORY_KEYWORD_OVERLAP_RATIO
 
 
 def _flatten_group_items(item: ContentItem) -> list[ContentItem]:
