@@ -135,9 +135,10 @@ def atom_link(element: ET.Element) -> str:
     return child_text(element, "link")
 
 
-def fetch_feed(source: SourceConfig, timeout_seconds: int = 30) -> bytes:
+def fetch_feed(source: SourceConfig, timeout_seconds: int | None = None) -> bytes:
+    timeout = timeout_seconds if timeout_seconds is not None else source.timeout_seconds
     request = urllib.request.Request(source.feed_url, headers=source.headers)
-    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read()
 
 

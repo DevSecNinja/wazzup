@@ -47,6 +47,29 @@ interests:
       - defender
       - entra
       - windows
+  - id: formula-1
+    name: Formula 1
+    weight: 0.9
+    keywords:
+      - formula 1
+      - formula one
+      - f1
+      - grand prix
+      - qualifying
+      - paddock
+      - driver standings
+      - constructor standings
+  - id: nba
+    name: NBA
+    weight: 0.9
+    keywords:
+      - nba
+      - basketball
+      - playoffs
+      - trade deadline
+      - injury report
+      - western conference
+      - eastern conference
   - id: uk-politics
     name: UK politics
     weight: -0.8

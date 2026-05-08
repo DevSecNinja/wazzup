@@ -22,6 +22,7 @@ class SourceConfig:
     interest_hints: list[str] = field(default_factory=list)
     enabled: bool = True
     headers: dict[str, str] = field(default_factory=dict)
+    timeout_seconds: int = 30
     notes: str | None = None
 
 
