@@ -68,6 +68,18 @@ function citationMap(briefing) {
   return new Map((briefing.citations || []).map((citation) => [citation.itemId, citation]));
 }
 
+function mergeCitations(briefings) {
+  const citations = new Map();
+  briefings.forEach((briefing) => {
+    (briefing.citations || []).forEach((citation) => {
+      if (citation?.itemId && !citations.has(citation.itemId)) {
+        citations.set(citation.itemId, citation);
+      }
+    });
+  });
+  return Array.from(citations.values());
+}
+
 function truncateText(value, maxLength) {
   const text = String(value || '').trim();
   if (text.length <= maxLength) return text;
@@ -135,6 +147,11 @@ function resolveDataUrl(path) {
 
 function briefingDayKey(briefing) {
   return localDateKey(briefing?.generatedAt || new Date().toISOString());
+}
+
+function hasSeenItemsForDay(seenState) {
+  const prefix = `${seenState.dayKey}:`;
+  return Array.from(seenState.seenKeys).some((storageKey) => storageKey.startsWith(prefix));
 }
 
 function safeLocalStorageGet(key) {
@@ -207,6 +224,69 @@ function bulletItemIds(briefing, bullet, sectionIndex, bulletIndex) {
   const itemIds = Array.from(new Set((bullet.citations || []).filter(Boolean).map((itemId) => String(itemId))));
   const fallbackBriefingId = briefing.id || briefing.generatedAt || 'briefing';
   return itemIds.length ? itemIds : [`${fallbackBriefingId}:${sectionIndex}:${bulletIndex}`];
+}
+
+function bulletRecordKey(record) {
+  return record.itemIds.length ? record.itemIds.slice().sort().join('|') : record.fallbackKey;
+}
+
+function extractBulletRecords(briefing) {
+  return (briefing.sections || []).flatMap((section, sectionIndex) =>
+    (section.bullets || []).map((bullet, bulletIndex) => {
+      const itemIds = bulletItemIds(briefing, bullet, sectionIndex, bulletIndex);
+      return {
+        bullet,
+        itemIds,
+        fallbackKey: `${briefing.id || briefing.generatedAt}:${sectionIndex}:${bulletIndex}`,
+        generatedAt: briefing.generatedAt,
+      };
+    }),
+  );
+}
+
+function uniqueBulletRecords(records, usedItemIds = new Set(), usedFallbackKeys = new Set()) {
+  const uniqueRecords = [];
+  records.forEach((record) => {
+    const key = bulletRecordKey(record);
+    if (record.itemIds.some((itemId) => usedItemIds.has(itemId)) || usedFallbackKeys.has(key)) return;
+    record.itemIds.forEach((itemId) => usedItemIds.add(itemId));
+    usedFallbackKeys.add(key);
+    uniqueRecords.push(record);
+  });
+  return uniqueRecords;
+}
+
+function dayPartLabel(value) {
+  const hour = new Date(value).getHours();
+  if (hour < 12) return 'Earlier this morning';
+  if (hour < 18) return 'Earlier this afternoon';
+  return 'Earlier this evening';
+}
+
+function todayBriefingView(currentBriefing, earlierBriefings, seenState) {
+  const allBriefings = [currentBriefing, ...earlierBriefings];
+  const usedItemIds = new Set();
+  const usedFallbackKeys = new Set();
+  const currentRecords = uniqueBulletRecords(extractBulletRecords(currentBriefing), usedItemIds, usedFallbackKeys);
+  const earlierRecords = uniqueBulletRecords(earlierBriefings.flatMap(extractBulletRecords), usedItemIds, usedFallbackKeys);
+  const sections = [];
+
+  if (!hasSeenItemsForDay(seenState)) {
+    sections.push({ title: 'Today so far', bullets: [...currentRecords, ...earlierRecords].map((record) => record.bullet) });
+  } else {
+    sections.push({ title: 'Latest update', bullets: currentRecords.map((record) => record.bullet) });
+    const recordsByDayPart = new Map();
+    earlierRecords.forEach((record) => {
+      const label = dayPartLabel(record.generatedAt);
+      recordsByDayPart.set(label, [...(recordsByDayPart.get(label) || []), record]);
+    });
+    ['Earlier this morning', 'Earlier this afternoon', 'Earlier this evening'].forEach((label) => {
+      const records = recordsByDayPart.get(label) || [];
+      if (records.length) sections.push({ title: label, bullets: records.map((record) => record.bullet) });
+    });
+  }
+
+  return { ...currentBriefing, citations: mergeCitations(allBriefings), sections };
 }
 
 function isSeenBriefingItem(seenState, itemIds) {
@@ -473,6 +553,28 @@ async function findYesterdayBriefing(manifest, latest, currentBriefing) {
   return null;
 }
 
+async function loadEarlierTodayBriefings(manifest, latest, currentBriefing) {
+  const currentDay = localDateKey(currentBriefing.generatedAt);
+  const currentYamlPath = latest.latestBriefingYamlUrl;
+  const candidates = (manifest.briefings || [])
+    .filter((path) => path !== currentYamlPath && /\/hourly-\d{2}\.yaml$/.test(path))
+    .slice()
+    .sort()
+    .reverse();
+  const briefings = [];
+  for (const yamlPath of candidates) {
+    try {
+      const briefing = await getJson(resolveDataUrl(yamlPath.replace(/\.yaml$/, '.json')));
+      if (briefing.kind === 'hourly' && localDateKey(briefing.generatedAt) === currentDay) {
+        briefings.push(briefing);
+      }
+    } catch {
+      // Ignore retained manifest entries whose JSON mirror is unavailable.
+    }
+  }
+  return briefings.sort((left, right) => new Date(right.generatedAt) - new Date(left.generatedAt));
+}
+
 async function renderYesterday(manifest, latest, currentBriefing) {
   const briefing = await findYesterdayBriefing(manifest, latest, currentBriefing);
   if (!briefing) {
@@ -617,8 +719,10 @@ async function main() {
       getJson('data/manifest.json'),
     ]);
     const seenState = createSeenBriefingState(briefing, manifest);
+    const earlierBriefings = await loadEarlierTodayBriefings(manifest, latest, briefing);
+    const todayBriefing = todayBriefingView(briefing, earlierBriefings, seenState);
     renderHero(briefing);
-    renderBriefing(briefing, seenState);
+    renderBriefing(todayBriefing, seenState);
     observeBriefingItems(seenState);
     renderSources(status);
     await renderYesterday(manifest, latest, briefing);

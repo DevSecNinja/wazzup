@@ -61,6 +61,22 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("bullet--", app)
         self.assertIn("tag-list", app)
         self.assertIn("renderYesterday", app)
+        self.assertIn("loadEarlierTodayBriefings", app)
+        self.assertIn("todayBriefingView", app)
+        self.assertIn("Earlier this morning", app)
+        self.assertIn("Earlier this afternoon", app)
+        self.assertIn("Earlier this evening", app)
+
+    def test_pwa_merges_earlier_hourly_briefings_into_today_view(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        self.assertIn("manifest.briefings", app)
+        self.assertIn("/\\/hourly-\\d{2}\\.yaml$/.test(path)", app)
+        self.assertIn("localDateKey(briefing.generatedAt) === currentDay", app)
+        self.assertIn("mergeCitations(allBriefings)", app)
+        self.assertIn("uniqueBulletRecords(earlierBriefings.flatMap(extractBulletRecords)", app)
+        self.assertIn("Today so far", app)
+        self.assertIn("!hasSeenItemsForDay(seenState)", app)
+        self.assertIn("Latest update", app)
 
     def test_briefing_items_open_first_citation_url(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
