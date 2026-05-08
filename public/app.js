@@ -85,7 +85,13 @@ function stripLeadingTitle(text, title) {
 
 function stripInterestBoilerplate(text) {
   if (typeof text !== 'string') return text;
-  return text.replace(/ (?:Why it matters:|It matches your|Relevant to your)[\s\S]*$/, '').trimEnd();
+  // Strip trailing AI-generated interest-match boilerplate appended during scoring.
+  // Handles: "… Relevant to your X interests.", "… It matches your X interests.",
+  //          "… Why it matters: …"
+  return text
+    .replace(/ (?:It matches|Relevant to) your\b[^.]*\binterests\.?\s*$/, '')
+    .replace(/ Why it matters:[\s\S]*$/, '')
+    .trimEnd();
 }
 
 function normalizeBullet(bullet, citations) {
