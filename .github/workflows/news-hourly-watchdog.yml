@@ -1,0 +1,90 @@
+---
+name: News hourly watchdog
+
+on:
+  schedule:
+    - cron: "37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: news-hourly-watchdog-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  catch-up:
+    name: Dispatch delayed hourly run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      WAZZUP_TIMEZONE: Europe/Amsterdam
+      TARGET_WORKFLOW: news-hourly.yml
+    steps:
+      - name: Check local cadence
+        id: cadence
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |-
+          set -euo pipefail
+
+          if [[ "${EVENT_NAME}" != "schedule" ]]; then
+            echo "should_run=true" >>"${GITHUB_OUTPUT}"
+            echo "reason=manual dispatch" >>"${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          local_hour="$(TZ="${WAZZUP_TIMEZONE}" date +%H)"
+          hour=$((10#${local_hour}))
+
+          if (( hour >= 6 && hour < 22 )); then
+            echo "should_run=true" >>"${GITHUB_OUTPUT}"
+            echo "reason=active local hour" >>"${GITHUB_OUTPUT}"
+          elif (( hour % 2 == 0 )); then
+            echo "should_run=true" >>"${GITHUB_OUTPUT}"
+            echo "reason=overnight two-hour cadence" >>"${GITHUB_OUTPUT}"
+          else
+            echo "should_run=false" >>"${GITHUB_OUTPUT}"
+            echo "reason=overnight odd local hour" >>"${GITHUB_OUTPUT}"
+          fi
+
+      - name: Dispatch catch-up if needed
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CADENCE_REASON: ${{ steps.cadence.outputs.reason }}
+        run: |-
+          set -euo pipefail
+
+          current_hour_start="$(date -u +%Y-%m-%dT%H:00:00Z)"
+          run_count="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/workflows/${TARGET_WORKFLOW}/runs?branch=${GITHUB_REF_NAME}&per_page=20" \
+            | jq --arg cutoff "${current_hour_start}" '[.workflow_runs[] | select(.created_at >= $cutoff and (.event == "schedule" or .event == "workflow_dispatch"))] | length')"
+
+          {
+            echo "## Wazzup news watchdog"
+            echo ""
+            echo "- Cadence: ${CADENCE_REASON}"
+            echo "- Current UTC hour start: ${current_hour_start}"
+            echo "- Existing News hourly runs this UTC hour: ${run_count}"
+          } >>"${GITHUB_STEP_SUMMARY}"
+
+          if (( run_count > 0 )); then
+            echo "News hourly has already run or been dispatched this UTC hour."
+            exit 0
+          fi
+
+          gh workflow run "${TARGET_WORKFLOW}" --ref "${GITHUB_REF_NAME}" -f forceBriefing=auto -f aiProvider=copilot-cli
+          echo "- Action: dispatched News hourly catch-up" >>"${GITHUB_STEP_SUMMARY}"
+
+      - name: Write skipped summary
+        if: ${{ steps.cadence.outputs.should_run != 'true' }}
+        env:
+          CADENCE_REASON: ${{ steps.cadence.outputs.reason }}
+        run: |-
+          {
+            echo "## Wazzup news watchdog"
+            echo ""
+            echo "- Skipped: ${CADENCE_REASON}"
+          } >>"${GITHUB_STEP_SUMMARY}"

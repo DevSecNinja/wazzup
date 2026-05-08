@@ -28,8 +28,11 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("formula-1", {category for source in sources for category in source.categories})
         self.assertIn("nba", {category for source in sources for category in source.categories})
         timeout_by_id = {source.id: source.timeout_seconds for source in sources}
+        enabled_by_id = {source.id: source.enabled for source in sources}
         self.assertEqual(30, timeout_by_id["microsoft-security-blog"])
         self.assertEqual(8, timeout_by_id["nba-official-news"])
+        self.assertFalse(enabled_by_id["nba-official-news"])
+        self.assertTrue(enabled_by_id["espn-nba"])
         self.assertIn("Accept", sources[0].headers)
 
     def test_load_app_config(self) -> None:

@@ -197,9 +197,28 @@ main {
   margin: 0;
 }
 
+.briefing-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+}
+
 .briefing-controls {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   justify-content: flex-end;
+}
+
+.active-filter {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.filter-empty {
+  margin: 1rem 0 0;
+  color: var(--muted);
 }
 
 .section h3 {
@@ -232,6 +251,8 @@ main {
   background: rgba(15, 23, 42, 0.35);
 }
 .bullet--hidden { display: none; }
+.bullet--filtered { display: none; }
+.section--filtered-empty { display: none; }
 
 .bullet[data-primary-url] {
   cursor: pointer;
@@ -337,6 +358,32 @@ main {
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.tag--button,
+.source-filter {
+  cursor: pointer;
+  font: inherit;
+}
+
+.tag--button:hover,
+.tag--button:focus-visible,
+.source-filter:hover,
+.source-filter:focus-visible,
+.tag--button[aria-pressed="true"],
+.source-filter[aria-pressed="true"] {
+  border-color: rgba(103, 232, 249, 0.5);
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.source-filter {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 800;
 }
 
 .citation,
