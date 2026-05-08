@@ -10,7 +10,6 @@
       <stop offset="1" stop-color="#cffafe" />
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="15" fill="#020617" />
-  <rect x="7" y="7" width="50" height="50" rx="13" fill="url(#g)" />
+  <rect width="64" height="64" rx="15" fill="url(#g)" />
   <path d="M15.5 20.75 22 43.5 32 23.5 42 43.5 48.5 20.75" fill="none" stroke="url(#mark)" stroke-width="5.75" stroke-linecap="round" stroke-linejoin="round" />
 </svg>
