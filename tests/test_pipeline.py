@@ -9,7 +9,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from wazzup.models import ContentItem, ScoredItem
-from wazzup.pipeline import generate, prioritize_hourly_new_items
+from wazzup.pipeline import (
+    exclude_already_featured_hourly_items,
+    featured_hourly_item_ids_for_local_day,
+    generate,
+    prioritize_hourly_new_items,
+)
 from wazzup.validate_data import validate_data_dir
 
 
@@ -173,6 +178,80 @@ class PipelineTests(unittest.TestCase):
                 os.environ.pop("AI_PROVIDER", None)
             else:
                 os.environ["AI_PROVIDER"] = previous_provider
+
+    def test_generate_hourly_excludes_items_featured_earlier_today(self) -> None:
+        previous_provider = os.environ.get("AI_PROVIDER")
+        os.environ["AI_PROVIDER"] = "fake"
+        try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                public_dir = Path(tmp_dir)
+                first_run_now = datetime(2026, 5, 6, 16, 0, tzinfo=UTC)
+                with patch("wazzup.pipeline.utc_now", return_value=first_run_now):
+                    first_latest = generate(
+                        [
+                            "--fixture-dir",
+                            "tests/fixtures",
+                            "--public-dir",
+                            str(public_dir),
+                            "--force-briefing",
+                            "hourly",
+                            "--max-items",
+                            "2",
+                        ]
+                    )
+                first_briefing = json.loads((public_dir / first_latest["latestBriefingUrl"]).read_text(encoding="utf-8"))
+                first_ids = first_briefing["sourceItemIds"]
+                self.assertEqual(2, len(first_ids))
+
+                second_run_now = datetime(2026, 5, 6, 17, 0, tzinfo=UTC)
+                with patch("wazzup.pipeline.utc_now", return_value=second_run_now):
+                    second_latest = generate(
+                        [
+                            "--fixture-dir",
+                            "tests/fixtures",
+                            "--public-dir",
+                            str(public_dir),
+                            "--force-briefing",
+                            "hourly",
+                            "--max-items",
+                            "2",
+                        ]
+                    )
+                second_briefing = json.loads((public_dir / second_latest["latestBriefingUrl"]).read_text(encoding="utf-8"))
+                second_ids = second_briefing["sourceItemIds"]
+                self.assertTrue(second_ids)
+                self.assertTrue(set(first_ids).isdisjoint(second_ids))
+        finally:
+            if previous_provider is None:
+                os.environ.pop("AI_PROVIDER", None)
+            else:
+                os.environ["AI_PROVIDER"] = previous_provider
+
+    def test_featured_hourly_item_ids_for_local_day_reads_source_item_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            data_dir = Path(tmp_dir) / "data"
+            briefing_dir = data_dir / "briefings" / "2026" / "05" / "06"
+            briefing_dir.mkdir(parents=True)
+            (briefing_dir / "hourly-08.json").write_text(
+                json.dumps({"sourceItemIds": ["item-1", "item-2"]}),
+                encoding="utf-8",
+            )
+            (briefing_dir / "hourly-09.json").write_text(
+                json.dumps({"sourceItemIds": ["item-2", "item-3"]}),
+                encoding="utf-8",
+            )
+            now = datetime(2026, 5, 6, 10, 0, tzinfo=UTC)
+
+            featured_ids = featured_hourly_item_ids_for_local_day(data_dir, now, "UTC")
+
+            self.assertEqual({"item-1", "item-2", "item-3"}, featured_ids)
+
+    def test_exclude_already_featured_hourly_items_falls_back_when_no_fresh(self) -> None:
+        scored = [scored_item("item-1", "2026-05-06T09:00:00Z", 10), scored_item("item-2", "2026-05-06T08:00:00Z", 8)]
+
+        same_items = exclude_already_featured_hourly_items(scored, {"item-1", "item-2"})
+
+        self.assertEqual(["item-1", "item-2"], [item.item.id for item in same_items])
 
 
 if __name__ == "__main__":

@@ -111,6 +111,33 @@ def prioritize_hourly_new_items(scored_items: list[ScoredItem], now: datetime) -
     return [scored for _, scored in sorted(recent_items, key=newest_first)] + older_items
 
 
+def featured_hourly_item_ids_for_local_day(data_dir: Path, now: datetime, timezone: str) -> set[str]:
+    local_now = now.astimezone(ZoneInfo(timezone))
+    daily_briefings_dir = data_dir / "briefings" / f"{local_now:%Y}" / f"{local_now:%m}" / f"{local_now:%d}"
+    featured_ids: set[str] = set()
+    if not daily_briefings_dir.exists():
+        return featured_ids
+    for path in sorted(daily_briefings_dir.glob("hourly-*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        ids = payload.get("sourceItemIds")
+        if isinstance(ids, list):
+            featured_ids.update(item_id for item_id in ids if isinstance(item_id, str))
+    return featured_ids
+
+
+def exclude_already_featured_hourly_items(scored_items: list[ScoredItem], featured_item_ids: set[str]) -> list[ScoredItem]:
+    if not featured_item_ids:
+        return scored_items
+    fresh_items = [scored for scored in scored_items if scored.item.id not in featured_item_ids]
+    # On slow news days, keep existing ranking if there are no fresh items to show.
+    return fresh_items if fresh_items else scored_items
+
+
 def load_items_from_fixture(source_id: str, fixture_dir: Path, source) -> list[ContentItem] | None:
     fixture_path = fixture_dir / f"{source_id}.xml"
     if not fixture_path.exists():
@@ -160,6 +187,8 @@ def generate(argv: Sequence[str] | None = None) -> dict:
     scored = score_items(window_items, sources, app_config, now)
     if kind == "hourly":
         scored = prioritize_hourly_new_items(scored, now)
+        featured_item_ids = featured_hourly_item_ids_for_local_day(Path(args.public_dir) / "data", now, app_config.timezone)
+        scored = exclude_already_featured_hourly_items(scored, featured_item_ids)
     scored = scored[: args.max_items]
     provider = provider_from_env(app_config)
     summary = provider.generate_structured_summary(
