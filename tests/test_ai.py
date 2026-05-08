@@ -88,6 +88,31 @@ class AiProviderTests(unittest.TestCase):
         self.assertEqual(len(scored), len(bullets))
         self.assertEqual([scored_item.item.id for scored_item in scored], [bullet["citations"][0] for bullet in bullets])
 
+    def test_fake_provider_cites_related_source_items(self) -> None:
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        related = replace(item, id="item-related", source_id="related-source", source_name="Related Source")
+        scored = score_items(
+            [replace(item, related_items=(related,))],
+            [source],
+            load_app_config("config/interests.yml"),
+            datetime(2026, 5, 6, tzinfo=UTC),
+        )
+
+        response = FakeSummaryProvider().generate_structured_summary(
+            SummaryRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                summary_language="en",
+                items=scored,
+            )
+        )
+
+        self.assertEqual([item.id, "item-related"], response.sections[0]["bullets"][0]["citations"])
+
     def test_prompt_style_guide_discourages_why_it_matters_label(self) -> None:
         payload = build_prompt_payload(
             SummaryRequest(
@@ -120,6 +145,22 @@ class AiProviderTests(unittest.TestCase):
         self.assertIn("under 80 characters", style_guide)
         self.assertIn("Evening Briefing", style_guide)
         self.assertIn("date", style_guide)
+
+    def test_prompt_style_guide_requires_related_items_to_be_correlated(self) -> None:
+        payload = build_prompt_payload(
+            SummaryRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                summary_language="en",
+                items=[],
+            )
+        )
+        style_guide = "\n".join(payload["styleGuide"])
+        self.assertIn("relatedItems", style_guide)
+        self.assertIn("one correlated story", style_guide)
 
     def test_prompt_style_guide_requires_english_translation(self) -> None:
         payload = build_prompt_payload(

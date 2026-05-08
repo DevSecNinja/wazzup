@@ -133,9 +133,13 @@ def featured_hourly_item_ids_for_local_day(data_dir: Path, now: datetime, timezo
 def exclude_already_featured_hourly_items(scored_items: list[ScoredItem], featured_item_ids: set[str]) -> list[ScoredItem]:
     if not featured_item_ids:
         return scored_items
-    fresh_items = [scored for scored in scored_items if scored.item.id not in featured_item_ids]
+    fresh_items = [scored for scored in scored_items if not featured_item_ids.intersection(scored_source_item_ids(scored))]
     # On slow news days, keep existing ranking if there are no fresh items to show.
     return fresh_items if fresh_items else scored_items
+
+
+def scored_source_item_ids(scored: ScoredItem) -> set[str]:
+    return {scored.item.id, *(item.id for item in scored.item.related_items)}
 
 
 def load_items_from_fixture(source_id: str, fixture_dir: Path, source) -> list[ContentItem] | None:

@@ -4,6 +4,7 @@ import os
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -252,6 +253,34 @@ class PipelineTests(unittest.TestCase):
         same_items = exclude_already_featured_hourly_items(scored, {"item-1", "item-2"})
 
         self.assertEqual(["item-1", "item-2"], [item.item.id for item in same_items])
+
+    def test_exclude_already_featured_hourly_items_checks_related_items(self) -> None:
+        related = ContentItem(
+            schema_version=1,
+            id="related-featured",
+            source_id="related-source",
+            source_name="Related Source",
+            source_tag="Related",
+            source_type="rss",
+            title="Related article",
+            url="https://example.com/related-featured",
+            canonical_url="https://example.com/related-featured",
+            published_at="2026-05-06T09:00:00Z",
+            discovered_at="2026-05-06T09:00:00Z",
+            authors=[],
+            tags=[],
+            language="en",
+            summary="Related summary",
+            content_hash="related-featured",
+            raw_ref="related-featured",
+        )
+        correlated = scored_item("item-1", "2026-05-06T09:00:00Z", 10)
+        correlated = replace(correlated, item=replace(correlated.item, related_items=(related,)))
+        other = scored_item("item-2", "2026-05-06T08:00:00Z", 8)
+
+        fresh_items = exclude_already_featured_hourly_items([correlated, other], {"related-featured"})
+
+        self.assertEqual(["item-2"], [item.item.id for item in fresh_items])
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ import yaml
 
 from .ai import SummaryResponse
 from .feeds import isoformat, stable_hash
-from .models import AppConfig, BriefingKind, ScoredItem, SourceStatus
+from .models import AppConfig, BriefingKind, ContentItem, ScoredItem, SourceStatus
 
 
 def write_yaml(path: Path, payload: dict[str, Any]) -> None:
@@ -43,23 +43,14 @@ def build_briefing(
     summary: SummaryResponse,
 ) -> dict[str, Any]:
     briefing_id = f"briefing-{kind}-{stable_hash(isoformat(window_start), isoformat(window_end), summary.headline)}"
-    citations = []
-    scored_by_id = {scored.item.id: scored for scored in scored_items}
-    for item_id, scored in scored_by_id.items():
-        item = scored.item
-        citations.append(
-            {
-                "itemId": item_id,
-                "title": item.title,
-                "url": item.url,
-                "sourceId": item.source_id,
-                "sourceName": item.source_name,
-                "sourceTag": item.source_tag,
-                "tags": item.tags,
-                "publishedAt": item.published_at,
-                "temperature": article_temperature(scored),
-            }
-        )
+    citations: list[dict[str, Any]] = []
+    source_item_ids: list[str] = []
+    for scored in scored_items:
+        for item in scored_citation_items(scored):
+            if item.id in source_item_ids:
+                continue
+            source_item_ids.append(item.id)
+            citations.append(citation_from_item(item, scored))
     provider = summary.provider
     return {
         "schemaVersion": 1,
@@ -72,12 +63,30 @@ def build_briefing(
         "language": app_config.summary_language,
         "headline": summary.headline,
         "sections": summary.sections,
-        "sourceItemIds": [scored.item.id for scored in scored_items],
+        "sourceItemIds": source_item_ids,
         "citations": citations,
         "model": provider.get("model", "unknown"),
         "provider": provider,
         "promptVersion": provider.get("promptVersion", "summary-v1"),
         "costEstimate": provider.get("costEstimate", {"amount": 0, "currency": "USD"}),
+    }
+
+
+def scored_citation_items(scored: ScoredItem) -> list[ContentItem]:
+    return [scored.item, *scored.item.related_items]
+
+
+def citation_from_item(item: ContentItem, scored: ScoredItem) -> dict[str, Any]:
+    return {
+        "itemId": item.id,
+        "title": item.title,
+        "url": item.url,
+        "sourceId": item.source_id,
+        "sourceName": item.source_name,
+        "sourceTag": item.source_tag,
+        "tags": item.tags,
+        "publishedAt": item.published_at,
+        "temperature": article_temperature(scored),
     }
 
 

@@ -63,7 +63,7 @@ class FakeSummaryProvider:
                     "title": scored.item.title,
                     "description": _fake_description(scored, request.kind),
                     "text": _fake_bullet(scored, request.kind),
-                    "citations": [scored.item.id],
+                    "citations": source_item_ids(scored),
                 }
                 for scored in items
             ]
@@ -186,6 +186,10 @@ def _fake_bullet(scored: ScoredItem, kind: BriefingKind = "hourly") -> str:
     return f"{scored.item.title}: {_fake_description(scored, kind)}"
 
 
+def source_item_ids(scored: ScoredItem) -> list[str]:
+    return [scored.item.id, *(item.id for item in scored.item.related_items)]
+
+
 def _fake_description(scored: ScoredItem, kind: BriefingKind = "hourly") -> str:
     summary = scored.item.summary.strip()
     if summary:
@@ -238,6 +242,7 @@ def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
             "Never mention scoring internals such as source weight, score, recency bonus, or duplicate group IDs.",
             "Keep bullets concise and source-grounded.",
             "Preserve the input item order so newly published hourly articles stay at the top.",
+            "When an input item includes relatedItems, treat the item and relatedItems as one correlated story and cite every source item ID that supports the bullet.",
         ],
     }
 

@@ -39,6 +39,28 @@ class FeedTests(unittest.TestCase):
         deduped = deduplicate([general, duplicate_priority])
         self.assertEqual(1, len(deduped))
         self.assertEqual("microsoft-security-threat-intelligence", deduped[0].source_id)
+        self.assertEqual([general.id], [item.id for item in deduped[0].related_items])
+
+    def test_deduplicate_preserves_related_sources_for_same_story(self) -> None:
+        sources = load_sources("config/sources.yml")
+        primary = parse_feed(sources[0], Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        related = replace(
+            primary,
+            id="item-related-source",
+            source_id="related-source",
+            source_name="Related Source",
+            source_tag="Related",
+            url="https://related.example/story",
+            canonical_url="https://related.example/story",
+            raw_ref="related-story",
+        )
+
+        deduped = deduplicate([primary, related])
+
+        self.assertEqual(1, len(deduped))
+        self.assertEqual(primary.id, deduped[0].id)
+        self.assertEqual(["item-related-source"], [item.id for item in deduped[0].related_items])
+        self.assertEqual("related-source", deduped[0].related_items[0].source_id)
 
 
 if __name__ == "__main__":

@@ -162,8 +162,8 @@ Required fields:
 - `timezone`
 - `headline`
 - `sections`: each bullet keeps a backward-compatible `text` field and may include structured `title` and `description` fields for the PWA card layout.
-- `sourceItemIds`
-- `citations`: includes article source, source tag, category tags, published timestamp, and temperature metadata.
+- `sourceItemIds`: includes selected item IDs plus any correlated `relatedItems` source IDs so a story can be tracked across sources.
+- `citations`: includes article source, source tag, category tags, published timestamp, and temperature metadata. Multiple citations may point to correlated sources for one briefing bullet.
 - `model`
 - `promptVersion`
 - `costEstimate`

@@ -62,9 +62,10 @@ class ContentItem:
     summary: str
     content_hash: str
     raw_ref: str
+    related_items: tuple[ContentItem, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "schemaVersion": self.schema_version,
             "id": self.id,
             "sourceId": self.source_id,
@@ -83,6 +84,9 @@ class ContentItem:
             "contentHash": self.content_hash,
             "rawRef": self.raw_ref,
         }
+        if self.related_items:
+            payload["relatedItems"] = [item.to_dict() for item in self.related_items]
+        return payload
 
 
 @dataclass(frozen=True)

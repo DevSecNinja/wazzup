@@ -6,6 +6,7 @@ import re
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from dataclasses import replace
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
@@ -245,5 +246,15 @@ def deduplicate(items: list[ContentItem]) -> list[ContentItem]:
             groups[first_index][1].extend(groups[index][1])
             del groups[index]
 
-    winners = [max(group_items, key=item_priority) for _, group_items in groups]
+    winners = []
+    for _, group_items in groups:
+        winner = max(group_items, key=item_priority)
+        related_items = tuple(
+            sorted(
+                [replace(item, related_items=()) for item in group_items if item.id != winner.id],
+                key=item_priority,
+                reverse=True,
+            )
+        )
+        winners.append(replace(winner, related_items=related_items) if related_items else winner)
     return sorted(winners, key=lambda item: item.published_at, reverse=True)
