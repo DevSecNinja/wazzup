@@ -249,6 +249,7 @@ Example fields:
 - `latestEveningBriefingUrl`
 - `generatedAt`
 - `health`
+- `runStatus` (last attempted/successful run timestamps, provider, briefing kind, item/source counts, and status)
 
 ## Scheduling model
 
@@ -406,12 +407,12 @@ The future MCP server should depend on the domain contracts in [../src/wazzup](.
 
 ## Key risks and mitigations
 
-| Risk                                    | Mitigation                                                                                                                    |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Risk                                    | Mitigation                                                                                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | GitHub Pages exposes personal interests | Public output is accepted for the current deployment; keep source preferences and prompts minimal and support private/static alternatives later. |
-| Repository bloat from generated data    | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated YAML/JSON.              |
-| AI hallucinations                       | Require citations, validate structured output, keep source links visible.                                                     |
-| AI provider cost spikes                 | Cap item count today; add summary caching and token/monthly accounting before relying on strict budget guarantees.             |
-| Scheduled workflows delayed             | Treat schedules as best-effort and compute windows from timestamps.                                                           |
-| Feed parsing failures                   | Isolate source failures and publish source health.                                                                            |
-| Copyright issues                        | Store metadata and summaries only; avoid republishing full content.                                                           |
+| Repository bloat from generated data    | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated YAML/JSON.                                 |
+| AI hallucinations                       | Require citations, validate structured output, keep source links visible.                                                                        |
+| AI provider cost spikes                 | Cap item count today; add summary caching and token/monthly accounting before relying on strict budget guarantees.                               |
+| Scheduled workflows delayed             | Treat schedules as best-effort and compute windows from timestamps.                                                                              |
+| Feed parsing failures                   | Isolate source failures and publish source health.                                                                                               |
+| Copyright issues                        | Store metadata and summaries only; avoid republishing full content.                                                                              |

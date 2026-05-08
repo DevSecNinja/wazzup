@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from wazzup.ai import SummaryResponse
-from wazzup.models import AppConfig, ContentItem, ScoredItem
-from wazzup.publisher import build_briefing, enforce_retention, write_data, write_manifest
+from wazzup.models import AppConfig, ContentItem, ScoredItem, SourceStatus
+from wazzup.publisher import build_briefing, build_run_status, enforce_retention, write_data, write_manifest
 
 
 class PublisherTests(unittest.TestCase):
@@ -91,6 +91,33 @@ class PublisherTests(unittest.TestCase):
 
         self.assertEqual(["item-primary", "item-related"], briefing["sourceItemIds"])
         self.assertEqual(["primary-source", "related-source"], [citation["sourceId"] for citation in briefing["citations"]])
+
+    def test_build_run_status_keeps_last_successful_on_degraded_run(self) -> None:
+        first_generated_at = datetime(2026, 5, 6, 9, tzinfo=UTC)
+        first_status = build_run_status(
+            "hourly",
+            first_generated_at,
+            [],
+            SummaryResponse(headline="ok", sections=[{"title": "Top", "bullets": []}], provider={"type": "fake"}),
+            [SourceStatus("one", True, "2026-05-06T09:00:00Z", 1, "ok")],
+            0,
+            {},
+        )
+        second_generated_at = datetime(2026, 5, 6, 10, tzinfo=UTC)
+        second_status = build_run_status(
+            "hourly",
+            second_generated_at,
+            [],
+            SummaryResponse(headline="degraded", sections=[{"title": "Top", "bullets": []}], provider={"type": "fake"}),
+            [SourceStatus("one", False, "2026-05-06T10:00:00Z", 0, "timeout")],
+            1,
+            {"runStatus": first_status},
+        )
+
+        self.assertEqual("ok", first_status["status"])
+        self.assertEqual("degraded_sources", second_status["status"])
+        self.assertEqual("2026-05-06T10:00:00Z", second_status["lastAttemptedRunAt"])
+        self.assertEqual("2026-05-06T09:00:00Z", second_status["lastSuccessfulRunAt"])
 
 
 if __name__ == "__main__":

@@ -151,6 +151,8 @@ def publish_outputs(
             "sources": [status.to_dict() for status in statuses],
         },
     )
+    failed_source_count = len([status for status in statuses if not status.ok])
+    run_status = build_run_status(kind, generated_at, scored_items, summary, statuses, failed_source_count, previous_latest)
     latest = {
         "schemaVersion": 1,
         "canonicalFormat": "yaml",
@@ -177,13 +179,62 @@ def publish_outputs(
         "health": {
             "ok": all(status.ok for status in statuses),
             "sourceCount": len(statuses),
-            "failedSourceCount": len([status for status in statuses if not status.ok]),
+            "failedSourceCount": failed_source_count,
         },
+        "runStatus": run_status,
     }
     write_data(data_dir / "latest.yaml", latest)
     enforce_retention(data_dir, generated_at, app_config.retention_days)
     write_manifest(data_dir, generated_at, app_config.retention_days)
     return latest
+
+
+def build_run_status(
+    kind: BriefingKind,
+    generated_at: datetime,
+    scored_items: list[ScoredItem],
+    summary: SummaryResponse,
+    statuses: list[SourceStatus],
+    failed_source_count: int,
+    previous_latest: dict[str, Any],
+) -> dict[str, Any]:
+    provider_type = summary.provider.get("type")
+    provider_type_text = provider_type.strip() if isinstance(provider_type, str) else ""
+    provider = provider_type_text if provider_type_text else "unknown"
+    provider_fallback_reason = summary.provider.get("fallbackReason")
+    provider_status = "degraded" if provider.endswith("-fallback") else "ok"
+    source_status = "degraded" if failed_source_count > 0 else "ok"
+    if provider_status == "degraded" and source_status == "degraded":
+        status = "degraded_provider_and_sources"
+    elif provider_status == "degraded":
+        status = "degraded_provider"
+    elif source_status == "degraded":
+        status = "degraded_sources"
+    else:
+        status = "ok"
+    previous_run_status = previous_latest.get("runStatus")
+    previous_last_successful = (
+        previous_run_status.get("lastSuccessfulRunAt")
+        if isinstance(previous_run_status, dict) and isinstance(previous_run_status.get("lastSuccessfulRunAt"), str)
+        else None
+    )
+    last_successful_run_at = isoformat(generated_at) if status == "ok" else (previous_last_successful or isoformat(generated_at))
+    run_status = {
+        "schemaVersion": 1,
+        "status": status,
+        "sourceStatus": source_status,
+        "providerStatus": provider_status,
+        "lastAttemptedRunAt": isoformat(generated_at),
+        "lastSuccessfulRunAt": last_successful_run_at,
+        "provider": provider,
+        "briefingKind": str(kind),
+        "sourceCount": len(statuses),
+        "failedSourceCount": failed_source_count,
+        "generatedItemCount": len(scored_items),
+    }
+    if provider_status == "degraded" and isinstance(provider_fallback_reason, str) and provider_fallback_reason.strip():
+        run_status["providerFallbackReason"] = provider_fallback_reason
+    return run_status
 
 
 def relative_data_url(data_dir: Path, path: Path) -> str:

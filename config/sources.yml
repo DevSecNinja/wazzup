@@ -525,7 +525,8 @@ sources:
       - standings
     fetch:
       timeoutSeconds: 8
-    notes: "Official NBA news feed for league-wide headlines. This endpoint can be slow or unreachable from server-side runners, so it uses a shorter timeout."
+    notes: "Official NBA news feed for league-wide headlines. This endpoint can be slow or unreachable from server-side runners,
+      so it uses a shorter timeout."
 
   - id: espn-nba
     name: ESPN NBA
