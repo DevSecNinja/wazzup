@@ -78,6 +78,10 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("Today so far", app)
         self.assertIn("!hasSeenItemsForDay(seenState)", app)
         self.assertIn("Latest update", app)
+        self.assertIn("recordTimestamp", app)
+        self.assertIn("Array.from(recordsByDayPart.entries())", app)
+        self.assertIn("latestTimestamp: Math.max(...records.map(recordTimestamp))", app)
+        self.assertIn(".sort((left, right) => right.latestTimestamp - left.latestTimestamp)", app)
 
     def test_briefing_items_open_first_citation_url(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
@@ -144,8 +148,19 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("Show seen", app)
         self.assertIn(".bullet--seen", css)
         self.assertIn(".bullet--hidden", css)
+        self.assertIn("position: absolute", css)
+        self.assertIn("top: 1rem", css)
+        self.assertIn("right: 1rem", css)
+        self.assertIn("padding-right: 5.25rem", css)
         self.assertIn(".bullet__status--new", css)
         self.assertIn(".bullet__status--seen", css)
+
+    def test_reference_links_show_hover_underline(self) -> None:
+        css = Path("public/styles.css").read_text(encoding="utf-8")
+        self.assertIn(".citation:hover", css)
+        self.assertIn(".citation:focus-visible", css)
+        self.assertIn("text-decoration: underline", css)
+        self.assertIn("text-underline-offset: 0.18em", css)
 
     def test_briefing_card_header_is_minimal(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")

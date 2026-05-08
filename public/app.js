@@ -263,6 +263,11 @@ function dayPartLabel(value) {
   return 'Earlier this evening';
 }
 
+function recordTimestamp(record) {
+  const timestamp = new Date(record.generatedAt).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
 function todayBriefingView(currentBriefing, earlierBriefings, seenState) {
   const allBriefings = [currentBriefing, ...earlierBriefings];
   const usedItemIds = new Set();
@@ -280,10 +285,16 @@ function todayBriefingView(currentBriefing, earlierBriefings, seenState) {
       const label = dayPartLabel(record.generatedAt);
       recordsByDayPart.set(label, [...(recordsByDayPart.get(label) || []), record]);
     });
-    ['Earlier this morning', 'Earlier this afternoon', 'Earlier this evening'].forEach((label) => {
-      const records = recordsByDayPart.get(label) || [];
-      if (records.length) sections.push({ title: label, bullets: records.map((record) => record.bullet) });
-    });
+    Array.from(recordsByDayPart.entries())
+      .map(([title, records]) => ({
+        title,
+        records,
+        latestTimestamp: Math.max(...records.map(recordTimestamp)),
+      }))
+      .sort((left, right) => right.latestTimestamp - left.latestTimestamp)
+      .forEach(({ title, records }) => {
+        sections.push({ title, bullets: records.map((record) => record.bullet) });
+      });
   }
 
   return { ...currentBriefing, citations: mergeCitations(allBriefings), sections };

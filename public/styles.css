@@ -199,6 +199,7 @@ main {
 }
 
 .bullet {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: 1rem;
   padding: 1rem;
@@ -235,7 +236,7 @@ main {
 .bullet__heading {
   display: flex;
   align-items: flex-start;
-  flex-wrap: wrap;
+  padding-right: 5.25rem;
   gap: 0.55rem;
 }
 
@@ -249,9 +250,13 @@ main {
 .bullet--warm h4 { color: #fde68a; }
 
 .bullet__status {
-  margin-left: auto;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 4.4rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.15rem 0.55rem;
@@ -330,6 +335,12 @@ main {
   color: var(--accent);
   text-decoration: none;
   font-size: 0.85rem;
+}
+
+.citation:hover,
+.citation:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
 .status { color: var(--success); }
