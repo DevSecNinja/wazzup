@@ -15,11 +15,11 @@ const BACKGROUND_SYNC_TAG = 'wazzup-hourly-update';
 const DEFAULT_RETENTION_DAYS = 35;
 const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
-const SEEN_VISIBILITY_RATIO = 0.85;
-const SEEN_DWELL_MS = 1500;
+const SEEN_VIEWPORT_LINE_RATIO = 0.5;
+const SCROLL_BOTTOM_EPSILON = 4;
 
-let briefingSeenObserver = null;
-let briefingSeenTimers = new WeakMap();
+let seenPositionFrame = 0;
+let seenPositionState = null;
 let hideSeenEnabled = safeLocalStorageGet(HIDE_SEEN_STORAGE_KEY) === '1';
 
 async function getJson(path) {
@@ -391,62 +391,48 @@ function markBriefingBulletSeen(bulletEl, seenState) {
   setBulletSeenState(bulletEl, true);
 }
 
-function clearPendingSeenTimers() {
+function isScrolledToBottom() {
+  const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const scrollHeight = Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0);
+  return scrollTop + viewportHeight >= scrollHeight - SCROLL_BOTTOM_EPSILON;
+}
+
+function hasBulletPassedSeenLine(bulletEl) {
+  const rect = bulletEl.getBoundingClientRect();
+  const bulletMidpoint = rect.top + rect.height / 2;
+  const viewportLine = (window.innerHeight || document.documentElement.clientHeight || 0) * SEEN_VIEWPORT_LINE_RATIO;
+  return bulletMidpoint <= viewportLine;
+}
+
+function markSeenByScrollPosition() {
+  if (!seenPositionState) return;
+  const atBottom = isScrolledToBottom();
   const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
   bullets.forEach((bulletEl) => {
-    const timer = briefingSeenTimers.get(bulletEl);
-    if (!timer) return;
-    clearTimeout(timer);
+    if (bulletEl.dataset.seenState === 'seen') return;
+    if (!atBottom && !hasBulletPassedSeenLine(bulletEl)) return;
+    markBriefingBulletSeen(bulletEl, seenPositionState);
   });
-  briefingSeenTimers = new WeakMap();
 }
 
-function scheduleBriefingBulletSeen(bulletEl, seenState) {
-  if (!bulletEl || bulletEl.dataset.seenState === 'seen' || briefingSeenTimers.has(bulletEl)) return;
-  const timer = window.setTimeout(() => {
-    briefingSeenTimers.delete(bulletEl);
-    if (!document.body.contains(bulletEl) || bulletEl.dataset.seenState === 'seen') return;
-    markBriefingBulletSeen(bulletEl, seenState);
-    briefingSeenObserver?.unobserve(bulletEl);
-  }, SEEN_DWELL_MS);
-  briefingSeenTimers.set(bulletEl, timer);
-}
-
-function cancelBriefingBulletSeen(bulletEl) {
-  const timer = briefingSeenTimers.get(bulletEl);
-  if (!timer) return;
-  clearTimeout(timer);
-  briefingSeenTimers.delete(bulletEl);
+function scheduleSeenPositionCheck() {
+  if (seenPositionFrame) return;
+  seenPositionFrame = window.requestAnimationFrame(() => {
+    seenPositionFrame = 0;
+    markSeenByScrollPosition();
+  });
 }
 
 function observeBriefingItems(seenState) {
-  if (briefingSeenObserver) {
-    briefingSeenObserver.disconnect();
-    briefingSeenObserver = null;
+  seenPositionState = seenState;
+  if (seenPositionFrame) {
+    window.cancelAnimationFrame(seenPositionFrame);
+    seenPositionFrame = 0;
   }
-  clearPendingSeenTimers();
   const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
   if (!bullets.length) return;
-  if (!('IntersectionObserver' in window)) {
-    bullets.forEach((bulletEl) => markBriefingBulletSeen(bulletEl, seenState));
-    return;
-  }
-  briefingSeenObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting || entry.intersectionRatio < SEEN_VISIBILITY_RATIO) {
-          cancelBriefingBulletSeen(entry.target);
-          return;
-        }
-        scheduleBriefingBulletSeen(entry.target, seenState);
-      });
-    },
-    { threshold: [SEEN_VISIBILITY_RATIO] },
-  );
-  bullets.forEach((bulletEl) => {
-    if (bulletEl.dataset.seenState === 'seen') return;
-    briefingSeenObserver.observe(bulletEl);
-  });
+  scheduleSeenPositionCheck();
 }
 
 function renderBriefing(briefing, seenState) {
@@ -743,6 +729,8 @@ async function main() {
     const todayBriefing = todayBriefingView(briefing, earlierBriefings, seenState);
     renderHero(briefing);
     renderBriefing(todayBriefing, seenState);
+    window.addEventListener('scroll', scheduleSeenPositionCheck, { passive: true });
+    window.addEventListener('resize', scheduleSeenPositionCheck);
     observeBriefingItems(seenState);
     renderSources(status);
     await renderYesterday(manifest, latest, briefing);
