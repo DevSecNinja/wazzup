@@ -231,6 +231,7 @@ def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
         },
         "styleGuide": [
             "Write for a single technical reader, not as marketing copy.",
+            "Always translate source material into English; all headlines, section titles, bullet titles, descriptions, and text fields must be written in English.",
             "Make the top-level headline a topic-only news headline under 80 characters; do not prefix it with the briefing kind, date, or labels like 'Morning Briefing', 'Evening Briefing', 'Daily Briefing', or 'Yesterday'.",
             "Describe relevance directly without labels like 'Why it matters'.",
             "For each bullet, provide title and description separately. Avoid repeating the same title in the description.",

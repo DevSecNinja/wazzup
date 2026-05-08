@@ -121,6 +121,22 @@ class AiProviderTests(unittest.TestCase):
         self.assertIn("Evening Briefing", style_guide)
         self.assertIn("date", style_guide)
 
+    def test_prompt_style_guide_requires_english_translation(self) -> None:
+        payload = build_prompt_payload(
+            SummaryRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                summary_language="en",
+                items=[],
+            )
+        )
+        style_guide = "\n".join(payload["styleGuide"])
+        self.assertIn("Always translate source material into English", style_guide)
+        self.assertIn("must be written in English", style_guide)
+
     def test_response_from_payload_accepts_description_without_text(self) -> None:
         response = response_from_payload(
             {
