@@ -557,7 +557,7 @@ function renderBriefing(briefing, seenState) {
 
   briefingEl.innerHTML = `
     <div class="briefing-header">
-      <p class="meta briefing-meta"><span id="unreadCount">0 unread</span><span>Generated ${formatDate(briefing.generatedAt)}</span></p>
+      <p class="meta briefing-meta"><span id="unreadCount">0 unread</span><span><span aria-hidden="true">&middot;</span> Generated ${formatDate(briefing.generatedAt)}</span></p>
       <div class="briefing-controls"><span id="activeFilter" class="active-filter"></span><button id="clearFilterButton" class="button button--compact" type="button" hidden>Clear filter</button><button id="hideSeenButton" class="button button--compact" type="button" aria-pressed="${hideSeenEnabled ? 'true' : 'false'}">${hideSeenEnabled ? 'Show seen' : 'Hide seen'}</button></div>
     </div>
     <p id="filterEmptyState" class="filter-empty" hidden>No articles match this filter.</p>

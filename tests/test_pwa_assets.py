@@ -178,7 +178,7 @@ class PwaAssetTests(unittest.TestCase):
         app = Path("public/app.js").read_text(encoding="utf-8")
         css = Path("public/styles.css").read_text(encoding="utf-8")
         self.assertIn('<div class="briefing-header">', app)
-        self.assertIn('<p class="meta briefing-meta"><span id="unreadCount">0 unread</span><span>Generated ${formatDate(briefing.generatedAt)}</span></p>', app)
+        self.assertIn('<p class="meta briefing-meta"><span id="unreadCount">0 unread</span><span><span aria-hidden="true">&middot;</span> Generated ${formatDate(briefing.generatedAt)}</span></p>', app)
         self.assertIn('id="unreadCount"', app)
         self.assertIn("function updateUnreadCount", app)
         self.assertIn("function unreadCountLabel", app)
