@@ -7,7 +7,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 
 from .models import ContentItem, SourceConfig, SourceStatus
@@ -28,6 +28,33 @@ TRACKING_PARAMS = {
 TAG_RE = re.compile(r"<[^>]+>")
 WHITESPACE_RE = re.compile(r"\s+")
 NON_WORD_RE = re.compile(r"[^\w\s-]", re.UNICODE)
+MIN_STORY_SHARED_KEYWORDS = 2
+MAX_STORY_TIME_DELTA = timedelta(hours=18)
+STORY_STOPWORDS = {
+    "about",
+    "after",
+    "analysis",
+    "announces",
+    "attack",
+    "attacks",
+    "breaking",
+    "commentary",
+    "cyber",
+    "for",
+    "from",
+    "incident",
+    "inside",
+    "latest",
+    "new",
+    "news",
+    "report",
+    "reports",
+    "security",
+    "story",
+    "the",
+    "threat",
+    "update",
+}
 
 
 def utc_now() -> datetime:
@@ -253,6 +280,97 @@ def deduplicate(items: list[ContentItem]) -> list[ContentItem]:
         related_items = tuple(
             sorted(
                 [replace(item, related_items=()) for item in group_items if item.id != winner.id],
+                key=item_priority,
+                reverse=True,
+            )
+        )
+        winners.append(replace(winner, related_items=related_items) if related_items else winner)
+    return sorted(winners, key=lambda item: item.published_at, reverse=True)
+
+
+def _keyword_tokens(value: str) -> set[str]:
+    text = NON_WORD_RE.sub(" ", clean_text(value).lower())
+    text = WHITESPACE_RE.sub(" ", text).strip()
+    return {
+        token
+        for token in text.split(" ")
+        if token and (len(token) >= 4 or any(char.isdigit() for char in token)) and token not in STORY_STOPWORDS
+    }
+
+
+def _story_keywords(item: ContentItem) -> set[str]:
+    return _keyword_tokens(item.title) | _keyword_tokens(item.summary) | _keyword_tokens(" ".join(item.tags))
+
+
+def _canonical_path_tokens(item: ContentItem) -> set[str]:
+    parsed = urllib.parse.urlsplit(item.canonical_url)
+    return {token for token in parsed.path.lower().split("/") if token and token != "index"}
+
+
+def _story_anchor_tokens(tokens: set[str]) -> set[str]:
+    return {
+        token
+        for token in tokens
+        if any(char.isdigit() for char in token) or token.startswith(("cve", "apt", "kb")) or len(token) >= 8
+    }
+
+
+def _parse_content_timestamp(value: str) -> datetime:
+    normalized = value.replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _story_related(left: ContentItem, right: ContentItem) -> bool:
+    if abs(_parse_content_timestamp(left.published_at) - _parse_content_timestamp(right.published_at)) > MAX_STORY_TIME_DELTA:
+        return False
+    left_title = normalize_title(left.title)
+    right_title = normalize_title(right.title)
+    if left_title and left_title == right_title:
+        return True
+    left_keywords = _story_keywords(left)
+    right_keywords = _story_keywords(right)
+    if not left_keywords or not right_keywords:
+        return False
+    shared_keywords = left_keywords & right_keywords
+    if len(shared_keywords) < MIN_STORY_SHARED_KEYWORDS:
+        return False
+    if not (_story_anchor_tokens(shared_keywords) | (_canonical_path_tokens(left) & _canonical_path_tokens(right))):
+        return False
+    overlap = len(shared_keywords) / max(1, min(len(left_keywords), len(right_keywords)))
+    return overlap >= 0.5
+
+
+def _flatten_group_items(item: ContentItem) -> list[ContentItem]:
+    return [replace(item, related_items=()), *(replace(related, related_items=()) for related in item.related_items)]
+
+
+def cluster_related_stories(items: list[ContentItem]) -> list[ContentItem]:
+    groups: list[list[ContentItem]] = []
+    for item in items:
+        matching_indexes = [
+            index for index, group_items in enumerate(groups) if any(_story_related(item, candidate) for candidate in group_items)
+        ]
+        if not matching_indexes:
+            groups.append([item])
+            continue
+        first_index = matching_indexes[0]
+        groups[first_index].append(item)
+        for index in reversed(matching_indexes[1:]):
+            groups[first_index].extend(groups[index])
+            del groups[index]
+
+    winners: list[ContentItem] = []
+    for group_items in groups:
+        expanded = [entry for grouped in group_items for entry in _flatten_group_items(grouped)]
+        deduped_by_id: dict[str, ContentItem] = {item.id: item for item in expanded}
+        flattened = list(deduped_by_id.values())
+        winner = max(flattened, key=item_priority)
+        related_items = tuple(
+            sorted(
+                (replace(item, related_items=()) for item in flattened if item.id != winner.id),
                 key=item_priority,
                 reverse=True,
             )
