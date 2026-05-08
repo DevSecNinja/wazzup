@@ -11,6 +11,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("default: auto", workflow)
         self.assertIn("- auto", workflow)
         self.assertIn("Check scheduled cadence", workflow)
+        self.assertIn("COPILOT_MODEL: claude-sonnet-4.6", workflow)
+        self.assertIn("- Copilot model: ${COPILOT_MODEL}", workflow)
         self.assertIn("hour >= 6 && hour < 22", workflow)
         self.assertIn("overnight two-hour cadence", workflow)
         self.assertNotIn('cron: "d"', workflow)

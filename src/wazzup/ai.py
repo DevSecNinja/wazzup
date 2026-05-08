@@ -37,6 +37,10 @@ class AiSummaryProvider(Protocol):
         """Generate a structured summary for selected items."""
 
 
+DEFAULT_COPILOT_MODEL = "claude-sonnet-4.6"
+DEFAULT_COPILOT_AGENT = "wazzup-writer"
+
+
 class FakeSummaryProvider:
     name = "fake"
 
@@ -83,8 +87,15 @@ class FakeSummaryProvider:
 class CopilotCliSummaryProvider:
     name = "copilot-cli"
 
-    def __init__(self, copilot_command: str = "copilot") -> None:
+    def __init__(
+        self,
+        copilot_command: str = "copilot",
+        model: str | None = None,
+        agent: str | None = None,
+    ) -> None:
         self.copilot_command = copilot_command
+        self.model = model if model is not None else os.environ.get("COPILOT_MODEL", DEFAULT_COPILOT_MODEL)
+        self.agent = agent if agent is not None else os.environ.get("COPILOT_AGENT", DEFAULT_COPILOT_AGENT)
 
     def generate_structured_summary(self, request: SummaryRequest) -> SummaryResponse:
         if not shutil.which(self.copilot_command):
@@ -96,11 +107,16 @@ class CopilotCliSummaryProvider:
                 "or use AI_PROVIDER=fake."
             )
         prompt_payload = build_prompt_payload(request)
-        with tempfile.TemporaryDirectory(prefix="wazzup-copilot-") as tmp_dir:
+        temp_root = Path(".state")
+        temp_root.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="wazzup-copilot-", dir=temp_root) as tmp_dir:
             tmp_path = Path(tmp_dir)
             input_path = tmp_path / "prompt.json"
             output_path = tmp_path / "summary.json"
             input_path.write_text(json.dumps(prompt_payload, indent=2), encoding="utf-8")
+            run_env = os.environ.copy()
+            run_env["WAZZUP_COPILOT_INPUT_PATH"] = str(input_path)
+            run_env["WAZZUP_COPILOT_OUTPUT_PATH"] = str(output_path)
             prompt = (
                 "You are generating the Wazzup news briefing. "
                 f"Read {input_path}, summarize in English, and write strict JSON to {output_path}. "
@@ -113,11 +129,19 @@ class CopilotCliSummaryProvider:
                 self.copilot_command,
                 "-p",
                 prompt,
-                "--allow-tool=shell(cat:*)",
-                "--allow-tool=write",
-                "--no-ask-user",
             ]
-            result = subprocess.run(command, capture_output=True, cwd=tmp_dir, env=os.environ.copy(), text=True)
+            if self.model:
+                command.extend(["--model", self.model])
+            if self.agent:
+                command.extend(["--agent", self.agent])
+            command.extend(
+                [
+                    "--allow-tool=shell(cat:*)",
+                    "--allow-tool=write",
+                    "--no-ask-user",
+                ]
+            )
+            result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
             if result.returncode != 0:
                 details = []
                 if result.stdout.strip():
@@ -136,7 +160,8 @@ class CopilotCliSummaryProvider:
             payload = json.loads(output_path.read_text(encoding="utf-8"))
         provider = {
             "type": self.name,
-            "model": payload.get("model", "copilot-cli"),
+            "model": payload.get("model", self.model or "copilot-cli"),
+            "agent": self.agent or None,
             "promptVersion": "summary-v1",
             "validated": True,
         }

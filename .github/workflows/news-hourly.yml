@@ -43,6 +43,7 @@ jobs:
       WAZZUP_TIMEZONE: Europe/Amsterdam
       WAZZUP_MAX_AI_ITEMS: 30
       WAZZUP_MAX_AI_COST_USD: "1.00"
+      COPILOT_MODEL: claude-sonnet-4.6
       REQUESTED_AI_PROVIDER: ${{ inputs.aiProvider || 'copilot-cli' }}
     steps:
       - name: Check scheduled cadence
@@ -129,6 +130,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
+          COPILOT_MODEL: ${{ env.COPILOT_MODEL }}
           FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
         run: task news:generate
 
@@ -146,6 +148,7 @@ jobs:
         env:
           FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
+          COPILOT_MODEL: ${{ env.COPILOT_MODEL }}
         run: |-
           set -euo pipefail
           {
@@ -154,6 +157,7 @@ jobs:
             echo "- Force briefing: ${FORCE_BRIEFING}"
             echo "- Requested AI provider: ${REQUESTED_AI_PROVIDER}"
             echo "- Effective AI provider: ${AI_PROVIDER}"
+            echo "- Copilot model: ${COPILOT_MODEL}"
             echo "- State release: news-state"
             echo "- Pages deployment: handled by the Pages workflow after this run succeeds"
           } >>"${GITHUB_STEP_SUMMARY}"

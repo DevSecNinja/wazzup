@@ -46,7 +46,7 @@ The preferred MVP path is Copilot CLI because it is GitHub-native and can run di
 
 | Runner        | When to use                                                                                                           | Workflow implications                                                                                                                                                               |
 | ------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Copilot CLI   | Preferred first production runner.                                                                                    | Install `@github/copilot`, set `COPILOT_GITHUB_TOKEN` from a fine-grained PAT with Copilot Requests permission, run `copilot -p` with `--no-ask-user`, and restrict `--allow-tool`. |
+| Copilot CLI   | Preferred first production runner.                                                                                    | Install `@github/copilot`, set `COPILOT_GITHUB_TOKEN` from a fine-grained PAT with Copilot Requests permission, run `copilot -p` with `--model`, `--agent`, `--no-ask-user`, and restricted `--allow-tool`. |
 | API provider  | Fallback or production runner when strict structured output, model selection, or accounting is easier through an API. | Store provider keys in Actions secrets and call through the pipeline adapter.                                                                                                       |
 | Ollama        | Optional local-model experiment or privacy-focused smoke run.                                                         | Install/start Ollama, pull/cache a small model, expect slower CPU inference on GitHub-hosted runners.                                                                               |
 | Fake provider | CI and deterministic tests.                                                                                           | No secrets or network calls.                                                                                                                                                        |
@@ -123,6 +123,7 @@ jobs:
       WAZZUP_TIMEZONE: Europe/Amsterdam
       WAZZUP_MAX_AI_ITEMS: 30
       WAZZUP_MAX_AI_COST_USD: 1.00
+      COPILOT_MODEL: claude-sonnet-4.6
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
@@ -153,6 +154,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
+          COPILOT_MODEL: ${{ env.COPILOT_MODEL }}
 ```
 
 The workflow triggers hourly because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. A first cadence step computes the local hour and continues every hour from 06:00 to 21:59, then only on even local hours from 22:00 to 05:59. Manual dispatch always runs.
@@ -160,6 +162,8 @@ The workflow triggers hourly because GitHub cron is UTC-only and does not unders
 Operational learning: the first live News hourly run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
 
 After enabling the Copilot PAT, one live run failed because Copilot CLI wrote JSON without the required `sections` array. The provider now treats invalid structured Copilot output as an AI-provider failure and falls back to the deterministic summary shape, recording `provider.type: copilot-cli-fallback` and the validation reason instead of failing the whole state/deploy pipeline.
+
+The Copilot CLI provider pins the briefing writer to `COPILOT_MODEL`, defaulting to Claude Sonnet 4.6 via the CLI model ID `claude-sonnet-4.6`, and invokes the repo-local `wazzup-writer` custom agent. This avoids the CLI's higher-cost default model while keeping the model overridable for manual canaries.
 
 ## Copilot CLI workflow variant
 
@@ -177,6 +181,7 @@ The implementation hides provider-specific commands behind `task news:generate` 
   env:
     AI_PROVIDER: copilot-cli
     COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
+    COPILOT_MODEL: claude-sonnet-4.6
     FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
   run: task news:generate
 ```
@@ -184,6 +189,8 @@ The implementation hides provider-specific commands behind `task news:generate` 
 Provider adapter requirements:
 
 - Run Copilot CLI in programmatic mode with `copilot -p`.
+- Pass `--model` from `COPILOT_MODEL`; default to `claude-sonnet-4.6` rather than the CLI's `Auto` default.
+- Pass `--agent wazzup-writer` so the briefing-writing style and JSON contract live in [../.github/agents/wazzup-writer.agent.md](../.github/agents/wazzup-writer.agent.md).
 - Use `--no-ask-user` so the workflow never blocks for interaction.
 - Use only narrow `--allow-tool` permissions, such as read-only shell access to generated prompt/input files and write access to a temporary output file.
 - Require the CLI to write structured JSON, then validate that JSON before publication.
@@ -267,6 +274,7 @@ Expected MVP secrets:
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `COPILOT_REQUESTS_PAT`       | Preferred repository secret containing a fine-grained PAT for Copilot CLI with Copilot Requests permission. |
 | `COPILOT_GITHUB_TOKEN`       | Alternative secret name accepted by the News hourly workflow.                                               |
+| `COPILOT_MODEL`              | Optional Copilot CLI model override; defaults to `claude-sonnet-4.6` for the briefing writer.               |
 | `AZURE_OPENAI_ENDPOINT`      | Azure OpenAI endpoint.                                                                                      |
 | `AZURE_OPENAI_API_KEY`       | Azure OpenAI API key.                                                                                       |
 | `OPENAI_API_KEY`             | Optional alternative provider.                                                                              |
