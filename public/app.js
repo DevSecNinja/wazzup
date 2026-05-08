@@ -547,7 +547,7 @@ function renderSources(status, latest) {
   const provider = runStatus.provider || 'unknown';
   const generatedItemCount = Number(runStatus.generatedItemCount || 0);
   const staleHint = stale
-    ? `<p class="source-meta">Latest pipeline run looks stale. Trigger <code>${escapeHtml(CATCH_UP_WORKFLOW_NAME)}</code> manually from Actions &rarr; workflow_dispatch.</p>`
+    ? `<p class="source-meta">Latest pipeline run looks stale. Trigger <code>${escapeHtml(CATCH_UP_WORKFLOW_NAME)}</code> manually from Actions, then run workflow_dispatch.</p>`
     : '';
   const badgeClassName = pipelineStatusClassName(badge);
   const items = sources
