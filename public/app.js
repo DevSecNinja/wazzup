@@ -15,6 +15,7 @@ const BACKGROUND_SYNC_TAG = 'wazzup-hourly-update';
 const DEFAULT_RETENTION_DAYS = 35;
 const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
+const NOTIFICATIONS_DISABLED_STORAGE_KEY = 'wazzup:notificationsDisabled';
 const SEEN_VIEWPORT_LINE_RATIO = 0.5;
 const SCROLL_BOTTOM_EPSILON = 4;
 
@@ -667,15 +668,39 @@ function supportsBackgroundNotifications(registration) {
 function showUnsupportedNotificationState() {
   notifyButton.hidden = false;
   notifyButton.disabled = true;
-  notifyButton.textContent = 'Notifications unavailable in this browser';
+  notifyButton.textContent = 'Notifications unavailable';
 }
 
-function notificationButtonText(permission, hasBackgroundNotifications) {
+function notificationsDisabledByUser() {
+  return safeLocalStorageGet(NOTIFICATIONS_DISABLED_STORAGE_KEY) === '1';
+}
+
+function setNotificationsDisabled(disabled) {
+  safeLocalStorageSet(NOTIFICATIONS_DISABLED_STORAGE_KEY, disabled ? '1' : '0');
+}
+
+async function unregisterBackgroundNotifications(registration) {
+  if (!registration || !('periodicSync' in registration) || !registration.periodicSync?.unregister) return;
+  try {
+    await registration.periodicSync.unregister(BACKGROUND_SYNC_TAG);
+  } catch {
+    // Ignore browsers that expose periodicSync but do not allow unregistering here.
+  }
+}
+
+function notificationButtonText(permission, hasBackgroundNotifications, isDisabled) {
+  void hasBackgroundNotifications;
   if (permission === 'granted') {
-    return hasBackgroundNotifications ? 'Background update notifications enabled' : 'App-open update notifications enabled';
+    return isDisabled ? 'Enable notifications' : 'Disable notifications';
   }
   if (permission === 'denied') return 'Notifications unavailable';
-  return hasBackgroundNotifications ? 'Notify me when a new hourly update lands' : 'Notify me when I open Wazzup after a new update';
+  return 'Enable notifications';
+}
+
+function updateNotificationButton(permission, hasBackgroundNotifications) {
+  notifyButton.hidden = false;
+  notifyButton.disabled = permission === 'denied';
+  notifyButton.textContent = notificationButtonText(permission, hasBackgroundNotifications, notificationsDisabledByUser());
 }
 
 async function enableNotifications(registration, briefing, latest) {
@@ -684,16 +709,27 @@ async function enableNotifications(registration, briefing, latest) {
     return;
   }
   const hasBackgroundNotifications = supportsBackgroundNotifications(registration);
-  notifyButton.hidden = Notification.permission === 'denied';
-  notifyButton.textContent = notificationButtonText(Notification.permission, hasBackgroundNotifications);
-  notifyButton.disabled = Notification.permission === 'granted';
-  if (Notification.permission === 'granted' && hasBackgroundNotifications) {
+  updateNotificationButton(Notification.permission, hasBackgroundNotifications);
+  if (Notification.permission === 'granted' && !notificationsDisabledByUser() && hasBackgroundNotifications) {
     await registerBackgroundNotifications(registration);
   }
   notifyButton.addEventListener('click', async () => {
+    if (Notification.permission === 'granted') {
+      const disabled = !notificationsDisabledByUser();
+      setNotificationsDisabled(disabled);
+      if (disabled) {
+        await unregisterBackgroundNotifications(registration);
+      } else if (hasBackgroundNotifications) {
+        await registerBackgroundNotifications(registration);
+      }
+      updateNotificationButton(Notification.permission, hasBackgroundNotifications);
+      if (!disabled) syncLatestBriefing(registration, briefing, latest);
+      return;
+    }
+
     const permission = await Notification.requestPermission();
-    notifyButton.textContent = notificationButtonText(permission, hasBackgroundNotifications);
-    notifyButton.disabled = permission === 'granted';
+    if (permission === 'granted') setNotificationsDisabled(false);
+    updateNotificationButton(permission, hasBackgroundNotifications);
     if (permission === 'granted' && hasBackgroundNotifications) {
       await registerBackgroundNotifications(registration);
     }
@@ -704,7 +740,7 @@ async function enableNotifications(registration, briefing, latest) {
 
   const storageKey = 'wazzup:lastBriefingUrl';
   const previous = localStorage.getItem(storageKey);
-  if (previous && previous !== latest.latestBriefingUrl && Notification.permission === 'granted') {
+  if (previous && previous !== latest.latestBriefingUrl && Notification.permission === 'granted' && !notificationsDisabledByUser()) {
     registration.showNotification('Wazzup hourly update', {
       body: briefing.headline,
       icon: 'icons/icon-192.png',
@@ -713,7 +749,9 @@ async function enableNotifications(registration, briefing, latest) {
     });
   }
   localStorage.setItem(storageKey, latest.latestBriefingUrl);
-  syncLatestBriefing(registration, briefing, latest);
+  if (Notification.permission === 'granted' && !notificationsDisabledByUser()) {
+    syncLatestBriefing(registration, briefing, latest);
+  }
 }
 
 async function main() {

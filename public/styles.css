@@ -44,7 +44,7 @@ a { color: inherit; }
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 1rem;
   max-width: 72rem;
   margin: 0 auto 3rem;
@@ -114,6 +114,21 @@ footer {
   margin-top: 0;
   padding: 0.45rem 0.8rem;
   font-size: 0.85rem;
+}
+
+.button--utility {
+  flex: 0 0 auto;
+  border-color: var(--border);
+  padding-inline: 0.65rem;
+  background: rgba(15, 23, 42, 0.42);
+  color: var(--muted);
+}
+
+.button--utility:hover,
+.button--utility:focus-visible {
+  border-color: rgba(103, 232, 249, 0.5);
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--text);
 }
 
 .eyebrow {
@@ -396,6 +411,7 @@ main {
 
 @media (width < 720px) {
   .topbar {
+    gap: 0.75rem;
     margin-bottom: 2.5rem;
   }
 }
