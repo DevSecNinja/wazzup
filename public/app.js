@@ -514,6 +514,12 @@ function pipelineStatusBadge(runStatus, stale) {
   }
 }
 
+function pipelineStatusClassName(badge) {
+  if (badge.bad) return 'status status--bad';
+  if (badge.warn) return 'status status--warn';
+  return 'status';
+}
+
 function runAgeMinutes(runStatus) {
   const lastAttemptedRunAt = runStatus?.lastAttemptedRunAt;
   if (!lastAttemptedRunAt) return null;
@@ -538,8 +544,9 @@ function renderSources(status, latest) {
   const provider = runStatus.provider || 'unknown';
   const generatedItemCount = Number(runStatus.generatedItemCount || 0);
   const staleHint = stale
-    ? '<p class="source-meta">Latest pipeline run looks stale. Trigger <code>News hourly</code> manually from Actions → workflow_dispatch.</p>'
+    ? '<p class="source-meta">Latest pipeline run looks stale. Trigger <code>News hourly</code> manually from Actions &rarr; workflow_dispatch.</p>'
     : '';
+  const badgeClassName = pipelineStatusClassName(badge);
   const items = sources
     .map(
       (source) => `<li>
@@ -552,7 +559,7 @@ function renderSources(status, latest) {
   sourcesEl.innerHTML = `
     <p class="eyebrow">Source health</p>
     <h2>${sources.filter((source) => source.ok).length}/${sources.length} sources healthy</h2>
-    <p class="source-meta pipeline-meta"><span class="status ${badge.bad ? 'status--bad' : ''}${badge.warn ? ' status--warn' : ''}">${badge.text}</span> ${generatedAt ? `Generated ${escapeHtml(formatDate(generatedAt))}` : 'Generated time unavailable'} · ${escapeHtml(provider)} · ${escapeHtml(generatedItemCount)} items</p>
+    <p class="source-meta pipeline-meta"><span class="${badgeClassName}">${badge.text}</span> ${generatedAt ? `Generated ${escapeHtml(formatDate(generatedAt))}` : 'Generated time unavailable'} · ${escapeHtml(provider)} · ${escapeHtml(generatedItemCount)} items</p>
     ${staleHint}
     <ul class="source-list">${items}</ul>
   `;
