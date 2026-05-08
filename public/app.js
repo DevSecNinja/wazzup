@@ -670,28 +670,37 @@ function supportsBackgroundNotifications(registration) {
 function showUnsupportedNotificationState() {
   notifyButton.hidden = false;
   notifyButton.disabled = true;
-  notifyButton.textContent = 'Background notifications unavailable on this device';
+  notifyButton.textContent = 'Notifications unavailable in this browser';
+}
+
+function notificationButtonText(permission, hasBackgroundNotifications) {
+  if (permission === 'granted') {
+    return hasBackgroundNotifications ? 'Background update notifications enabled' : 'App-open update notifications enabled';
+  }
+  if (permission === 'denied') return 'Notifications unavailable';
+  return hasBackgroundNotifications ? 'Notify me when a new hourly update lands' : 'Notify me when I open Wazzup after a new update';
 }
 
 async function enableNotifications(registration, briefing, latest) {
-  if (!('Notification' in window) || !registration?.showNotification) return;
-  if (!supportsBackgroundNotifications(registration)) {
+  if (!('Notification' in window) || !registration?.showNotification) {
     showUnsupportedNotificationState();
-    syncLatestBriefing(registration, briefing, latest);
     return;
   }
+  const hasBackgroundNotifications = supportsBackgroundNotifications(registration);
   notifyButton.hidden = Notification.permission === 'denied';
-  notifyButton.textContent = Notification.permission === 'granted' ? 'Hourly update notifications enabled' : 'Notify me when a new hourly update lands';
+  notifyButton.textContent = notificationButtonText(Notification.permission, hasBackgroundNotifications);
   notifyButton.disabled = Notification.permission === 'granted';
-  if (Notification.permission === 'granted') {
+  if (Notification.permission === 'granted' && hasBackgroundNotifications) {
     await registerBackgroundNotifications(registration);
   }
   notifyButton.addEventListener('click', async () => {
     const permission = await Notification.requestPermission();
-    notifyButton.textContent = permission === 'granted' ? 'Hourly update notifications enabled' : 'Notifications unavailable';
+    notifyButton.textContent = notificationButtonText(permission, hasBackgroundNotifications);
     notifyButton.disabled = permission === 'granted';
-    if (permission === 'granted') {
+    if (permission === 'granted' && hasBackgroundNotifications) {
       await registerBackgroundNotifications(registration);
+    }
+    if (permission === 'granted') {
       syncLatestBriefing(registration, briefing, latest);
     }
   });
