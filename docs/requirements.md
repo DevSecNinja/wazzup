@@ -62,16 +62,16 @@ Implemented deviations from the original target:
 | ID     | Requirement                                                                                                                                   | MVP priority |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | FR-001 | Maintain a configurable list of feeds, short source tags, source categories, source weights, and user interests.                              | Must         |
-| FR-002 | Fetch configured RSS/Atom/JSON feeds hourly from GitHub Actions.                                                                              | Must         |
+| FR-002 | Fetch configured RSS/Atom feeds hourly from GitHub Actions. JSON Feed support remains deferred.                                               | Must         |
 | FR-003 | Deduplicate articles using canonical URL, feed item GUID, title similarity, and publication timestamp.                                        | Must         |
 | FR-004 | Store normalized article metadata in stable, versioned YAML with generated JSON browser mirrors, without committing generated data to `main`. | Must         |
 | FR-005 | Score articles against user interests, recency, source reliability, and duplicate coverage.                                                   | Must         |
-| FR-006 | Generate hourly summaries for notable changes since the previous run.                                                                         | Should       |
+| FR-006 | Generate hourly summaries from the current local day's retained feed items while suppressing items already featured earlier that day.          | Should       |
 | FR-007 | Generate a morning briefing at 07:00 local time covering the previous day plus overnight updates since 20:00.                                 | Must         |
 | FR-008 | Generate an evening briefing at 20:00 local time covering the day since 07:00.                                                                | Must         |
 | FR-009 | Include citations/source links for every summary bullet.                                                                                      | Must         |
 | FR-010 | Expose latest summaries and article indexes as static YAML plus JSON browser mirrors.                                                         | Must         |
-| FR-011 | Provide a minimal responsive frontend with daily and hourly views.                                                                            | Must         |
+| FR-011 | Provide a minimal responsive frontend for the latest rolling day view, earlier-today grouping, previous-day summary, and source health.        | Must         |
 | FR-012 | Support installable PWA behavior with offline reading of recently loaded briefings.                                                           | Should       |
 | FR-013 | Support user notification options without requiring a custom always-on server.                                                                | Should       |
 | FR-014 | Provide a Home Assistant-friendly integration surface for briefings.                                                                          | Could        |
@@ -101,7 +101,7 @@ Implemented deviations from the original target:
 | NFR-002 | Testability     | Deterministic tests using fixture feeds and mocked AI provider responses.                    |
 | NFR-003 | Security        | Secrets only in GitHub Actions secrets; no secrets in static output or logs.                 |
 | NFR-004 | Privacy         | Explicit choice whether generated briefings and interests can be public.                     |
-| NFR-005 | Cost control    | Configurable AI request/token budget, max items per run, and cache of article summaries.     |
+| NFR-005 | Cost control    | Configurable max items per run is implemented; token/monthly budget accounting and summary caching remain deferred. |
 | NFR-006 | Reliability     | Workflow should fail gracefully per feed and continue processing healthy sources.            |
 | NFR-007 | Portability     | Core pipeline should run locally, in GitHub Actions, and later in an API service.            |
 | NFR-008 | Performance     | Frontend initial load should remain lightweight; static data should be chunked by date.      |
@@ -117,7 +117,7 @@ Implemented deviations from the original target:
 - Hourly RSS collection via GitHub Actions.
 - Normalized article store as YAML files with generated JSON browser mirrors.
 - AI provider abstraction with Copilot CLI and deterministic fake provider implementations.
-- Morning and evening briefing generation when explicitly forced.
+- Morning and evening briefing generation when due in `auto` mode or explicitly forced.
 - GitHub Pages-hosted frontend.
 - Public GitHub Pages deployment is acceptable for the MVP.
 - CI workflow for lightweight formatting, syntax linting, tests, build checks, fixture generation, and data contract validation.
@@ -132,9 +132,8 @@ Implemented deviations from the original target:
 - Automated podcast audio transcription unless transcript URLs already exist.
 - MCP server process and public REST API implementation.
 - Non-PWA delivery channels such as Home Assistant, ntfy, email, Teams, or Slack.
-- Automatic morning/evening due-time scheduling.
 - Direct API AI providers and local Ollama/Foundry runners.
-- Formal schema files, prompt regression fixtures, and provider cost enforcement.
+- Formal schema files, prompt regression fixtures, and provider token/monthly cost enforcement.
 
 ## Recommended answers to open questions
 
@@ -183,7 +182,7 @@ Use an explicit AI summary gateway interface in the pipeline. The default produc
 
 ### Can GitHub Actions ask GitHub Copilot to summarize?
 
-Yes. GitHub documents running Copilot CLI in GitHub Actions by installing `@github/copilot`, authenticating with `COPILOT_GITHUB_TOKEN`, and invoking `copilot -p` with `--no-ask-user` plus narrowly scoped `--allow-tool` options. For Wazzup, Copilot CLI should be treated as an AI runner adapter that receives a prepared prompt bundle and writes structured JSON for validation. The workflow must still enforce schema validation, citation checks, budget limits, and secret hygiene.
+Yes. GitHub documents running Copilot CLI in GitHub Actions by installing `@github/copilot`, authenticating with `COPILOT_GITHUB_TOKEN`, and invoking `copilot -p` with `--no-ask-user` plus narrowly scoped `--allow-tool` options. For Wazzup, Copilot CLI is implemented as an AI runner adapter that receives a prepared prompt bundle and writes structured JSON for validation. The workflow and provider currently enforce runtime structure/citation checks, prompt-size item caps, and secret hygiene; formal JSON Schema files and token/monthly budget enforcement remain deferred.
 
 ### Should we consider Ollama in GitHub Actions?
 
@@ -218,5 +217,5 @@ Define versioned contracts for sources, content items, summaries, scores, and de
 - Evening briefing can be read in under 5 minutes.
 - At least 90% of summaries include source citations.
 - Feed collection succeeds for at least 95% of configured sources over 7 days.
-- AI provider cost remains within the configured monthly budget.
+- AI provider cost remains within the configured monthly budget once token/monthly accounting is implemented.
 - The user reopens the briefing at least 4 days per week after the first month.

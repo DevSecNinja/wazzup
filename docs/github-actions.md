@@ -20,7 +20,7 @@
 
 - CI must not require external network calls beyond dependency installation.
 - CI must not call paid AI provider APIs.
-- Scheduled workflows may call feeds and AI providers, but should enforce budgets.
+- Scheduled workflows may call feeds and AI providers. They enforce prompt-size item caps today; token/monthly budget enforcement remains deferred.
 - Publishing should happen only after contract validation succeeds.
 - Delivery notifications should happen only after publishing succeeds.
 - Commit messages and PR titles must follow Conventional Commits before release-please is enabled.
@@ -72,7 +72,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@v4
         with:
-          version: 2026.4.18
+          version: 2026.4.19
       - run: task install
       - run: task ci
       - run: task pipeline:generate:fixtures

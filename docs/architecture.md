@@ -68,7 +68,7 @@ sequenceDiagram
     CLI->>CLI: normalize, dedupe, score
     CLI->>AI: summarize selected articles/briefing
     AI-->>CLI: structured summary data
-    CLI->>CLI: validate contracts and budgets
+    CLI->>CLI: validate contracts and item caps
     CLI->>Pages: persist YAML/JSON state to release asset
     Pages->>Pages: reusable Pages workflow restores state and deploys public artifact
     CLI->>User: optional delivery webhook
@@ -304,7 +304,7 @@ Implementation requirements and current status:
 - Keep prompt templates versioned.
 - Include citations in the request and require cited output.
 - Cache article-level summaries by `contentHash` and `promptVersion`. Deferred.
-- Enforce max input items, max tokens, and monthly cost budget. Max input items are enforced; token/monthly cost accounting is deferred.
+- Enforce max input items, max tokens, and monthly cost budget. Max input items are enforced through `WAZZUP_MAX_AI_ITEMS`; token/monthly cost accounting is deferred.
 - Provide a fake deterministic provider for tests. Implemented.
 - Restrict Copilot CLI tool permissions to the minimum needed, and avoid giving it write access outside a temporary output directory.
 - Track provider metadata in every briefing, including provider type, model if known, prompt version, token or request estimate, and validation result.
@@ -411,7 +411,7 @@ The future MCP server should depend on the domain contracts in [../src/wazzup](.
 | GitHub Pages exposes personal interests | Public output is accepted for MVP; keep source preferences and prompts minimal and support private/static alternatives later. |
 | Repository bloat from generated data    | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated YAML/JSON.              |
 | AI hallucinations                       | Require citations, validate structured output, keep source links visible.                                                     |
-| AI provider cost spikes                 | Cache summaries, cap item count, track token/request estimates.                                                               |
+| AI provider cost spikes                 | Cap item count today; add summary caching and token/monthly accounting before relying on strict budget guarantees.             |
 | Scheduled workflows delayed             | Treat schedules as best-effort and compute windows from timestamps.                                                           |
 | Feed parsing failures                   | Isolate source failures and publish source health.                                                                            |
 | Copyright issues                        | Store metadata and summaries only; avoid republishing full content.                                                           |

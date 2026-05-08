@@ -5,7 +5,7 @@
 - Prefer deterministic tests over live network or live AI provider calls.
 - Test core pipeline logic as pure functions wherever possible.
 - Keep provider integrations behind interfaces with contract tests.
-- Validate every generated YAML artifact and JSON mirror against versioned schemas.
+- Validate every generated YAML artifact and JSON mirror against the runtime data contract; formal JSON Schema files are deferred.
 - Treat prompts as versioned production assets with regression tests.
 - Run fast checks on every pull request and slower scheduled checks separately.
 
@@ -87,7 +87,7 @@ task pages:build               # restore retained state and validate Pages data
 - Fake provider returns deterministic structured summaries.
 - Provider output is rejected when required citations are missing.
 - Provider output is rejected when JSON schema validation fails.
-- Token and item budgets stop oversized requests.
+- Item budgets stop oversized requests; token/monthly budget enforcement remains deferred.
 - Cached article summaries are reused when `contentHash` and prompt version match.
 - Copilot CLI provider fails with actionable diagnostics when a GitHub Actions token is missing or the CLI exits non-zero.
 
@@ -106,7 +106,7 @@ task pages:build               # restore retained state and validate Pages data
 - Keyboard navigation works for briefing sections.
 - Basic accessibility checks pass.
 
-Frontend tests are not implemented yet because the MVP deliberately has no Node package/build/test setup. Add browser-level tests once the UI grows beyond the latest-briefing/source-health view.
+Frontend tests are currently static asset and hook tests in [../tests/test_pwa_assets.py](../tests/test_pwa_assets.py) because the MVP deliberately has no Node package/build/test setup. Add browser-level tests once the UI needs interaction and accessibility coverage beyond these static checks.
 
 ## Prompt regression tests
 

@@ -83,7 +83,7 @@ This differs from the accepted release-backed state decision: releases store the
 ## Follow-up decisions
 
 - Select the implementation runtime and package manager. Resolved: Python, mise, and Task.
-- Validate Copilot CLI behavior in scheduled Actions runs. Partially resolved: Copilot CLI is implemented, and missing token secrets now fall back to `fake`.
+- Validate Copilot CLI behavior in scheduled Actions runs. Resolved for the MVP provider set: Copilot CLI is implemented with a repo-local writer agent, and missing token secrets fall back to `fake`.
 - Select the first delivery target beyond the PWA.
 - Define JSON schemas before writing pipeline logic. Deferred; runtime validators and tests currently protect the contract.
 - Replace manual service worker cache versioning with generated build metadata.
