@@ -1,18 +1,27 @@
 # renovate: datasource=github-releases depName=jdx/mise
-min_version = "2026.4.19"
+min_version = "2026.4.15"
 
 [tools]
 python = "3.14.4"
+# renovate: datasource=node-version depName=node
+node = "24.15.0"
 # renovate: datasource=github-releases depName=go-task/task
 "github:go-task/task" = "3.50.0"
+# renovate: datasource=npm depName=@github/copilot
+"npm:@github/copilot" = "1.0.43"
 cocogitto = "7.0.0"
 dprint = "0.54.0"
 yamlfmt = "0.21.0"
+# renovate: datasource=pypi depName=pipx
+pipx = "1.8.0"
 "pipx:yamllint" = "1.38.0"
 actionlint = "1.7.12"
 gitleaks = "8.30.1"
 lefthook = "2.1.6"
 zizmor = "1.24.1"
+
+[settings]
+npm.package_manager = "npm"
 
 [tasks.install]
 description = "Install Python dependencies"

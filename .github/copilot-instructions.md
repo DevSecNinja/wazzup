@@ -30,18 +30,21 @@ not hard-code tool versions in code or docs.
 
 Devcontainer / cloud-agent realities (validated):
 
-- The base image ships a usable Python and `task` on `PATH`, but the
-  installed `mise` may be older than the `min_version` declared in
-  [.mise.toml](.mise.toml). When that happens, every `mise` invocation
-  errors out. **Do not rely on `mise exec`, `mise install`, or `lefthook`
-  hooks (which wrap `mise exec`).** Run the underlying tools or the `task`
-  targets directly instead.
+- The devcontainer uses the `mise` installed in the shared base image. If an
+  existing container reports an older `mise` than [.mise.toml](.mise.toml)
+  requires, update/rebuild the base image before relying on `mise install`,
+  `mise exec`, or lefthook hooks.
+- `mise install` installs the pinned Python, Task, Node.js, Copilot CLI, and
+  validation tools. The devcontainer `postCreateCommand` runs
+  `mise exec -- task install` so Python dependencies are installed under the
+  mise-managed Python.
 - `pip install` against the system Python may fail with
   `error: externally-managed-environment` (PEP 668). Use
   `pip install --break-system-packages -r requirements.txt` **or** a venv.
   The `task install` target runs plain `python -m pip install -r
   requirements.txt`, which fails on the system Python for the same reason —
-  prefer the explicit pip command above when not running under mise.
+  prefer `mise exec -- task install` or the explicit pip command above when
+  not running under mise.
 - The unit tests need `PYTHONPATH=src` (the Taskfile sets this globally via
   `env:`; if you invoke `python -m unittest` directly, export it yourself).
 
@@ -52,11 +55,12 @@ pip install --break-system-packages -r requirements.txt
 export PYTHONPATH=src
 ```
 
-Equivalent on a clean machine that has the pinned mise toolchain installed:
+Equivalent on a clean machine or rebuilt devcontainer that has the pinned mise
+toolchain installed:
 
 ```bash
 mise install
-task install
+mise exec -- task install
 ```
 
 ## Build, test, validate
