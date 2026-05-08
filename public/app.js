@@ -15,8 +15,11 @@ const BACKGROUND_SYNC_TAG = 'wazzup-hourly-update';
 const DEFAULT_RETENTION_DAYS = 35;
 const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
+const SEEN_VISIBILITY_RATIO = 0.85;
+const SEEN_DWELL_MS = 1500;
 
 let briefingSeenObserver = null;
+let briefingSeenTimers = new WeakMap();
 let hideSeenEnabled = safeLocalStorageGet(HIDE_SEEN_STORAGE_KEY) === '1';
 
 async function getJson(path) {
@@ -261,11 +264,40 @@ function markBriefingBulletSeen(bulletEl, seenState) {
   setBulletSeenState(bulletEl, true);
 }
 
+function clearPendingSeenTimers() {
+  const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
+  bullets.forEach((bulletEl) => {
+    const timer = briefingSeenTimers.get(bulletEl);
+    if (!timer) return;
+    clearTimeout(timer);
+  });
+  briefingSeenTimers = new WeakMap();
+}
+
+function scheduleBriefingBulletSeen(bulletEl, seenState) {
+  if (!bulletEl || bulletEl.dataset.seenState === 'seen' || briefingSeenTimers.has(bulletEl)) return;
+  const timer = window.setTimeout(() => {
+    briefingSeenTimers.delete(bulletEl);
+    if (!document.body.contains(bulletEl) || bulletEl.dataset.seenState === 'seen') return;
+    markBriefingBulletSeen(bulletEl, seenState);
+    briefingSeenObserver?.unobserve(bulletEl);
+  }, SEEN_DWELL_MS);
+  briefingSeenTimers.set(bulletEl, timer);
+}
+
+function cancelBriefingBulletSeen(bulletEl) {
+  const timer = briefingSeenTimers.get(bulletEl);
+  if (!timer) return;
+  clearTimeout(timer);
+  briefingSeenTimers.delete(bulletEl);
+}
+
 function observeBriefingItems(seenState) {
   if (briefingSeenObserver) {
     briefingSeenObserver.disconnect();
     briefingSeenObserver = null;
   }
+  clearPendingSeenTimers();
   const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
   if (!bullets.length) return;
   if (!('IntersectionObserver' in window)) {
@@ -275,12 +307,14 @@ function observeBriefingItems(seenState) {
   briefingSeenObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        if (!entry.isIntersecting || entry.intersectionRatio < 0.6) return;
-        markBriefingBulletSeen(entry.target, seenState);
-        briefingSeenObserver?.unobserve(entry.target);
+        if (!entry.isIntersecting || entry.intersectionRatio < SEEN_VISIBILITY_RATIO) {
+          cancelBriefingBulletSeen(entry.target);
+          return;
+        }
+        scheduleBriefingBulletSeen(entry.target, seenState);
       });
     },
-    { threshold: [0.6] },
+    { threshold: [SEEN_VISIBILITY_RATIO] },
   );
   bullets.forEach((bulletEl) => {
     if (bulletEl.dataset.seenState === 'seen') return;

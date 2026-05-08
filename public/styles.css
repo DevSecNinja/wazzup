@@ -342,6 +342,7 @@ main {
 @media (width >= 900px) {
   main { grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr); }
   #briefing { grid-row: span 3; }
+  #sources { grid-row: span 2; }
 }
 
 @media (width < 720px) {

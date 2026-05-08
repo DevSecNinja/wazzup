@@ -42,6 +42,11 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("tag-list", app)
         self.assertIn("renderYesterday", app)
 
+    def test_desktop_sources_card_aligns_with_briefing_card(self) -> None:
+        css = Path("public/styles.css").read_text(encoding="utf-8")
+        self.assertIn("#briefing { grid-row: span 3; }", css)
+        self.assertIn("#sources { grid-row: span 2; }", css)
+
     def test_pwa_tracks_seen_briefing_items_locally(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
         css = Path("public/styles.css").read_text(encoding="utf-8")
@@ -52,7 +57,11 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("data-seen-item-ids", app)
         self.assertIn("data-seen-state", app)
         self.assertIn("IntersectionObserver", app)
-        self.assertIn("threshold: [0.6]", app)
+        self.assertIn("const SEEN_VISIBILITY_RATIO = 0.85", app)
+        self.assertIn("const SEEN_DWELL_MS = 1500", app)
+        self.assertIn("threshold: [SEEN_VISIBILITY_RATIO]", app)
+        self.assertIn("scheduleBriefingBulletSeen", app)
+        self.assertIn("cancelBriefingBulletSeen", app)
         self.assertIn("bullet__status--", app)
         self.assertIn("id=\"hideSeenButton\"", app)
         self.assertIn("Hide seen", app)
