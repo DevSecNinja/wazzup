@@ -22,7 +22,7 @@
 
 ## Implemented test suite
 
-The current MVP uses Python `unittest` and lightweight scripts instead of pytest or a JavaScript test runner.
+The current test suite uses Python `unittest` and lightweight scripts instead of pytest or a JavaScript test runner.
 
 Implemented tests:
 
@@ -49,7 +49,7 @@ task validate:data
 task pages:build               # restore retained state and validate Pages data
 ```
 
-## Required MVP tests
+## Required baseline tests
 
 ### Source tests
 
@@ -106,7 +106,7 @@ task pages:build               # restore retained state and validate Pages data
 - Keyboard navigation works for briefing sections.
 - Basic accessibility checks pass.
 
-Frontend tests are currently static asset and hook tests in [../tests/test_pwa_assets.py](../tests/test_pwa_assets.py) because the MVP deliberately has no Node package/build/test setup. Add browser-level tests once the UI needs interaction and accessibility coverage beyond these static checks.
+Frontend tests are currently static asset and hook tests in [../tests/test_pwa_assets.py](../tests/test_pwa_assets.py) because the app deliberately has no Node package/build/test setup. Add browser-level tests once the UI needs interaction and accessibility coverage beyond these static checks.
 
 ## Prompt regression tests
 
@@ -154,7 +154,7 @@ Optional checks:
 - CodeQL.
 - Live feed smoke test on schedule/manual trigger.
 
-## Known coverage gaps after MVP launch feedback
+## Known coverage gaps after launch feedback
 
 - No real browser rendering tests yet for yesterday-summary rendering, notification permission flows, or offline behavior.
 - No accessibility automation yet for the updated logo, footer, and cards.

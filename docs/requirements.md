@@ -17,7 +17,7 @@ Wazzup provides an opinionated, personal briefing layer on top of RSS feeds and 
 - Standardize the data model and processing pipeline so future APIs, agents, and MCP integrations can reuse the same contracts.
 - Include automated tests and GitHub Actions workflows from the start.
 
-## Non-goals for MVP
+## Non-goals for the current product
 
 - Building a general-purpose public news platform.
 - Replacing full article reading or paid news subscriptions.
@@ -40,7 +40,7 @@ A technically proficient individual who follows technology news, open-source rel
 
 ## Current implementation status
 
-The current repository implements the end-to-end MVP thin slice with these concrete choices:
+The current repository implements the end-to-end app slice with these concrete choices:
 
 - Runtime: Python package under [../src/wazzup](../src/wazzup) with `PyYAML` as the only runtime dependency.
 - Frontend: vanilla static PWA under [../public](../public).
@@ -59,8 +59,8 @@ Implemented deviations from the original target:
 
 ## Functional requirements
 
-| ID     | Requirement                                                                                                                                   | MVP priority |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| ID     | Requirement                                                                                                                                   | Priority |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | FR-001 | Maintain a configurable list of feeds, short source tags, source categories, source weights, and user interests.                              | Must         |
 | FR-002 | Fetch configured RSS/Atom feeds hourly from GitHub Actions. JSON Feed support remains deferred.                                               | Must         |
 | FR-003 | Deduplicate articles using canonical URL, feed item GUID, title similarity, and publication timestamp.                                        | Must         |
@@ -109,7 +109,7 @@ Implemented deviations from the original target:
 | NFR-010 | Auditability    | Every summary should record model/provider, prompt version, generation time, and source IDs. |
 | NFR-011 | Release hygiene | Commits must follow Conventional Commits so release-please can be introduced later.          |
 
-## MVP scope
+## Current scope
 
 ### Included
 
@@ -119,7 +119,7 @@ Implemented deviations from the original target:
 - AI provider abstraction with Copilot CLI and deterministic fake provider implementations.
 - Morning and evening briefing generation when due in `auto` mode or explicitly forced.
 - GitHub Pages-hosted frontend.
-- Public GitHub Pages deployment is acceptable for the MVP.
+- Public GitHub Pages deployment is acceptable for the current deployment.
 - CI workflow for lightweight formatting, syntax linting, tests, build checks, fixture generation, and data contract validation.
 - End-to-end thin slice first: source config, ingestion, scoring, Copilot CLI summarization adapter, static data, PWA view, and CI.
 
@@ -139,7 +139,7 @@ Implemented deviations from the original target:
 
 ### How to reach the user?
 
-Start with a PWA only for the MVP. Later, expand to low-maintenance delivery channels:
+Start with a PWA only for the current version. Later, expand to low-maintenance delivery channels:
 
 1. GitHub Pages PWA for browsing and offline reading.
 2. Optional GitHub Actions delivery step to send morning/evening summaries to ntfy, email, Slack, Teams, or Home Assistant webhook.
@@ -149,11 +149,11 @@ Full Web Push requires subscription storage and a push sender. That introduces b
 
 ### Where to run the backend?
 
-Use GitHub Actions for the MVP backend. Publish generated static data to GitHub Pages. Avoid a database initially by storing date-partitioned YAML files, generated JSON browser mirrors, and small indexes in a dedicated GitHub Release asset that the scheduled workflow restores before each run.
+Use GitHub Actions for the current backend. Publish generated static data to GitHub Pages. Avoid a database initially by storing date-partitioned YAML files, generated JSON browser mirrors, and small indexes in a dedicated GitHub Release asset that the scheduled workflow restores before each run.
 
 ### Can the backend run on GitHub without maintaining a database?
 
-Yes, with trade-offs. Recommended MVP storage:
+Yes, with trade-offs. Recommended current storage:
 
 - `data/latest.yaml` for the latest briefing pointers, with `latest.json` as browser mirror.
 - `data/briefings/YYYY/MM/DD/*.yaml` for generated summaries, with JSON mirrors.
@@ -166,7 +166,7 @@ This avoids an operational database and avoids thousands of generated-data commi
 
 ### How to run the frontend with as few libraries as possible?
 
-The implemented MVP uses static HTML, CSS, vanilla JavaScript, and a Service Worker. TypeScript, Web Components, or a framework can be added later only if they add clear value while keeping dependencies low, stable, and well-known.
+The implemented app uses static HTML, CSS, vanilla JavaScript, and a Service Worker. TypeScript, Web Components, or a framework can be added later only if they add clear value while keeping dependencies low, stable, and well-known.
 
 ### How to embed workflows from `.github` repositories?
 
@@ -186,7 +186,7 @@ Yes. GitHub documents running Copilot CLI in GitHub Actions by installing `@gith
 
 ### Should we consider Ollama in GitHub Actions?
 
-Yes, but as a secondary/self-hosted style option. Ollama can run local models inside Actions for privacy-friendly experiments and deterministic smoke tests, but GitHub-hosted runners are CPU-bound, model downloads are slow without caching, and small local models may produce lower-quality summaries. Use it behind the same adapter interface, not as the default MVP path.
+Yes, but as a secondary/self-hosted style option. Ollama can run local models inside Actions for privacy-friendly experiments and deterministic smoke tests, but GitHub-hosted runners are CPU-bound, model downloads are slow without caching, and small local models may produce lower-quality summaries. Use it behind the same adapter interface, not as the default path.
 
 ### How to support podcasts?
 
@@ -196,13 +196,13 @@ Add podcast RSS as a source adapter. Prefer existing episode transcripts from Po
 
 Define versioned contracts for sources, content items, summaries, scores, and delivery targets. Build every interface around those contracts so the CLI, frontend, future API, agents, and MCP server share the same domain model.
 
-## Resolved MVP decisions
+## Resolved implementation decisions
 
-| Decision             | MVP choice                                                                                                                                              |
+| Decision             | Current choice                                                                                                                                          |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Data visibility      | Public GitHub Pages is acceptable for MVP.                                                                                                              |
+| Data visibility      | Public GitHub Pages is acceptable for the current deployment.                                                                                            |
 | AI runner            | Copilot CLI is the default; explore Ollama, Foundry, or API providers later.                                                                            |
-| Primary delivery     | PWA only for MVP.                                                                                                                                       |
+| Primary delivery     | PWA first.                                                                                                                                              |
 | Frontend stack       | Implemented as vanilla HTML/CSS/JavaScript with no frontend build step. TypeScript/Web Components can be introduced later only if they add clear value. |
 | Storage retention    | Keep 35 days of Pages data to support future monthly recaps with buffer.                                                                                |
 | Summary language     | Always generate English briefings, including summaries of Dutch NOS articles.                                                                           |

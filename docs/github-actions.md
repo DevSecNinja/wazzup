@@ -42,7 +42,7 @@ Release Please remains deferred until the app has an explicit first release/vers
 
 ## AI runner options in Actions
 
-The preferred MVP path is Copilot CLI because it is GitHub-native and can run directly inside a scheduled workflow. The pipeline should still expose a provider abstraction so the same request can be handled by Copilot CLI, an API provider, Ollama, or a fake test provider.
+The preferred current path is Copilot CLI because it is GitHub-native and can run directly inside a scheduled workflow. The pipeline should still expose a provider abstraction so the same request can be handled by Copilot CLI, an API provider, Ollama, or a fake test provider.
 
 | Runner        | When to use                                                                                                           | Workflow implications                                                                                                                                                               |
 | ------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -218,7 +218,7 @@ Ollama can be evaluated behind the same provider interface:
   run: task pipeline:generate
 ```
 
-This should not be the default MVP runner unless quality and runtime are acceptable. Prefer caching model layers and running it only on manual or scheduled canary workflows until validated.
+This should not be the default runner unless quality and runtime are acceptable. Prefer caching model layers and running it only on manual or scheduled canary workflows until validated.
 
 ## Reusable workflow integration
 
@@ -268,7 +268,7 @@ Expected future behavior:
 
 ## Secrets
 
-Expected MVP secrets:
+Expected secrets:
 
 | Secret                       | Purpose                                                                                                     |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------- |

@@ -12,7 +12,7 @@ Wazzup currently uses a GitHub-native static architecture:
 - The core domain contracts remain independent from GitHub Actions and GitHub Pages so they can later power a REST API, agent tool, or MCP server.
 - Commits must follow Conventional Commits so release-please can be added without history cleanup.
 
-Implementation deviations from the original target are intentional for MVP simplicity:
+Implementation deviations from the original target are intentional for the current lightweight architecture:
 
 - Backend runtime is Python 3.11+ under [../src/wazzup](../src/wazzup).
 - Frontend is vanilla HTML/CSS/JavaScript under [../public](../public); there is no frontend build step yet.
@@ -37,7 +37,7 @@ flowchart LR
 
 ## Runtime components
 
-| Component            | Responsibility                                                                                     | MVP implementation                                                                                     |
+| Component            | Responsibility                                                                                     | Current implementation                                                                                 |
 | -------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | Source configuration | Defines feeds, short source tags, categories, weights, headers, and interest hints.                | [../config/sources.yml](../config/sources.yml) and [../config/interests.yml](../config/interests.yml). |
 | Fetcher              | Retrieves RSS and Atom XML feeds.                                                                  | `urllib.request` based Python fetcher in [../src/wazzup/feeds.py](../src/wazzup/feeds.py).             |
@@ -107,7 +107,7 @@ tests/
   pages.yml
 ```
 
-Future work can split the Python modules into deeper packages if complexity grows, but the current flat package keeps the MVP easy to inspect.
+Future work can split the Python modules into deeper packages if complexity grows, but the current flat package keeps the app easy to inspect.
 
 ## Domain contracts
 
@@ -230,7 +230,7 @@ Rejected alternatives:
 
 Deduplication is a first-class pipeline step because duplicate RSS entries were a primary frustration with previous feed tooling.
 
-The MVP deduplicates before scoring using transitive duplicate groups:
+The current pipeline deduplicates before scoring using transitive duplicate groups:
 
 1. Canonical URL key after removing common tracking parameters and fragments.
 2. Feed GUID/raw reference key when available.
@@ -317,7 +317,7 @@ Use a small static PWA:
 - CSS custom properties for theming.
 - Vanilla JavaScript for data loading and rendering.
 - Service Worker for static asset and recently fetched data caching.
-- No runtime framework in the MVP unless complexity proves it adds clear design or functionality value. If introduced, keep dependencies low, stable, and well-known.
+- No runtime framework in the current PWA unless complexity proves it adds clear design or functionality value. If introduced, keep dependencies low, stable, and well-known.
 
 Implemented frontend behavior:
 
@@ -334,10 +334,10 @@ A dedicated daily briefing kind is not implemented yet. The current site behavio
 
 ## Notification architecture
 
-### MVP
+### Current behavior
 
 - PWA displays latest data when opened.
-- No external delivery channel is required for MVP.
+- No external delivery channel is required yet.
 
 ### Later
 
@@ -384,7 +384,7 @@ Audio transcription should be opt-in due to cost, latency, and copyright conside
 
 ## Future API and MCP readiness
 
-To avoid rework, the MVP should treat static YAML contracts as canonical, with JSON mirrors as browser/API compatibility output. A later API or MCP server can expose the same operations:
+To avoid rework, the current app treats static YAML contracts as canonical, with JSON mirrors as browser/API compatibility output. A later API or MCP server can expose the same operations:
 
 - `list_briefings(window, kind)`
 - `get_briefing(id)`
@@ -400,7 +400,7 @@ The future MCP server should depend on the domain contracts in [../src/wazzup](.
 - Store AI provider keys and delivery secrets in GitHub Actions secrets.
 - Do not log full prompts if they may contain private interests or paid content.
 - Redact provider responses in debug logs unless explicitly enabled.
-- Treat Pages output as public for the MVP and avoid publishing secrets, private notes, or full article text.
+- Treat Pages output as public for the current deployment and avoid publishing secrets, private notes, or full article text.
 - Respect source terms and avoid publishing full article text unless licensed.
 - Prefer summaries and links over copied article content.
 
@@ -408,7 +408,7 @@ The future MCP server should depend on the domain contracts in [../src/wazzup](.
 
 | Risk                                    | Mitigation                                                                                                                    |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| GitHub Pages exposes personal interests | Public output is accepted for MVP; keep source preferences and prompts minimal and support private/static alternatives later. |
+| GitHub Pages exposes personal interests | Public output is accepted for the current deployment; keep source preferences and prompts minimal and support private/static alternatives later. |
 | Repository bloat from generated data    | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated YAML/JSON.              |
 | AI hallucinations                       | Require citations, validate structured output, keep source links visible.                                                     |
 | AI provider cost spikes                 | Cap item count today; add summary caching and token/monthly accounting before relying on strict budget guarantees.             |

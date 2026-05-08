@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted and implemented for the MVP
+Accepted and implemented
 
 ## Context
 
@@ -49,7 +49,7 @@ The state archive currently contains YAML canonical files and JSON mirrors. YAML
 - The scheduled workflow needs `contents: write` permission to create/update the release asset.
 - Release asset updates are mutable state and need defensive validation before publishing.
 - The `news-state` release is operational state, not a semantic product release.
-- The Pages workflow depends on the state release being public or otherwise downloadable without a token. This matches the current public MVP assumption.
+- The Pages workflow depends on the state release being public or otherwise downloadable without a token. This matches the current public deployment assumption.
 
 ## Alternatives considered
 
@@ -81,7 +81,7 @@ The state archive currently contains YAML canonical files and JSON mirrors. YAML
 ### External database or object storage
 
 - Pros: Better query and state-management capabilities.
-- Cons: Adds infrastructure the MVP is explicitly avoiding.
+- Cons: Adds infrastructure the current architecture intentionally avoids.
 
 ## Follow-up decisions
 

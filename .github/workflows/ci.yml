@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   test:
-    name: Test MVP slice
+    name: Test app slice
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
