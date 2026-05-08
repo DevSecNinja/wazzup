@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import struct
 import unittest
 from pathlib import Path
 
@@ -23,6 +24,18 @@ class PwaAssetTests(unittest.TestCase):
         self.assertNotIn('<rect x="58" y="58" width="396" height="396" rx="96" fill="url(#bg)"', icon)
         self.assertIn('<rect x="0" y="0" width="64" height="64" rx="15" fill="url(#g)"', favicon)
         self.assertNotIn('<rect x="7" y="7" width="50" height="50" rx="13" fill="url(#g)"', favicon)
+
+    def test_apple_touch_icon_is_opaque_rgb_png(self) -> None:
+        data = Path("public/icons/apple-touch-icon.png").read_bytes()
+        self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))
+        ihdr = data[16:29]
+        width, height, bit_depth, color_type, compression, filter_method, interlace = struct.unpack(
+            ">IIBBBBB", ihdr
+        )
+        self.assertEqual((180, 180), (width, height))
+        self.assertEqual(8, bit_depth)
+        self.assertEqual(2, color_type)
+        self.assertEqual((0, 0, 0), (compression, filter_method, interlace))
 
     def test_app_uses_24_hour_browser_time_and_build_versioned_sw(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
@@ -133,6 +146,7 @@ class PwaAssetTests(unittest.TestCase):
         html = Path("public/index.html").read_text(encoding="utf-8")
         self.assertIn("viewport-fit=cover", html)
         self.assertIn("black-translucent", html)
+        self.assertIn('rel="apple-touch-icon" sizes="180x180"', html)
         self.assertNotIn("topbar__links", html)
         self.assertNotIn("Previous hours", html)
         self.assertIn("id=\"yesterday\"", html)
