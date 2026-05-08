@@ -36,6 +36,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("- main", workflow)
         self.assertIn("workflow_run:", workflow)
         self.assertIn("workflow_dispatch:", workflow)
+        self.assertIn('export GITHUB_TOKEN="${{ github.token }}"', workflow)
         self.assertIn("build-command: ~/.local/bin/mise exec -- task pages:build", workflow)
 
 
