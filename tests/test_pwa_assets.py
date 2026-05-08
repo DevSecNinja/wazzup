@@ -32,6 +32,9 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("periodic-background-sync", app)
         self.assertIn("registration.periodicSync.register", app)
         self.assertIn("registration.sync.register", app)
+        self.assertIn("supportsBackgroundNotifications", app)
+        self.assertIn("showUnsupportedNotificationState", app)
+        self.assertIn("Background notifications unavailable on this device", app)
         self.assertIn("status = await navigator.permissions.query", app)
         self.assertIn("type: 'sync-latest-briefing'", app)
         self.assertIn("FALLBACK_TIME_ZONE = 'Europe/Amsterdam'", app)
@@ -58,6 +61,15 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn(".bullet[data-primary-url]:hover h4", css)
         self.assertIn(".bullet[data-primary-url]:focus-visible h4", css)
         self.assertIn("text-decoration: underline", css)
+
+    def test_notifications_do_not_promise_background_delivery_without_background_sync(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        self.assertIn("function supportsBackgroundNotifications(registration)", app)
+        self.assertIn("'periodicSync' in registration || 'sync' in registration", app)
+        self.assertIn("function showUnsupportedNotificationState()", app)
+        self.assertIn("notifyButton.disabled = true", app)
+        self.assertIn("if (!supportsBackgroundNotifications(registration))", app)
+        self.assertIn("showUnsupportedNotificationState();", app)
 
     def test_background_news_uses_page_icon(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")

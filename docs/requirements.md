@@ -144,7 +144,7 @@ Start with a PWA only for the MVP. Later, expand to low-maintenance delivery cha
 
 1. GitHub Pages PWA for browsing and offline reading.
 2. Optional GitHub Actions delivery step to send morning/evening summaries to ntfy, email, Slack, Teams, or Home Assistant webhook.
-3. Browser notifications only for local reminders while the PWA is open or recently active.
+3. Browser notifications only when the installed PWA's browser supports background sync; unsupported platforms such as iOS should show a clear unavailable state.
 
 Full Web Push requires subscription storage and a push sender. That introduces backend state, so it should be a later feature.
 

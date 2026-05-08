@@ -561,8 +561,23 @@ function syncLatestBriefing(registration, briefing, latest) {
   });
 }
 
+function supportsBackgroundNotifications(registration) {
+  return Boolean(registration && ('periodicSync' in registration || 'sync' in registration));
+}
+
+function showUnsupportedNotificationState() {
+  notifyButton.hidden = false;
+  notifyButton.disabled = true;
+  notifyButton.textContent = 'Background notifications unavailable on this device';
+}
+
 async function enableNotifications(registration, briefing, latest) {
   if (!('Notification' in window) || !registration?.showNotification) return;
+  if (!supportsBackgroundNotifications(registration)) {
+    showUnsupportedNotificationState();
+    syncLatestBriefing(registration, briefing, latest);
+    return;
+  }
   notifyButton.hidden = Notification.permission === 'denied';
   notifyButton.textContent = Notification.permission === 'granted' ? 'Hourly update notifications enabled' : 'Notify me when a new hourly update lands';
   notifyButton.disabled = Notification.permission === 'granted';
