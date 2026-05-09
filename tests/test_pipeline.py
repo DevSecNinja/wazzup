@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from wazzup.models import ContentItem, ScoredItem
 from wazzup.pipeline import (
+    diversification_key,
     diversify_scored_items,
     exclude_already_featured_hourly_items,
     featured_hourly_item_ids_for_local_day,
@@ -50,6 +51,14 @@ def scored_item(item_id: str, published_at: str, score: float) -> ScoredItem:
 
 
 class PipelineTests(unittest.TestCase):
+    def test_diversification_key_prefers_interest_and_falls_back_to_source(self) -> None:
+        interested = replace(scored_item("interested", "2026-05-06T15:35:00Z", 50), matched_interests=["motorsport"])
+        uninterested = scored_item("uninterested", "2026-05-06T15:34:00Z", 49)
+        uninterested = replace(uninterested, item=replace(uninterested.item, source_id="source-b"))
+
+        self.assertEqual("interest:motorsport", diversification_key(interested))
+        self.assertEqual("source:source-b", diversification_key(uninterested))
+
     def test_diversify_scored_items_limits_interest_streaks(self) -> None:
         motorsport_1 = replace(scored_item("motorsport-1", "2026-05-06T15:35:00Z", 50), matched_interests=["motorsport"])
         motorsport_2 = replace(scored_item("motorsport-2", "2026-05-06T15:34:00Z", 49), matched_interests=["motorsport"])
@@ -65,12 +74,20 @@ class PipelineTests(unittest.TestCase):
         source_a_1 = scored_item("source-a-1", "2026-05-06T15:35:00Z", 50)
         source_a_2 = scored_item("source-a-2", "2026-05-06T15:34:00Z", 49)
         source_a_3 = scored_item("source-a-3", "2026-05-06T15:33:00Z", 48)
-        source_b = scored_item("source-b-1", "2026-05-06T15:32:00Z", 47)
-        source_b = replace(source_b, item=replace(source_b.item, source_id="source-b"))
+        source_b_base = scored_item("source-b-1", "2026-05-06T15:32:00Z", 47)
+        source_b = replace(source_b_base, item=replace(source_b_base.item, source_id="source-b"))
 
         diversified = diversify_scored_items([source_a_1, source_a_2, source_a_3, source_b], max_consecutive=2)
 
         self.assertEqual(["source-a-1", "source-a-2", "source-b-1", "source-a-3"], [item.item.id for item in diversified])
+
+    def test_diversify_scored_items_returns_input_when_threshold_or_length_short_circuits(self) -> None:
+        first = scored_item("first", "2026-05-06T15:35:00Z", 50)
+        second = scored_item("second", "2026-05-06T15:34:00Z", 49)
+
+        self.assertEqual([], diversify_scored_items([], max_consecutive=2))
+        self.assertIs(first, diversify_scored_items([first], max_consecutive=0)[0])
+        self.assertEqual([first, second], diversify_scored_items([first, second], max_consecutive=2))
 
     def test_hourly_selection_prioritizes_new_articles(self) -> None:
         now = datetime(2026, 5, 6, 15, 42, tzinfo=UTC)
