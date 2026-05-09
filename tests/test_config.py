@@ -23,8 +23,12 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("nba-official-news", {source.id for source in sources})
         self.assertIn("espn-nba", {source.id for source in sources})
         self.assertIn("github-blog", {source.id for source in sources})
+        self.assertIn("openai-news", {source.id for source in sources})
+        self.assertIn("anthropic-news", {source.id for source in sources})
+        self.assertIn("hugging-face-blog", {source.id for source in sources})
         self.assertIn("azure-updates", {source.id for source in sources})
         self.assertIn("tech", {category for source in sources for category in source.categories})
+        self.assertIn("ai", {category for source in sources for category in source.categories})
         self.assertIn("formula-1", {category for source in sources for category in source.categories})
         self.assertIn("nba", {category for source in sources for category in source.categories})
         timeout_by_id = {source.id: source.timeout_seconds for source in sources}
