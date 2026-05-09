@@ -86,7 +86,7 @@ class PipelineTests(unittest.TestCase):
         second = scored_item("second", "2026-05-06T15:34:00Z", 49)
 
         self.assertEqual([], diversify_scored_items([], max_consecutive=2))
-        self.assertIs(first, diversify_scored_items([first], max_consecutive=0)[0])
+        self.assertEqual([first], diversify_scored_items([first], max_consecutive=0))
         self.assertEqual([first, second], diversify_scored_items([first, second], max_consecutive=2))
 
     def test_hourly_selection_prioritizes_new_articles(self) -> None:
