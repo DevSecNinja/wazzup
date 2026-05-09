@@ -278,7 +278,7 @@ function todayBriefingView(currentBriefing, earlierBriefings, seenState) {
   const usedItemIds = new Set();
   const usedFallbackKeys = new Set();
   const currentRecords = uniqueBulletRecords(extractBulletRecords(currentBriefing), usedItemIds, usedFallbackKeys);
-  const [, ...remainingCurrentRecords] = currentRecords;
+  const remainingCurrentRecords = currentRecords.slice(1);
   const earlierRecords = uniqueBulletRecords(earlierBriefings.flatMap(extractBulletRecords), usedItemIds, usedFallbackKeys);
   const sections = [];
 
@@ -579,23 +579,24 @@ function renderHero(briefing) {
   const normalized = topBullet ? normalizeBullet(topBullet, citations) : null;
   heroHeadlineEl.textContent = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
   heroSummaryEl.textContent = normalized?.description || 'No notable updates were found in today’s rolling briefing.';
-  if (!heroMetaEl) return;
-  if (!topBullet || !normalized) {
-    heroMetaEl.textContent = '';
-    return;
+  if (heroMetaEl) {
+    if (!topBullet || !normalized) {
+      heroMetaEl.textContent = '';
+    } else {
+      const links = (topBullet.citations || [])
+        .map((itemId) => citations.get(itemId))
+        .filter(Boolean)
+        .map(
+          (citation) =>
+            `<a class="citation" href="${escapeHtml(citation.url)}" target="_blank" rel="noopener noreferrer">${citation.publishedAt ? `${escapeHtml(formatDate(citation.publishedAt))} · ` : ''}${escapeHtml(citation.sourceName)}</a>`,
+        )
+        .join('');
+      const tags = normalized.tags
+        .map((tag) => `<button class="tag tag--button" type="button" data-filter-type="category" data-filter-value="${escapeHtml(tag)}" data-filter-label="${escapeHtml(tag)}" aria-pressed="false">${escapeHtml(tag)}</button>`)
+        .join('');
+      heroMetaEl.innerHTML = `${tags ? `<div class="tag-list">${tags}</div>` : ''}${links ? `<div class="citations">${links}</div>` : ''}`;
+    }
   }
-  const links = (topBullet.citations || [])
-    .map((itemId) => citations.get(itemId))
-    .filter(Boolean)
-    .map(
-      (citation) =>
-        `<a class="citation" href="${escapeHtml(citation.url)}" target="_blank" rel="noopener noreferrer">${citation.publishedAt ? `${escapeHtml(formatDate(citation.publishedAt))} · ` : ''}${escapeHtml(citation.sourceName)}</a>`,
-    )
-    .join('');
-  const tags = normalized.tags
-    .map((tag) => `<button class="tag tag--button" type="button" data-filter-type="category" data-filter-value="${escapeHtml(tag)}" data-filter-label="${escapeHtml(tag)}" aria-pressed="false">${escapeHtml(tag)}</button>`)
-    .join('');
-  heroMetaEl.innerHTML = `${tags ? `<div class="tag-list">${tags}</div>` : ''}${links ? `<div class="citations">${links}</div>` : ''}`;
 }
 
 function renderSources(status) {

@@ -92,7 +92,7 @@ class PwaAssetTests(unittest.TestCase):
         app = Path("public/app.js").read_text(encoding="utf-8")
         self.assertIn("manifest.briefings", app)
         self.assertIn("/\\/hourly-\\d{2}\\.yaml$/.test(path)", app)
-        self.assertIn("const [, ...remainingCurrentRecords] = currentRecords;", app)
+        self.assertIn("const remainingCurrentRecords = currentRecords.slice(1);", app)
         self.assertIn("[...remainingCurrentRecords, ...earlierRecords]", app)
         self.assertIn("localDateKey(briefing.generatedAt) === currentDay", app)
         self.assertIn("mergeCitations(allBriefings)", app)
