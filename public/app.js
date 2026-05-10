@@ -17,7 +17,7 @@ const DEFAULT_RETENTION_DAYS = 35;
 const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
 const NOTIFICATIONS_DISABLED_STORAGE_KEY = 'wazzup:notificationsDisabled';
-const SEEN_VIEWPORT_LINE_RATIO = 0.5;
+const SEEN_VIEWPORT_LINE_RATIO = 0.25;
 const SCROLL_BOTTOM_EPSILON = 4;
 
 let seenPositionFrame = 0;

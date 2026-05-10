@@ -162,7 +162,7 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("manifest?.retentionDays", app)
         self.assertIn("data-seen-item-ids", app)
         self.assertIn("data-seen-state", app)
-        self.assertIn("const SEEN_VIEWPORT_LINE_RATIO = 0.5", app)
+        self.assertIn("const SEEN_VIEWPORT_LINE_RATIO = 0.25", app)
         self.assertIn("const SCROLL_BOTTOM_EPSILON = 4", app)
         self.assertIn("function hasBulletPassedSeenLine", app)
         self.assertIn("function isScrolledToBottom", app)
