@@ -15,12 +15,13 @@ const BACKGROUND_SYNC_TAG = 'wazzup-hourly-update';
 const DEFAULT_RETENTION_DAYS = 35;
 const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
-const SEEN_VISIBILITY_RATIO = 0.85;
+const SEEN_READ_LINE_RATIO = 0.25;
 const SEEN_DWELL_MS = 1500;
 
 let briefingSeenObserver = null;
 let briefingSeenTimers = new WeakMap();
 let hideSeenEnabled = safeLocalStorageGet(HIDE_SEEN_STORAGE_KEY) === '1';
+let pauseSeenScansUntilInput = false;
 
 async function getJson(path) {
   const response = await fetch(path, { cache: 'no-store' });
@@ -335,12 +336,7 @@ function bindHideSeenButton(seenState) {
     hideSeenEnabled = !hideSeenEnabled;
     safeLocalStorageSet(HIDE_SEEN_STORAGE_KEY, hideSeenEnabled ? '1' : '0');
     applyHideSeenFilter();
-    if (hideSeenEnabled) {
-      briefingSeenObserver?.disconnect();
-      briefingSeenObserver = null;
-      clearPendingSeenTimers();
-      return;
-    }
+    pauseSeenScansUntilInput = false;
     observeBriefingItems(seenState);
   });
   applyHideSeenFilter();
@@ -396,6 +392,9 @@ function markBriefingBulletSeen(bulletEl, seenState) {
   if (!itemIds.length) return;
   markSeenBriefingItems(seenState, itemIds);
   setBulletSeenState(bulletEl, true);
+  if (hideSeenEnabled) {
+    pauseSeenScansUntilInput = true;
+  }
 }
 
 function clearPendingSeenTimers() {
@@ -414,7 +413,7 @@ function scheduleBriefingBulletSeen(bulletEl, seenState) {
     briefingSeenTimers.delete(bulletEl);
     if (!document.body.contains(bulletEl) || bulletEl.dataset.seenState === 'seen') return;
     markBriefingBulletSeen(bulletEl, seenState);
-    briefingSeenObserver?.unobserve(bulletEl);
+    briefingSeenObserver?.unobserve?.(bulletEl);
   }, SEEN_DWELL_MS);
   briefingSeenTimers.set(bulletEl, timer);
 }
@@ -426,35 +425,71 @@ function cancelBriefingBulletSeen(bulletEl) {
   briefingSeenTimers.delete(bulletEl);
 }
 
+function bulletHasReachedReadLine(bulletEl) {
+  const rect = bulletEl.getBoundingClientRect();
+  const readLine = window.innerHeight * SEEN_READ_LINE_RATIO;
+  return rect.top <= readLine && rect.bottom >= readLine;
+}
+
+function scanBriefingItemsForSeen(seenState) {
+  const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
+  let readLineMatchFound = false;
+  bullets.forEach((bulletEl) => {
+    if (bulletEl.dataset.seenState === 'seen') return;
+    if (!readLineMatchFound && bulletHasReachedReadLine(bulletEl)) {
+      readLineMatchFound = true;
+      scheduleBriefingBulletSeen(bulletEl, seenState);
+      return;
+    }
+    cancelBriefingBulletSeen(bulletEl);
+  });
+}
+
+function createBriefingSeenObserver(seenState) {
+  let frameId = 0;
+  const scan = () => {
+    if (pauseSeenScansUntilInput) return;
+    if (frameId) return;
+    frameId = window.requestAnimationFrame(() => {
+      frameId = 0;
+      scanBriefingItemsForSeen(seenState);
+    });
+  };
+  const resumeAfterInput = () => {
+    if (!pauseSeenScansUntilInput) return;
+    pauseSeenScansUntilInput = false;
+    scan();
+  };
+  window.addEventListener('scroll', scan, { passive: true });
+  window.addEventListener('resize', scan);
+  window.addEventListener('wheel', resumeAfterInput, { passive: true });
+  window.addEventListener('touchmove', resumeAfterInput, { passive: true });
+  window.addEventListener('keydown', resumeAfterInput);
+  scanBriefingItemsForSeen(seenState);
+  return {
+    disconnect() {
+      window.removeEventListener('scroll', scan);
+      window.removeEventListener('resize', scan);
+      window.removeEventListener('wheel', resumeAfterInput);
+      window.removeEventListener('touchmove', resumeAfterInput);
+      window.removeEventListener('keydown', resumeAfterInput);
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+        frameId = 0;
+      }
+    },
+  };
+}
+
 function observeBriefingItems(seenState) {
   if (briefingSeenObserver) {
     briefingSeenObserver.disconnect();
     briefingSeenObserver = null;
   }
   clearPendingSeenTimers();
-  if (hideSeenEnabled) return;
   const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
   if (!bullets.length) return;
-  if (!('IntersectionObserver' in window)) {
-    bullets.forEach((bulletEl) => markBriefingBulletSeen(bulletEl, seenState));
-    return;
-  }
-  briefingSeenObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting || entry.intersectionRatio < SEEN_VISIBILITY_RATIO) {
-          cancelBriefingBulletSeen(entry.target);
-          return;
-        }
-        scheduleBriefingBulletSeen(entry.target, seenState);
-      });
-    },
-    { threshold: [SEEN_VISIBILITY_RATIO] },
-  );
-  bullets.forEach((bulletEl) => {
-    if (bulletEl.dataset.seenState === 'seen') return;
-    briefingSeenObserver.observe(bulletEl);
-  });
+  briefingSeenObserver = createBriefingSeenObserver(seenState);
 }
 
 function renderBriefing(briefing, seenState) {
