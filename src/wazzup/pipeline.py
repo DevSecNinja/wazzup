@@ -152,6 +152,27 @@ def diversify_scored_items(scored_items: list[ScoredItem], max_consecutive: int 
     return diversified
 
 
+def curated_scored_items(scored_items: list[ScoredItem], selected_ids: list[str], max_items: int) -> list[ScoredItem]:
+    if max_items <= 0:
+        return []
+    id_to_scored = {scored.item.id: scored for scored in scored_items}
+    curated: list[ScoredItem] = []
+    seen_ids: set[str] = set()
+    for item_id in selected_ids:
+        if item_id in seen_ids:
+            continue
+        scored = id_to_scored.get(item_id)
+        if scored is None:
+            continue
+        curated.append(scored)
+        seen_ids.add(item_id)
+        if len(curated) >= max_items:
+            break
+    if not curated and scored_items:
+        return scored_items[:max_items]
+    return curated
+
+
 def featured_hourly_item_ids_for_local_day(data_dir: Path, now: datetime, timezone: str) -> set[str]:
     local_now = now.astimezone(ZoneInfo(timezone))
     daily_briefings_dir = data_dir / "briefings" / f"{local_now:%Y}" / f"{local_now:%m}" / f"{local_now:%d}"
@@ -244,8 +265,7 @@ def generate(argv: Sequence[str] | None = None) -> dict:
             max_items=args.max_items,
         )
     )
-    id_to_scored = {s.item.id: s for s in scored}
-    curated = [id_to_scored[item_id] for item_id in curation.selected_ids if item_id in id_to_scored]
+    curated = curated_scored_items(scored, curation.selected_ids, args.max_items)
     provider = provider_from_env(app_config)
     summary = provider.generate_structured_summary(
         SummaryRequest(

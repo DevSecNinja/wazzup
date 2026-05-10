@@ -12,6 +12,7 @@ from unittest.mock import patch
 from wazzup.models import ContentItem, ScoredItem
 from wazzup.pipeline import (
     content_window,
+    curated_scored_items,
     diversification_key,
     diversify_scored_items,
     exclude_already_featured_hourly_items,
@@ -97,6 +98,25 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual([], diversify_scored_items([], max_consecutive=2))
         self.assertEqual([first], diversify_scored_items([first], max_consecutive=0))
         self.assertEqual([first, second], diversify_scored_items([first, second], max_consecutive=2))
+
+    def test_curated_scored_items_keeps_known_unique_ids_up_to_max(self) -> None:
+        first = scored_item("first", "2026-05-06T15:35:00Z", 50)
+        second = scored_item("second", "2026-05-06T15:34:00Z", 49)
+        third = scored_item("third", "2026-05-06T15:33:00Z", 48)
+
+        curated = curated_scored_items([first, second, third], ["unknown", "second", "second", "third", "first"], 2)
+
+        self.assertEqual(["second", "third"], [item.item.id for item in curated])
+
+    def test_curated_scored_items_falls_back_when_selection_is_empty(self) -> None:
+        first = scored_item("first", "2026-05-06T15:35:00Z", 50)
+        second = scored_item("second", "2026-05-06T15:34:00Z", 49)
+
+        curated = curated_scored_items([first, second], ["unknown"], 1)
+
+        self.assertEqual(["first"], [item.item.id for item in curated])
+        self.assertEqual([], curated_scored_items([], ["unknown"], 1))
+        self.assertEqual([], curated_scored_items([first, second], ["first"], 0))
 
     def test_hourly_selection_prioritizes_new_articles(self) -> None:
         now = datetime(2026, 5, 6, 15, 42, tzinfo=UTC)
