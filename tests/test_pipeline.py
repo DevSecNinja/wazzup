@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from wazzup.models import ContentItem, ScoredItem
 from wazzup.pipeline import (
+    content_window,
     exclude_already_featured_hourly_items,
     featured_hourly_item_ids_for_local_day,
     generate,
@@ -49,6 +50,14 @@ def scored_item(item_id: str, published_at: str, score: float) -> ScoredItem:
 
 
 class PipelineTests(unittest.TestCase):
+    def test_morning_content_window_starts_at_local_midnight(self) -> None:
+        now = datetime(2026, 5, 10, 5, 10, tzinfo=UTC)
+
+        window_start, window_end = content_window("morning", now, "Europe/Amsterdam")
+
+        self.assertEqual("2026-05-09T22:00:00+00:00", window_start.isoformat())
+        self.assertEqual("2026-05-10T05:00:00+00:00", window_end.isoformat())
+
     def test_hourly_selection_prioritizes_new_articles(self) -> None:
         now = datetime(2026, 5, 6, 15, 42, tzinfo=UTC)
         scored = [
