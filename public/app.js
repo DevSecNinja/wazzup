@@ -577,8 +577,13 @@ function renderHero(briefing) {
   const citations = citationMap(briefing);
   const topBullet = briefing.sections?.[0]?.bullets?.[0];
   const normalized = topBullet ? normalizeBullet(topBullet, citations) : null;
+  const topBulletCitation = (topBullet?.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
+  const heroTitle = topBullet?.title || topBulletCitation?.title || briefing.headline;
+  const heroDescription = stripInterestBoilerplate(
+    topBullet?.description || stripLeadingTitle(topBullet?.text, heroTitle) || topBullet?.text || '',
+  );
   heroHeadlineEl.textContent = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
-  heroSummaryEl.textContent = normalized?.description || 'No notable updates were found in today’s rolling briefing.';
+  heroSummaryEl.textContent = heroDescription || 'No notable updates were found in today’s rolling briefing.';
   if (heroMetaEl) {
     if (!topBullet || !normalized) {
       heroMetaEl.textContent = '';

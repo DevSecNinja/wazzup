@@ -104,6 +104,9 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("Array.from(recordsByDayPart.entries())", app)
         self.assertIn("latestTimestamp: Math.max(...records.map(recordTimestamp))", app)
         self.assertIn(".sort((left, right) => right.latestTimestamp - left.latestTimestamp)", app)
+        self.assertIn("const heroDescription = stripInterestBoilerplate(", app)
+        self.assertIn("topBullet?.description || stripLeadingTitle(topBullet?.text, heroTitle) || topBullet?.text || ''", app)
+        self.assertIn("heroSummaryEl.textContent = heroDescription || 'No notable updates were found in today’s rolling briefing.';", app)
 
     def test_briefing_items_open_first_citation_url(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
