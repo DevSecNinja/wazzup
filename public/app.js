@@ -319,12 +319,26 @@ function setBulletSeenState(bulletEl, seen) {
   const statusEl = bulletEl.querySelector('.bullet__status');
   bulletEl.dataset.seenState = seen ? 'seen' : 'new';
   bulletEl.classList.toggle('bullet--seen', seen);
-  bulletEl.classList.toggle('bullet--hidden', hideSeenEnabled && seen);
+  if (!seen || !hideSeenEnabled) {
+    bulletEl.classList.toggle('bullet--hidden', false);
+  }
   if (!statusEl) return;
   statusEl.textContent = seen ? 'Seen' : 'New';
   statusEl.classList.toggle('bullet__status--seen', seen);
   statusEl.classList.toggle('bullet__status--new', !seen);
   updateUnreadCount();
+}
+
+function visibleUnreadBullets() {
+  return Array.from(briefingEl.querySelectorAll('.bullet[data-seen-state="new"]')).filter(
+    (bulletEl) => !bulletEl.classList.contains('bullet--filtered'),
+  );
+}
+
+function hideSeenIfVisibleSetComplete() {
+  if (!hideSeenEnabled || visibleUnreadBullets().length > 0) return;
+  pauseSeenScansUntilInput = true;
+  applyHideSeenFilter();
 }
 
 function applyHideSeenFilter() {
@@ -360,9 +374,7 @@ function unreadCountLabel(count) {
 function updateUnreadCount() {
   const unreadEl = briefingEl.querySelector('#unreadCount');
   if (!unreadEl) return;
-  const unreadCount = Array.from(briefingEl.querySelectorAll('.bullet[data-seen-state="new"]')).filter(
-    (bulletEl) => !bulletEl.classList.contains('bullet--filtered'),
-  ).length;
+  const unreadCount = visibleUnreadBullets().length;
   unreadEl.textContent = unreadCountLabel(unreadCount);
 }
 
@@ -482,7 +494,7 @@ function markBriefingBulletSeen(bulletEl, seenState) {
   markSeenBriefingItems(seenState, itemIds);
   setBulletSeenState(bulletEl, true);
   if (hideSeenEnabled) {
-    pauseSeenScansUntilInput = true;
+    hideSeenIfVisibleSetComplete();
   }
 }
 
