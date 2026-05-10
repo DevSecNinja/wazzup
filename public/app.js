@@ -24,6 +24,7 @@ let seenPositionFrame = 0;
 let seenPositionState = null;
 let hideSeenEnabled = safeLocalStorageGet(HIDE_SEEN_STORAGE_KEY) === '1';
 let activeBriefingFilter = null;
+let pauseSeenScansUntilInput = false;
 
 async function getJson(path) {
   const response = await fetch(path, { cache: 'no-store' });
@@ -318,12 +319,26 @@ function setBulletSeenState(bulletEl, seen) {
   const statusEl = bulletEl.querySelector('.bullet__status');
   bulletEl.dataset.seenState = seen ? 'seen' : 'new';
   bulletEl.classList.toggle('bullet--seen', seen);
-  bulletEl.classList.toggle('bullet--hidden', hideSeenEnabled && seen);
+  if (!seen || !hideSeenEnabled) {
+    bulletEl.classList.toggle('bullet--hidden', false);
+  }
   if (!statusEl) return;
   statusEl.textContent = seen ? 'Seen' : 'New';
   statusEl.classList.toggle('bullet__status--seen', seen);
   statusEl.classList.toggle('bullet__status--new', !seen);
   updateUnreadCount();
+}
+
+function visibleUnreadBullets() {
+  return Array.from(briefingEl.querySelectorAll('.bullet[data-seen-state="new"]')).filter(
+    (bulletEl) => !bulletEl.classList.contains('bullet--filtered'),
+  );
+}
+
+function hideSeenIfVisibleSetComplete() {
+  if (!hideSeenEnabled || visibleUnreadBullets().length > 0) return;
+  pauseSeenScansUntilInput = true;
+  applyHideSeenFilter();
 }
 
 function applyHideSeenFilter() {
@@ -338,13 +353,15 @@ function applyHideSeenFilter() {
   updateUnreadCount();
 }
 
-function bindHideSeenButton() {
+function bindHideSeenButton(seenState) {
   const button = briefingEl.querySelector('#hideSeenButton');
   if (!button) return;
   button.addEventListener('click', () => {
     hideSeenEnabled = !hideSeenEnabled;
     safeLocalStorageSet(HIDE_SEEN_STORAGE_KEY, hideSeenEnabled ? '1' : '0');
     applyHideSeenFilter();
+    pauseSeenScansUntilInput = false;
+    observeBriefingItems(seenState);
   });
   applyHideSeenFilter();
 }
@@ -357,9 +374,7 @@ function unreadCountLabel(count) {
 function updateUnreadCount() {
   const unreadEl = briefingEl.querySelector('#unreadCount');
   if (!unreadEl) return;
-  const unreadCount = Array.from(briefingEl.querySelectorAll('.bullet[data-seen-state="new"]')).filter(
-    (bulletEl) => !bulletEl.classList.contains('bullet--filtered'),
-  ).length;
+  const unreadCount = visibleUnreadBullets().length;
   unreadEl.textContent = unreadCountLabel(unreadCount);
 }
 
@@ -478,6 +493,9 @@ function markBriefingBulletSeen(bulletEl, seenState) {
   if (!itemIds.length) return;
   markSeenBriefingItems(seenState, itemIds);
   setBulletSeenState(bulletEl, true);
+  if (hideSeenEnabled) {
+    hideSeenIfVisibleSetComplete();
+  }
 }
 
 function isScrolledToBottom() {
@@ -495,22 +513,34 @@ function hasBulletPassedSeenLine(bulletEl) {
 }
 
 function markSeenByScrollPosition() {
-  if (!seenPositionState) return;
+  if (!seenPositionState || pauseSeenScansUntilInput) return;
   const atBottom = isScrolledToBottom();
   const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
+  let seenLineMatchFound = false;
   bullets.forEach((bulletEl) => {
     if (bulletEl.dataset.seenState === 'seen') return;
     if (!atBottom && !hasBulletPassedSeenLine(bulletEl)) return;
+    if (seenLineMatchFound) return;
     markBriefingBulletSeen(bulletEl, seenPositionState);
+    if (hideSeenEnabled || !atBottom) {
+      seenLineMatchFound = true;
+    }
   });
 }
 
 function scheduleSeenPositionCheck() {
+  if (pauseSeenScansUntilInput) return;
   if (seenPositionFrame) return;
   seenPositionFrame = window.requestAnimationFrame(() => {
     seenPositionFrame = 0;
     markSeenByScrollPosition();
   });
+}
+
+function resumeSeenPositionChecksAfterInput() {
+  if (!pauseSeenScansUntilInput) return;
+  pauseSeenScansUntilInput = false;
+  scheduleSeenPositionCheck();
 }
 
 function observeBriefingItems(seenState) {
@@ -521,6 +551,7 @@ function observeBriefingItems(seenState) {
   }
   const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
   if (!bullets.length) return;
+  pauseSeenScansUntilInput = false;
   scheduleSeenPositionCheck();
 }
 
@@ -568,7 +599,7 @@ function renderBriefing(briefing, seenState) {
     ${sections}
     ${briefing.provider?.type === 'fake' ? '<p class="provider-note">Deterministic fallback summary. Add a Copilot token secret for AI-written briefings.</p>' : ''}
   `;
-  bindHideSeenButton();
+  bindHideSeenButton(seenState);
   bindBriefingBulletLinks();
   bindBriefingFilters();
 }
@@ -892,6 +923,9 @@ async function main() {
     renderBriefing(todayBriefing, seenState);
     window.addEventListener('scroll', scheduleSeenPositionCheck, { passive: true });
     window.addEventListener('resize', scheduleSeenPositionCheck);
+    window.addEventListener('wheel', resumeSeenPositionChecksAfterInput, { passive: true });
+    window.addEventListener('touchmove', resumeSeenPositionChecksAfterInput, { passive: true });
+    window.addEventListener('keydown', resumeSeenPositionChecksAfterInput);
     observeBriefingItems(seenState);
     renderSources(status);
     await renderYesterday(manifest, latest, briefing);
