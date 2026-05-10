@@ -67,7 +67,7 @@ Implemented deviations from the original target:
 | FR-004 | Store normalized article metadata in stable, versioned YAML with generated JSON browser mirrors, without committing generated data to `main`. | Must     |
 | FR-005 | Score articles against user interests, recency, source reliability, and duplicate coverage.                                                   | Must     |
 | FR-006 | Generate hourly summaries from the current local day's retained feed items while suppressing items already featured earlier that day.         | Should   |
-| FR-007 | Generate a morning briefing at 07:00 local time covering the previous day plus overnight updates since 20:00.                                 | Must     |
+| FR-007 | Generate a morning briefing at 07:00 local time covering the current local day since midnight.                                                | Must     |
 | FR-008 | Generate an evening briefing at 20:00 local time covering the day since 07:00.                                                                | Must     |
 | FR-009 | Include citations/source links for every summary bullet.                                                                                      | Must     |
 | FR-010 | Expose latest summaries and article indexes as static YAML plus JSON browser mirrors.                                                         | Must     |

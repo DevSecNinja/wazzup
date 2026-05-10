@@ -3,6 +3,7 @@ const sourcesEl = document.querySelector('#sources');
 const yesterdayEl = document.querySelector('#yesterday');
 const heroHeadlineEl = document.querySelector('#heroHeadline');
 const heroSummaryEl = document.querySelector('#heroSummary');
+const heroMetaEl = document.querySelector('#heroMeta');
 const notifyButton = document.querySelector('#notifyButton');
 const commitLink = document.querySelector('#commitLink');
 const starCountText = document.querySelector('#starCountText');
@@ -15,12 +16,14 @@ const BACKGROUND_SYNC_TAG = 'wazzup-hourly-update';
 const DEFAULT_RETENTION_DAYS = 35;
 const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
-const SEEN_READ_LINE_RATIO = 0.25;
-const SEEN_DWELL_MS = 1500;
+const NOTIFICATIONS_DISABLED_STORAGE_KEY = 'wazzup:notificationsDisabled';
+const SEEN_VIEWPORT_LINE_RATIO = 0.25;
+const SCROLL_BOTTOM_EPSILON = 4;
 
-let briefingSeenObserver = null;
-let briefingSeenTimers = new WeakMap();
+let seenPositionFrame = 0;
+let seenPositionState = null;
 let hideSeenEnabled = safeLocalStorageGet(HIDE_SEEN_STORAGE_KEY) === '1';
+let activeBriefingFilter = null;
 let pauseSeenScansUntilInput = false;
 
 async function getJson(path) {
@@ -119,18 +122,20 @@ function normalizeTemperature(temperature) {
 }
 
 function normalizeBullet(bullet, citations) {
-  const firstCitation = (bullet.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
+  const citationRecords = (bullet.citations || []).map((itemId) => citations.get(itemId)).filter(Boolean);
+  const firstCitation = citationRecords[0];
   const fullTitle = bullet.title || firstCitation?.title || 'Update';
   const title = truncateText(fullTitle, MAX_HEADLINE_LENGTH);
   const rawDescription = stripInterestBoilerplate(
     bullet.description || stripLeadingTitle(bullet.text, fullTitle) || bullet.text || '',
   );
   const sourceTag = firstCitation?.sourceTag || firstCitation?.sourceName || '';
-  const tags = Array.from(new Set([sourceTag, ...(firstCitation?.tags || [])].filter(Boolean))).slice(0, 5);
+  const tags = Array.from(new Set([sourceTag, ...citationRecords.flatMap((citation) => citation.tags || [])].filter(Boolean))).slice(0, 5);
   return {
     title,
     description: truncateText(rawDescription, MAX_DESCRIPTION_LENGTH),
     tags,
+    sourceIds: Array.from(new Set(citationRecords.map((citation) => citation.sourceId).filter(Boolean))),
     primaryUrl: firstCitation?.url || '',
     temperature: normalizeTemperature(firstCitation?.temperature),
   };
@@ -274,13 +279,16 @@ function todayBriefingView(currentBriefing, earlierBriefings, seenState) {
   const usedItemIds = new Set();
   const usedFallbackKeys = new Set();
   const currentRecords = uniqueBulletRecords(extractBulletRecords(currentBriefing), usedItemIds, usedFallbackKeys);
+  const remainingCurrentRecords = currentRecords.slice(1);
   const earlierRecords = uniqueBulletRecords(earlierBriefings.flatMap(extractBulletRecords), usedItemIds, usedFallbackKeys);
   const sections = [];
 
   if (!hasSeenItemsForDay(seenState)) {
-    sections.push({ title: 'Today so far', bullets: [...currentRecords, ...earlierRecords].map((record) => record.bullet) });
+    const bullets = [...remainingCurrentRecords, ...earlierRecords].map((record) => record.bullet);
+    if (bullets.length) sections.push({ title: 'Today so far', bullets });
   } else {
-    sections.push({ title: 'Latest update', bullets: currentRecords.map((record) => record.bullet) });
+    const latestBullets = remainingCurrentRecords.map((record) => record.bullet);
+    if (latestBullets.length) sections.push({ title: 'Latest update', bullets: latestBullets });
     const recordsByDayPart = new Map();
     earlierRecords.forEach((record) => {
       const label = dayPartLabel(record.generatedAt);
@@ -316,6 +324,7 @@ function setBulletSeenState(bulletEl, seen) {
   statusEl.textContent = seen ? 'Seen' : 'New';
   statusEl.classList.toggle('bullet__status--seen', seen);
   statusEl.classList.toggle('bullet__status--new', !seen);
+  updateUnreadCount();
 }
 
 function applyHideSeenFilter() {
@@ -327,6 +336,7 @@ function applyHideSeenFilter() {
   if (!button) return;
   button.textContent = hideSeenEnabled ? 'Show seen' : 'Hide seen';
   button.setAttribute('aria-pressed', hideSeenEnabled ? 'true' : 'false');
+  updateUnreadCount();
 }
 
 function bindHideSeenButton(seenState) {
@@ -340,6 +350,85 @@ function bindHideSeenButton(seenState) {
     observeBriefingItems(seenState);
   });
   applyHideSeenFilter();
+}
+
+function unreadCountLabel(count) {
+  if (count === 1) return '1 unread';
+  return `${count} unread`;
+}
+
+function updateUnreadCount() {
+  const unreadEl = briefingEl.querySelector('#unreadCount');
+  if (!unreadEl) return;
+  const unreadCount = Array.from(briefingEl.querySelectorAll('.bullet[data-seen-state="new"]')).filter(
+    (bulletEl) => !bulletEl.classList.contains('bullet--filtered'),
+  ).length;
+  unreadEl.textContent = unreadCountLabel(unreadCount);
+}
+
+function setBriefingFilter(type, value, label) {
+  if (activeBriefingFilter?.type === type && activeBriefingFilter?.value === value) {
+    activeBriefingFilter = null;
+  } else {
+    activeBriefingFilter = { type, value, label };
+  }
+  applyBriefingFilter();
+}
+
+function bulletMatchesFilter(bulletEl) {
+  if (!activeBriefingFilter) return true;
+  if (activeBriefingFilter.type === 'category') {
+    return String(bulletEl.dataset.filterCategories || '').split(',').includes(activeBriefingFilter.value);
+  }
+  if (activeBriefingFilter.type === 'source') {
+    return String(bulletEl.dataset.filterSourceIds || '').split(',').includes(activeBriefingFilter.value);
+  }
+  return true;
+}
+
+function applyBriefingFilter() {
+  const bullets = Array.from(briefingEl.querySelectorAll('.bullet'));
+  bullets.forEach((bulletEl) => {
+    bulletEl.classList.toggle('bullet--filtered', !bulletMatchesFilter(bulletEl));
+  });
+  Array.from(briefingEl.querySelectorAll('.section')).forEach((sectionEl) => {
+    const visibleBullets = Array.from(sectionEl.querySelectorAll('.bullet')).some(
+      (bulletEl) => !bulletEl.classList.contains('bullet--filtered'),
+    );
+    sectionEl.classList.toggle('section--filtered-empty', !visibleBullets);
+  });
+  const activeFilterEl = briefingEl.querySelector('#activeFilter');
+  const clearFilterButton = briefingEl.querySelector('#clearFilterButton');
+  const emptyFilterEl = briefingEl.querySelector('#filterEmptyState');
+  const visibleBulletCount = bullets.filter((bulletEl) => !bulletEl.classList.contains('bullet--filtered')).length;
+  if (activeFilterEl) activeFilterEl.textContent = activeBriefingFilter ? `Filtered by ${activeBriefingFilter.label}` : '';
+  if (clearFilterButton) clearFilterButton.hidden = !activeBriefingFilter;
+  if (emptyFilterEl) emptyFilterEl.hidden = !activeBriefingFilter || visibleBulletCount > 0;
+  Array.from(document.querySelectorAll('[data-filter-type]')).forEach((button) => {
+    const pressed = activeBriefingFilter?.type === button.dataset.filterType && activeBriefingFilter?.value === button.dataset.filterValue;
+    button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  });
+  updateUnreadCount();
+}
+
+function bindBriefingFilters() {
+  document.querySelectorAll('[data-filter-type]').forEach((button) => {
+    if (button.dataset.filterBound === 'true') return;
+    button.dataset.filterBound = 'true';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      setBriefingFilter(button.dataset.filterType, button.dataset.filterValue, button.dataset.filterLabel || button.textContent.trim());
+    });
+  });
+  const clearFilterButton = briefingEl.querySelector('#clearFilterButton');
+  if (clearFilterButton && clearFilterButton.dataset.filterBound !== 'true') {
+    clearFilterButton.dataset.filterBound = 'true';
+    clearFilterButton.addEventListener('click', () => {
+      activeBriefingFilter = null;
+      applyBriefingFilter();
+    });
+  }
+  applyBriefingFilter();
 }
 
 function isInteractiveTarget(target) {
@@ -397,99 +486,61 @@ function markBriefingBulletSeen(bulletEl, seenState) {
   }
 }
 
-function clearPendingSeenTimers() {
-  const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
-  bullets.forEach((bulletEl) => {
-    const timer = briefingSeenTimers.get(bulletEl);
-    if (!timer) return;
-    clearTimeout(timer);
-  });
-  briefingSeenTimers = new WeakMap();
+function isScrolledToBottom() {
+  const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const scrollHeight = Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0);
+  return scrollTop + viewportHeight >= scrollHeight - SCROLL_BOTTOM_EPSILON;
 }
 
-function scheduleBriefingBulletSeen(bulletEl, seenState) {
-  if (!bulletEl || bulletEl.dataset.seenState === 'seen' || briefingSeenTimers.has(bulletEl)) return;
-  const timer = window.setTimeout(() => {
-    briefingSeenTimers.delete(bulletEl);
-    if (!document.body.contains(bulletEl) || bulletEl.dataset.seenState === 'seen') return;
-    markBriefingBulletSeen(bulletEl, seenState);
-    briefingSeenObserver?.unobserve?.(bulletEl);
-  }, SEEN_DWELL_MS);
-  briefingSeenTimers.set(bulletEl, timer);
-}
-
-function cancelBriefingBulletSeen(bulletEl) {
-  const timer = briefingSeenTimers.get(bulletEl);
-  if (!timer) return;
-  clearTimeout(timer);
-  briefingSeenTimers.delete(bulletEl);
-}
-
-function bulletHasReachedReadLine(bulletEl) {
+function hasBulletPassedSeenLine(bulletEl) {
   const rect = bulletEl.getBoundingClientRect();
-  const readLine = window.innerHeight * SEEN_READ_LINE_RATIO;
-  return rect.top <= readLine && rect.bottom >= readLine;
+  const bulletMidpoint = rect.top + rect.height / 2;
+  const viewportLine = (window.innerHeight || document.documentElement.clientHeight || 0) * SEEN_VIEWPORT_LINE_RATIO;
+  return bulletMidpoint <= viewportLine;
 }
 
-function scanBriefingItemsForSeen(seenState) {
+function markSeenByScrollPosition() {
+  if (!seenPositionState || pauseSeenScansUntilInput) return;
+  const atBottom = isScrolledToBottom();
   const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
-  let readLineMatchFound = false;
+  let seenLineMatchFound = false;
   bullets.forEach((bulletEl) => {
     if (bulletEl.dataset.seenState === 'seen') return;
-    if (!readLineMatchFound && bulletHasReachedReadLine(bulletEl)) {
-      readLineMatchFound = true;
-      scheduleBriefingBulletSeen(bulletEl, seenState);
-      return;
+    if (!atBottom && !hasBulletPassedSeenLine(bulletEl)) return;
+    if (seenLineMatchFound) return;
+    markBriefingBulletSeen(bulletEl, seenPositionState);
+    if (hideSeenEnabled || !atBottom) {
+      seenLineMatchFound = true;
     }
-    cancelBriefingBulletSeen(bulletEl);
   });
 }
 
-function createBriefingSeenObserver(seenState) {
-  let frameId = 0;
-  const scan = () => {
-    if (pauseSeenScansUntilInput) return;
-    if (frameId) return;
-    frameId = window.requestAnimationFrame(() => {
-      frameId = 0;
-      scanBriefingItemsForSeen(seenState);
-    });
-  };
-  const resumeAfterInput = () => {
-    if (!pauseSeenScansUntilInput) return;
-    pauseSeenScansUntilInput = false;
-    scan();
-  };
-  window.addEventListener('scroll', scan, { passive: true });
-  window.addEventListener('resize', scan);
-  window.addEventListener('wheel', resumeAfterInput, { passive: true });
-  window.addEventListener('touchmove', resumeAfterInput, { passive: true });
-  window.addEventListener('keydown', resumeAfterInput);
-  scanBriefingItemsForSeen(seenState);
-  return {
-    disconnect() {
-      window.removeEventListener('scroll', scan);
-      window.removeEventListener('resize', scan);
-      window.removeEventListener('wheel', resumeAfterInput);
-      window.removeEventListener('touchmove', resumeAfterInput);
-      window.removeEventListener('keydown', resumeAfterInput);
-      if (frameId) {
-        window.cancelAnimationFrame(frameId);
-        frameId = 0;
-      }
-    },
-  };
+function scheduleSeenPositionCheck() {
+  if (pauseSeenScansUntilInput) return;
+  if (seenPositionFrame) return;
+  seenPositionFrame = window.requestAnimationFrame(() => {
+    seenPositionFrame = 0;
+    markSeenByScrollPosition();
+  });
+}
+
+function resumeSeenPositionChecksAfterInput() {
+  if (!pauseSeenScansUntilInput) return;
+  pauseSeenScansUntilInput = false;
+  scheduleSeenPositionCheck();
 }
 
 function observeBriefingItems(seenState) {
-  if (briefingSeenObserver) {
-    briefingSeenObserver.disconnect();
-    briefingSeenObserver = null;
+  seenPositionState = seenState;
+  if (seenPositionFrame) {
+    window.cancelAnimationFrame(seenPositionFrame);
+    seenPositionFrame = 0;
   }
-  clearPendingSeenTimers();
   const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
   if (!bullets.length) return;
-  briefingSeenObserver = createBriefingSeenObserver(seenState);
+  pauseSeenScansUntilInput = false;
+  scheduleSeenPositionCheck();
 }
 
 function renderBriefing(briefing, seenState) {
@@ -504,6 +555,8 @@ function renderBriefing(briefing, seenState) {
           const temperatureLevel = temperatureClass(temperature);
           const itemIds = bulletItemIds(briefing, bullet, sectionIndex, bulletIndex);
           const seen = isSeenBriefingItem(seenState, itemIds);
+          const filterCategories = normalized.tags.map(escapeHtml).join(',');
+          const filterSourceIds = normalized.sourceIds.map(escapeHtml).join(',');
           const primaryUrlAttrs = normalized.primaryUrl
             ? ` data-primary-url="${escapeHtml(normalized.primaryUrl)}" role="link" tabindex="0" aria-label="Open ${escapeHtml(normalized.title)}"`
             : '';
@@ -515,8 +568,10 @@ function renderBriefing(briefing, seenState) {
                 `<a class="citation" href="${escapeHtml(citation.url)}" target="_blank" rel="noopener noreferrer">${citation.publishedAt ? `${escapeHtml(formatDate(citation.publishedAt))} · ` : ''}${escapeHtml(citation.sourceName)}</a>`,
             )
             .join('');
-          const tags = normalized.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
-          return `<li class="bullet bullet--${temperatureLevel}${seen ? ' bullet--seen' : ''}" data-seen-item-ids="${escapeHtml(itemIds.join(','))}" data-seen-state="${seen ? 'seen' : 'new'}"${primaryUrlAttrs}><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '📄')}</span><h4>${escapeHtml(normalized.title)}</h4><span class="bullet__status bullet__status--${seen ? 'seen' : 'new'}">${seen ? 'Seen' : 'New'}</span></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${links}</div></li>`;
+          const tags = normalized.tags
+            .map((tag) => `<button class="tag tag--button" type="button" data-filter-type="category" data-filter-value="${escapeHtml(tag)}" data-filter-label="${escapeHtml(tag)}" aria-pressed="false">${escapeHtml(tag)}</button>`)
+            .join('');
+          return `<li class="bullet bullet--${temperatureLevel}${seen ? ' bullet--seen' : ''}" data-seen-item-ids="${escapeHtml(itemIds.join(','))}" data-seen-state="${seen ? 'seen' : 'new'}" data-filter-categories="${filterCategories}" data-filter-source-ids="${filterSourceIds}"${primaryUrlAttrs}><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '📄')}</span><h4>${escapeHtml(normalized.title)}</h4><span class="bullet__status bullet__status--${seen ? 'seen' : 'new'}">${seen ? 'Seen' : 'New'}</span></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${links}</div></li>`;
         })
         .join('');
       return `<section class="section">${hasMultipleSections ? `<h3>${escapeHtml(section.title)}</h3>` : ''}<ul class="bullet-list">${bullets}</ul></section>`;
@@ -525,22 +580,47 @@ function renderBriefing(briefing, seenState) {
 
   briefingEl.innerHTML = `
     <div class="briefing-header">
-      <p class="meta">Generated ${formatDate(briefing.generatedAt)}</p>
-      <div class="briefing-controls"><button id="hideSeenButton" class="button button--compact" type="button" aria-pressed="${hideSeenEnabled ? 'true' : 'false'}">${hideSeenEnabled ? 'Show seen' : 'Hide seen'}</button></div>
+      <p class="meta briefing-meta"><span id="unreadCount">0 unread</span><span class="briefing-meta__generated">Generated ${formatDate(briefing.generatedAt)}</span></p>
+      <div class="briefing-controls"><span id="activeFilter" class="active-filter"></span><button id="clearFilterButton" class="button button--compact" type="button" hidden>Clear filter</button><button id="hideSeenButton" class="button button--compact" type="button" aria-pressed="${hideSeenEnabled ? 'true' : 'false'}">${hideSeenEnabled ? 'Show seen' : 'Hide seen'}</button></div>
     </div>
+    <p id="filterEmptyState" class="filter-empty" hidden>No articles match this filter.</p>
     ${sections}
     ${briefing.provider?.type === 'fake' ? '<p class="provider-note">Deterministic fallback summary. Add a Copilot token secret for AI-written briefings.</p>' : ''}
   `;
   bindHideSeenButton(seenState);
   bindBriefingBulletLinks();
+  bindBriefingFilters();
 }
 
 function renderHero(briefing) {
   const citations = citationMap(briefing);
   const topBullet = briefing.sections?.[0]?.bullets?.[0];
   const normalized = topBullet ? normalizeBullet(topBullet, citations) : null;
+  const topBulletCitation = (topBullet?.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
+  const heroTitle = topBullet?.title || topBulletCitation?.title || briefing.headline;
+  const heroDescription = stripInterestBoilerplate(
+    topBullet?.description || stripLeadingTitle(topBullet?.text, heroTitle) || topBullet?.text || '',
+  );
   heroHeadlineEl.textContent = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
-  heroSummaryEl.textContent = normalized?.description || 'No notable updates were found in today’s rolling briefing.';
+  heroSummaryEl.textContent = heroDescription || 'No notable updates were found in today’s rolling briefing.';
+  if (heroMetaEl) {
+    if (!topBullet || !normalized) {
+      heroMetaEl.textContent = '';
+    } else {
+      const links = (topBullet.citations || [])
+        .map((itemId) => citations.get(itemId))
+        .filter(Boolean)
+        .map(
+          (citation) =>
+            `<a class="citation" href="${escapeHtml(citation.url)}" target="_blank" rel="noopener noreferrer">${citation.publishedAt ? `${escapeHtml(formatDate(citation.publishedAt))} · ` : ''}${escapeHtml(citation.sourceName)}</a>`,
+        )
+        .join('');
+      const tags = normalized.tags
+        .map((tag) => `<button class="tag tag--button" type="button" data-filter-type="category" data-filter-value="${escapeHtml(tag)}" data-filter-label="${escapeHtml(tag)}" aria-pressed="false">${escapeHtml(tag)}</button>`)
+        .join('');
+      heroMetaEl.innerHTML = `${tags ? `<div class="tag-list">${tags}</div>` : ''}${links ? `<div class="citations">${links}</div>` : ''}`;
+    }
+  }
 }
 
 function renderSources(status) {
@@ -551,7 +631,7 @@ function renderSources(status) {
     .map(
       (source) => `<li>
         <span class="status ${source.ok ? '' : 'status--bad'}">${source.ok ? 'OK' : 'Failed'}</span>
-        <strong>${escapeHtml(source.sourceId)}</strong>
+        <button class="source-filter" type="button" data-filter-type="source" data-filter-value="${escapeHtml(source.sourceId)}" data-filter-label="${escapeHtml(source.sourceId)}" aria-pressed="false">${escapeHtml(source.sourceId)}</button>
         <p class="source-meta">${escapeHtml(source.itemCount)} items · latest ${source.lastArticleAt ? escapeHtml(formatDate(source.lastArticleAt)) : 'n/a'} · ${escapeHtml(source.message)}</p>
       </li>`,
     )
@@ -561,6 +641,7 @@ function renderSources(status) {
     <h2>${sources.filter((source) => source.ok).length}/${sources.length} sources healthy</h2>
     <ul class="source-list">${items}</ul>
   `;
+  bindBriefingFilters();
 }
 
 function localDateKey(value) {
@@ -642,12 +723,17 @@ async function renderYesterday(manifest, latest, currentBriefing) {
 
   const citations = citationMap(briefing);
   const topBullet = briefing.sections?.[0]?.bullets?.[0];
-  const normalized = topBullet ? normalizeBullet(topBullet, citations) : null;
+  const topBulletCitation = (topBullet?.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
+  const yesterdayTitle = topBullet?.title || topBulletCitation?.title || briefing.headline;
+  const rawYesterdayDescription = stripInterestBoilerplate(
+    topBullet?.description || stripLeadingTitle(topBullet?.text, yesterdayTitle) || topBullet?.text || '',
+  );
+  const yesterdayDescription = rawYesterdayDescription || 'No summary text was available for yesterday.';
   yesterdayEl.innerHTML = `
     <p class="eyebrow">Yesterday</p>
     <h2>${escapeHtml(truncateText(briefing.headline, MAX_HEADLINE_LENGTH))}</h2>
     <div class="yesterday-summary">
-      <p>${escapeHtml(normalized?.description || 'No summary text was available for yesterday.')}</p>
+      <p>${escapeHtml(yesterdayDescription)}</p>
       <p class="meta">Generated ${escapeHtml(formatDate(briefing.generatedAt))}</p>
     </div>
   `;
@@ -724,15 +810,39 @@ function supportsBackgroundNotifications(registration) {
 function showUnsupportedNotificationState() {
   notifyButton.hidden = false;
   notifyButton.disabled = true;
-  notifyButton.textContent = 'Notifications unavailable in this browser';
+  notifyButton.textContent = 'Notifications unavailable';
 }
 
-function notificationButtonText(permission, hasBackgroundNotifications) {
+function notificationsDisabledByUser() {
+  return safeLocalStorageGet(NOTIFICATIONS_DISABLED_STORAGE_KEY) === '1';
+}
+
+function setNotificationsDisabled(disabled) {
+  safeLocalStorageSet(NOTIFICATIONS_DISABLED_STORAGE_KEY, disabled ? '1' : '0');
+}
+
+async function unregisterBackgroundNotifications(registration) {
+  if (!registration || !('periodicSync' in registration) || !registration.periodicSync?.unregister) return;
+  try {
+    await registration.periodicSync.unregister(BACKGROUND_SYNC_TAG);
+  } catch {
+    // Ignore browsers that expose periodicSync but do not allow unregistering here.
+  }
+}
+
+function notificationButtonText(permission, hasBackgroundNotifications, isDisabled) {
+  void hasBackgroundNotifications;
   if (permission === 'granted') {
-    return hasBackgroundNotifications ? 'Background update notifications enabled' : 'App-open update notifications enabled';
+    return isDisabled ? 'Enable notifications' : 'Disable notifications';
   }
   if (permission === 'denied') return 'Notifications unavailable';
-  return hasBackgroundNotifications ? 'Notify me when a new hourly update lands' : 'Notify me when I open Wazzup after a new update';
+  return 'Enable notifications';
+}
+
+function updateNotificationButton(permission, hasBackgroundNotifications) {
+  notifyButton.hidden = false;
+  notifyButton.disabled = permission === 'denied';
+  notifyButton.textContent = notificationButtonText(permission, hasBackgroundNotifications, notificationsDisabledByUser());
 }
 
 async function enableNotifications(registration, briefing, latest) {
@@ -741,16 +851,27 @@ async function enableNotifications(registration, briefing, latest) {
     return;
   }
   const hasBackgroundNotifications = supportsBackgroundNotifications(registration);
-  notifyButton.hidden = Notification.permission === 'denied';
-  notifyButton.textContent = notificationButtonText(Notification.permission, hasBackgroundNotifications);
-  notifyButton.disabled = Notification.permission === 'granted';
-  if (Notification.permission === 'granted' && hasBackgroundNotifications) {
+  updateNotificationButton(Notification.permission, hasBackgroundNotifications);
+  if (Notification.permission === 'granted' && !notificationsDisabledByUser() && hasBackgroundNotifications) {
     await registerBackgroundNotifications(registration);
   }
   notifyButton.addEventListener('click', async () => {
+    if (Notification.permission === 'granted') {
+      const disabled = !notificationsDisabledByUser();
+      setNotificationsDisabled(disabled);
+      if (disabled) {
+        await unregisterBackgroundNotifications(registration);
+      } else if (hasBackgroundNotifications) {
+        await registerBackgroundNotifications(registration);
+      }
+      updateNotificationButton(Notification.permission, hasBackgroundNotifications);
+      if (!disabled) syncLatestBriefing(registration, briefing, latest);
+      return;
+    }
+
     const permission = await Notification.requestPermission();
-    notifyButton.textContent = notificationButtonText(permission, hasBackgroundNotifications);
-    notifyButton.disabled = permission === 'granted';
+    if (permission === 'granted') setNotificationsDisabled(false);
+    updateNotificationButton(permission, hasBackgroundNotifications);
     if (permission === 'granted' && hasBackgroundNotifications) {
       await registerBackgroundNotifications(registration);
     }
@@ -761,7 +882,7 @@ async function enableNotifications(registration, briefing, latest) {
 
   const storageKey = 'wazzup:lastBriefingUrl';
   const previous = localStorage.getItem(storageKey);
-  if (previous && previous !== latest.latestBriefingUrl && Notification.permission === 'granted') {
+  if (previous && previous !== latest.latestBriefingUrl && Notification.permission === 'granted' && !notificationsDisabledByUser()) {
     registration.showNotification('Wazzup hourly update', {
       body: briefing.headline,
       icon: 'icons/icon-192.png',
@@ -770,7 +891,9 @@ async function enableNotifications(registration, briefing, latest) {
     });
   }
   localStorage.setItem(storageKey, latest.latestBriefingUrl);
-  syncLatestBriefing(registration, briefing, latest);
+  if (Notification.permission === 'granted' && !notificationsDisabledByUser()) {
+    syncLatestBriefing(registration, briefing, latest);
+  }
 }
 
 async function main() {
@@ -786,6 +909,11 @@ async function main() {
     const todayBriefing = todayBriefingView(briefing, earlierBriefings, seenState);
     renderHero(briefing);
     renderBriefing(todayBriefing, seenState);
+    window.addEventListener('scroll', scheduleSeenPositionCheck, { passive: true });
+    window.addEventListener('resize', scheduleSeenPositionCheck);
+    window.addEventListener('wheel', resumeSeenPositionChecksAfterInput, { passive: true });
+    window.addEventListener('touchmove', resumeSeenPositionChecksAfterInput, { passive: true });
+    window.addEventListener('keydown', resumeSeenPositionChecksAfterInput);
     observeBriefingItems(seenState);
     renderSources(status);
     await renderYesterday(manifest, latest, briefing);
@@ -798,6 +926,7 @@ async function main() {
   } catch (error) {
     heroHeadlineEl.textContent = 'Briefing unavailable';
     heroSummaryEl.textContent = 'The latest briefing could not be loaded. Try again after the next scheduled run.';
+    if (heroMetaEl) heroMetaEl.textContent = '';
     briefingEl.innerHTML = `<p class="eyebrow">Error</p><h2>Could not load briefing</h2><p class="meta">${escapeHtml(error.message)}</p>`;
     sourcesEl.innerHTML = '<p class="eyebrow">Source health</p><h2>Unavailable</h2>';
     yesterdayEl.innerHTML = '<p class="eyebrow">Yesterday</p><h2>Unavailable</h2>';

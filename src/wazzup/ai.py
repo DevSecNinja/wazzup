@@ -39,6 +39,9 @@ class AiSummaryProvider(Protocol):
 
 DEFAULT_COPILOT_MODEL = "claude-sonnet-4.6"
 DEFAULT_COPILOT_AGENT = "wazzup-writer"
+MAX_SUMMARY_HEADLINE_LENGTH = 80
+MAX_SUMMARY_TITLE_LENGTH = 96
+MAX_SUMMARY_DESCRIPTION_LENGTH = 220
 
 
 class FakeSummaryProvider:
@@ -188,6 +191,17 @@ def _fake_bullet(scored: ScoredItem, kind: BriefingKind = "hourly") -> str:
     return f"{scored.item.title}: {_fake_description(scored, kind)}"
 
 
+def _truncate_summary_text(value: Any, max_length: int) -> str:
+    text = str(value or "").strip()
+    if len(text) <= max_length:
+        return text
+    clipped = text[: max_length + 1]
+    sentence_end = max(clipped.rfind(". "), clipped.rfind("! "), clipped.rfind("? "))
+    if sentence_end >= max_length // 2:
+        return clipped[: sentence_end + 1].strip()
+    return f"{text[: max_length - 1].rstrip()}…"
+
+
 def source_item_ids(scored: ScoredItem) -> list[str]:
     return [scored.item.id, *(item.id for item in scored.item.related_items)]
 
@@ -220,14 +234,14 @@ def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
         "summaryLanguage": request.summary_language,
         "items": [scored.to_dict() for scored in request.items],
         "outputContract": {
-            "headline": "string",
+            "headline": f"string, max {MAX_SUMMARY_HEADLINE_LENGTH} characters",
             "sections": [
                 {
                     "title": "string",
                     "bullets": [
                         {
-                            "title": "short item title",
-                            "description": "1-2 sentence source-grounded description",
+                            "title": f"short item title, max {MAX_SUMMARY_TITLE_LENGTH} characters",
+                            "description": f"one complete source-grounded sentence, max {MAX_SUMMARY_DESCRIPTION_LENGTH} characters",
                             "text": "string",
                             "citations": ["ContentItem.id"],
                         }
@@ -240,7 +254,9 @@ def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
             "Always translate source material into English; all headlines, section titles, bullet titles, descriptions, and text fields must be written in English.",
             "Make the top-level headline a topic-only news headline under 80 characters; do not prefix it with the briefing kind, date, or labels like 'Morning Briefing', 'Evening Briefing', 'Daily Briefing', or 'Yesterday'.",
             "Describe relevance directly without labels like 'Why it matters'.",
-            "For each bullet, provide title and description separately. Avoid repeating the same title in the description.",
+            f"For each bullet, provide title and description separately. Keep titles under {MAX_SUMMARY_TITLE_LENGTH} characters and descriptions under {MAX_SUMMARY_DESCRIPTION_LENGTH} characters.",
+            "Write each description as one concise complete sentence; avoid trailing clauses that need frontend truncation.",
+            "Avoid repeating the same title in the description.",
             "Never mention scoring internals such as source weight, score, recency bonus, or duplicate group IDs.",
             "Keep bullets concise and source-grounded.",
             "Preserve the input item order so newly published hourly articles stay at the top, except when merging related items into one synthesized bullet.",
@@ -257,12 +273,14 @@ def response_from_payload(payload: dict[str, Any], provider: dict[str, Any]) -> 
         raise ValueError("AI response missing headline")
     if not isinstance(sections, list) or not sections:
         raise ValueError("AI response missing sections")
+    normalized_sections: list[dict[str, Any]] = []
     for section in sections:
         if not isinstance(section, dict) or not isinstance(section.get("title"), str):
             raise ValueError("AI response section missing title")
         bullets = section.get("bullets")
         if not isinstance(bullets, list):
             raise ValueError("AI response section missing bullets")
+        normalized_bullets: list[dict[str, Any]] = []
         for bullet in bullets:
             if not isinstance(bullet, dict):
                 raise ValueError("AI response bullet missing text")
@@ -280,7 +298,20 @@ def response_from_payload(payload: dict[str, Any], provider: dict[str, Any]) -> 
             citations = bullet.get("citations")
             if not isinstance(citations, list) or not all(isinstance(citation, str) for citation in citations):
                 raise ValueError("AI response bullet missing citations")
-    return SummaryResponse(headline=headline.strip(), sections=sections, provider=provider)
+            normalized_bullets.append(
+                {
+                    **bullet,
+                    "title": _truncate_summary_text(bullet.get("title", ""), MAX_SUMMARY_TITLE_LENGTH),
+                    "description": _truncate_summary_text(bullet.get("description", ""), MAX_SUMMARY_DESCRIPTION_LENGTH),
+                    "text": _truncate_summary_text(bullet.get("text", ""), MAX_SUMMARY_TITLE_LENGTH + MAX_SUMMARY_DESCRIPTION_LENGTH + 2),
+                }
+            )
+        normalized_sections.append({**section, "bullets": normalized_bullets})
+    return SummaryResponse(
+        headline=_truncate_summary_text(headline, MAX_SUMMARY_HEADLINE_LENGTH),
+        sections=normalized_sections,
+        provider=provider,
+    )
 
 
 def provider_from_env(app_config: AppConfig) -> AiSummaryProvider:

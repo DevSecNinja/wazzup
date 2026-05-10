@@ -39,6 +39,7 @@ jobs:
       wrangler-version: "3"
       artifact-path: public
       install-command: |-
+        export GITHUB_TOKEN="${{ github.token }}"
         curl -fsSL https://mise.run | sh
         ~/.local/bin/mise trust .
         ~/.local/bin/mise install

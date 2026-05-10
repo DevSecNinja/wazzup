@@ -506,7 +506,7 @@ sources:
   - id: nba-official-news
     name: NBA Official News
     sourceTag: NBA
-    enabled: true
+    enabled: false
     type: rss
     homepageUrl: https://www.nba.com/news
     feedUrl: https://www.nba.com/news/rss.xml
@@ -525,8 +525,8 @@ sources:
       - standings
     fetch:
       timeoutSeconds: 8
-    notes: "Official NBA news feed for league-wide headlines. This endpoint can be slow or unreachable from server-side runners,
-      so it uses a shorter timeout."
+    notes: "Official NBA news feed for league-wide headlines. Disabled because nba.com currently times out from the pipeline
+      environment; ESPN NBA remains enabled as the working NBA source."
 
   - id: espn-nba
     name: ESPN NBA
@@ -571,6 +571,72 @@ sources:
       - AI coding tools
       - platform updates
     notes: "Official GitHub Blog feed for product, platform, security, and developer updates."
+
+  - id: openai-news
+    name: OpenAI News
+    sourceTag: OpenAI
+    enabled: true
+    type: rss
+    homepageUrl: https://openai.com/news/
+    feedUrl: https://openai.com/news/rss.xml
+    language: en
+    region: global
+    weight: 1.2
+    categories:
+      - ai
+      - llm
+      - developer-platforms
+    interestHints:
+      - artificial intelligence
+      - large language models
+      - model releases
+      - API updates
+      - AI safety
+    notes: "Official OpenAI News feed for model, API, and policy updates."
+
+  - id: anthropic-news
+    name: Anthropic News
+    sourceTag: Anthropic
+    enabled: true
+    type: rss
+    homepageUrl: https://www.anthropic.com/news
+    feedUrl: https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_engineering.xml
+    language: en
+    region: global
+    weight: 1.2
+    categories:
+      - ai
+      - llm
+      - safety
+    interestHints:
+      - artificial intelligence
+      - frontier models
+      - AI safety
+      - enterprise AI
+      - product releases
+    notes: "Official Anthropic News feed for Claude, product, and AI safety updates."
+
+  - id: hugging-face-blog
+    name: Hugging Face Blog
+    sourceTag: HuggingFace
+    enabled: true
+    type: rss
+    homepageUrl: https://huggingface.co/blog
+    feedUrl: https://huggingface.co/blog/feed.xml
+    language: en
+    region: global
+    weight: 1.15
+    categories:
+      - ai
+      - machine-learning
+      - developer-platforms
+    interestHints:
+      - open-source ai
+      - machine learning
+      - transformers
+      - model tooling
+      - developer workflows
+    notes: "Hugging Face engineering and product blog feed focused on open AI tooling."
 
   - id: azure-updates
     name: Microsoft Azure Updates

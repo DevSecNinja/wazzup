@@ -23,13 +23,20 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("nba-official-news", {source.id for source in sources})
         self.assertIn("espn-nba", {source.id for source in sources})
         self.assertIn("github-blog", {source.id for source in sources})
+        self.assertIn("openai-news", {source.id for source in sources})
+        self.assertIn("anthropic-news", {source.id for source in sources})
+        self.assertIn("hugging-face-blog", {source.id for source in sources})
         self.assertIn("azure-updates", {source.id for source in sources})
         self.assertIn("tech", {category for source in sources for category in source.categories})
+        self.assertIn("ai", {category for source in sources for category in source.categories})
         self.assertIn("formula-1", {category for source in sources for category in source.categories})
         self.assertIn("nba", {category for source in sources for category in source.categories})
         timeout_by_id = {source.id: source.timeout_seconds for source in sources}
+        enabled_by_id = {source.id: source.enabled for source in sources}
         self.assertEqual(30, timeout_by_id["microsoft-security-blog"])
         self.assertEqual(8, timeout_by_id["nba-official-news"])
+        self.assertFalse(enabled_by_id["nba-official-news"])
+        self.assertTrue(enabled_by_id["espn-nba"])
         self.assertIn("Accept", sources[0].headers)
 
     def test_load_app_config(self) -> None:

@@ -12,6 +12,9 @@ from wazzup.ai import (
     DEFAULT_COPILOT_AGENT,
     DEFAULT_COPILOT_MODEL,
     FakeSummaryProvider,
+    MAX_SUMMARY_DESCRIPTION_LENGTH,
+    MAX_SUMMARY_HEADLINE_LENGTH,
+    MAX_SUMMARY_TITLE_LENGTH,
     SummaryRequest,
     build_prompt_payload,
     provider_from_env,
@@ -128,6 +131,28 @@ class AiProviderTests(unittest.TestCase):
         style_guide = payload["styleGuide"]
         self.assertIn("Describe relevance directly without labels like 'Why it matters'.", style_guide)
 
+    def test_prompt_contract_caps_title_and_description_lengths(self) -> None:
+        payload = build_prompt_payload(
+            SummaryRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                summary_language="en",
+                items=[],
+            )
+        )
+        contract = payload["outputContract"]["sections"][0]["bullets"][0]
+        style_guide = "\n".join(payload["styleGuide"])
+        agent = Path(".github/agents/wazzup-writer.agent.md").read_text(encoding="utf-8")
+        self.assertIn(f"max {MAX_SUMMARY_HEADLINE_LENGTH} characters", payload["outputContract"]["headline"])
+        self.assertIn(f"max {MAX_SUMMARY_TITLE_LENGTH} characters", contract["title"])
+        self.assertIn(f"max {MAX_SUMMARY_DESCRIPTION_LENGTH} characters", contract["description"])
+        self.assertIn("one concise complete sentence", style_guide)
+        self.assertIn("under 96 characters", agent)
+        self.assertIn("under 220 characters", agent)
+
     def test_prompt_style_guide_requires_topic_only_headline(self) -> None:
         payload = build_prompt_payload(
             SummaryRequest(
@@ -220,6 +245,32 @@ class AiProviderTests(unittest.TestCase):
             "Microsoft ships a security update: The release improves defender triage workflows.", bullet["text"]
         )
         self.assertEqual("The release improves defender triage workflows.", bullet["description"])
+
+    def test_response_from_payload_truncates_overlong_bullet_fields(self) -> None:
+        response = response_from_payload(
+            {
+                "headline": "H" * 120,
+                "sections": [
+                    {
+                        "title": "Top updates",
+                        "bullets": [
+                            {
+                                "title": "T" * 140,
+                                "description": "D" * 260,
+                                "text": "T" * 140 + ": " + "D" * 260,
+                                "citations": ["item-1"],
+                            }
+                        ],
+                    }
+                ],
+            },
+            provider={"type": "copilot-cli", "validated": True},
+        )
+
+        bullet = response.sections[0]["bullets"][0]
+        self.assertLessEqual(len(response.headline), MAX_SUMMARY_HEADLINE_LENGTH)
+        self.assertLessEqual(len(bullet["title"]), MAX_SUMMARY_TITLE_LENGTH)
+        self.assertLessEqual(len(bullet["description"]), MAX_SUMMARY_DESCRIPTION_LENGTH)
 
     @patch("wazzup.ai.subprocess.run")
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")

@@ -44,7 +44,7 @@ a { color: inherit; }
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 1rem;
   max-width: 72rem;
   margin: 0 auto 3rem;
@@ -80,18 +80,24 @@ footer {
 }
 
 .hero__content h1 {
-  max-width: 48rem;
+  max-width: none;
   margin: 0;
   font-size: clamp(2rem, 4.5vw, 4rem);
   line-height: 1.02;
   letter-spacing: -0.06em;
 }
 
-.hero__content p:last-child {
-  max-width: 42rem;
+#heroSummary {
+  max-width: 56rem;
   color: var(--muted);
   font-size: 1.15rem;
   line-height: 1.7;
+}
+
+#heroMeta {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
 }
 
 .button {
@@ -114,6 +120,21 @@ footer {
   margin-top: 0;
   padding: 0.45rem 0.8rem;
   font-size: 0.85rem;
+}
+
+.button--utility {
+  flex: 0 0 auto;
+  border-color: var(--border);
+  padding-inline: 0.65rem;
+  background: rgba(15, 23, 42, 0.42);
+  color: var(--muted);
+}
+
+.button--utility:hover,
+.button--utility:focus-visible {
+  border-color: rgba(103, 232, 249, 0.5);
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--text);
 }
 
 .eyebrow {
@@ -182,9 +203,34 @@ main {
   margin: 0;
 }
 
+.briefing-meta {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem 0;
+}
+
+.briefing-meta__generated::before {
+  content: "·";
+  margin: 0 0.5rem;
+}
+
 .briefing-controls {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   justify-content: flex-end;
+}
+
+.active-filter {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.filter-empty {
+  margin: 1rem 0 0;
+  color: var(--muted);
 }
 
 .section h3 {
@@ -217,6 +263,8 @@ main {
   background: rgba(15, 23, 42, 0.35);
 }
 .bullet--hidden { display: none; }
+.bullet--filtered { display: none; }
+.section--filtered-empty { display: none; }
 
 .bullet[data-primary-url] {
   cursor: pointer;
@@ -324,6 +372,32 @@ main {
   font-weight: 700;
 }
 
+.tag--button,
+.source-filter {
+  cursor: pointer;
+  font: inherit;
+}
+
+.tag--button:hover,
+.tag--button:focus-visible,
+.source-filter:hover,
+.source-filter:focus-visible,
+.tag--button[aria-pressed="true"],
+.source-filter[aria-pressed="true"] {
+  border-color: rgba(103, 232, 249, 0.5);
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.source-filter {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 800;
+}
+
 .citation,
 .status {
   display: inline-flex;
@@ -396,6 +470,7 @@ main {
 
 @media (width < 720px) {
   .topbar {
+    gap: 0.75rem;
     margin-bottom: 2.5rem;
   }
 }
