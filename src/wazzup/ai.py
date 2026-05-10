@@ -13,6 +13,30 @@ from .models import AppConfig, BriefingKind, ScoredItem
 
 
 @dataclass(frozen=True)
+class CurationRequest:
+    kind: BriefingKind
+    window_start: str
+    window_end: str
+    generated_at: str
+    timezone: str
+    items: list[ScoredItem]
+    max_items: int
+
+
+@dataclass(frozen=True)
+class CurationResponse:
+    selected_ids: list[str]
+    provider: dict[str, Any]
+
+
+class AiCurationProvider(Protocol):
+    name: str
+
+    def curate_items(self, request: CurationRequest) -> CurationResponse:
+        """Select and order items for the briefing."""
+
+
+@dataclass(frozen=True)
 class SummaryRequest:
     kind: BriefingKind
     window_start: str
@@ -39,6 +63,7 @@ class AiSummaryProvider(Protocol):
 
 DEFAULT_COPILOT_MODEL = "claude-sonnet-4.6"
 DEFAULT_COPILOT_AGENT = "wazzup-writer"
+DEFAULT_COPILOT_CURATOR_AGENT = "wazzup-curator"
 MAX_SUMMARY_HEADLINE_LENGTH = 80
 MAX_SUMMARY_TITLE_LENGTH = 96
 MAX_SUMMARY_DESCRIPTION_LENGTH = 220
@@ -85,6 +110,121 @@ class FakeSummaryProvider:
                 "validated": True,
             },
         )
+
+
+class FakeCurationProvider:
+    name = "fake"
+
+    def curate_items(self, request: CurationRequest) -> CurationResponse:
+        selected = request.items[: request.max_items]
+        return CurationResponse(
+            selected_ids=[scored.item.id for scored in selected],
+            provider={
+                "type": self.name,
+                "model": "deterministic-passthrough",
+                "promptVersion": "curation-v1",
+                "validated": True,
+            },
+        )
+
+
+class CopilotCliCurationProvider:
+    name = "copilot-cli"
+
+    def __init__(
+        self,
+        copilot_command: str = "copilot",
+        model: str | None = None,
+        agent: str | None = None,
+    ) -> None:
+        self.copilot_command = copilot_command
+        self.model = model if model is not None else os.environ.get("COPILOT_MODEL", DEFAULT_COPILOT_MODEL)
+        self.agent = agent if agent is not None else os.environ.get("COPILOT_CURATOR_AGENT", DEFAULT_COPILOT_CURATOR_AGENT)
+
+    def curate_items(self, request: CurationRequest) -> CurationResponse:
+        if not shutil.which(self.copilot_command):
+            raise RuntimeError("Copilot CLI is not installed; install @github/copilot or use AI_PROVIDER=fake")
+        if os.environ.get("GITHUB_ACTIONS") == "true" and not os.environ.get("COPILOT_GITHUB_TOKEN"):
+            raise RuntimeError(
+                "AI_PROVIDER=copilot-cli requires COPILOT_GITHUB_TOKEN in GitHub Actions. "
+                "Configure COPILOT_REQUESTS_PAT or COPILOT_GITHUB_TOKEN as a repository secret, "
+                "or use AI_PROVIDER=fake."
+            )
+        curation_payload = build_curation_payload(request)
+        temp_root = Path(".state")
+        temp_root.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="wazzup-curator-", dir=temp_root) as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            input_path = tmp_path / "curation-input.json"
+            output_path = tmp_path / "curation-output.json"
+            input_path.write_text(json.dumps(curation_payload, indent=2), encoding="utf-8")
+            run_env = os.environ.copy()
+            run_env["WAZZUP_COPILOT_INPUT_PATH"] = str(input_path)
+            run_env["WAZZUP_COPILOT_OUTPUT_PATH"] = str(output_path)
+            # This prompt mirrors the wazzup-curator agent file guidance.
+            # Both must be kept in sync when the curation contract changes.
+            prompt = (
+                "You are curating items for the Wazzup news briefing. "
+                f"Read {input_path}, select at most {request.max_items} of the most relevant and diverse items, "
+                f"and write strict JSON to {output_path}. "
+                "The JSON object must contain selectedIds: an ordered list of ContentItem.id values. "
+                "Do not include Markdown fences or commentary."
+            )
+            command = [
+                self.copilot_command,
+                "-p",
+                prompt,
+            ]
+            if self.model:
+                command.extend(["--model", self.model])
+            if self.agent:
+                command.extend(["--agent", self.agent])
+            command.extend(
+                [
+                    "--allow-tool=shell(cat:*)",
+                    "--allow-tool=write",
+                    "--no-ask-user",
+                ]
+            )
+            result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
+            if result.returncode != 0:
+                details = []
+                if result.stdout.strip():
+                    details.append(f"stdout: {result.stdout.strip()}")
+                if result.stderr.strip():
+                    details.append(f"stderr: {result.stderr.strip()}")
+                detail_text = "\n" + "\n".join(details) if details else ""
+                raise RuntimeError(
+                    f"Copilot CLI curation failed with exit code {result.returncode}. "
+                    "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
+                    "or use AI_PROVIDER=fake."
+                    f"{detail_text}"
+                )
+            if not output_path.exists():
+                raise RuntimeError("Copilot CLI did not write curation-output.json")
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+        selected_ids = payload.get("selectedIds")
+        if not isinstance(selected_ids, list) or not all(isinstance(item_id, str) for item_id in selected_ids):
+            fallback = FakeCurationProvider()
+            fallback_response = fallback.curate_items(request)
+            return CurationResponse(
+                selected_ids=fallback_response.selected_ids,
+                provider={
+                    **fallback_response.provider,
+                    "type": "copilot-cli-fallback",
+                    "fallbackFrom": self.name,
+                    "fallbackReason": "Curator returned invalid selectedIds",
+                    "validated": True,
+                },
+            )
+        provider = {
+            "type": self.name,
+            "model": payload.get("model", self.model or "copilot-cli"),
+            "agent": self.agent or None,
+            "promptVersion": "curation-v1",
+            "validated": True,
+        }
+        return CurationResponse(selected_ids=selected_ids, provider=provider)
 
 
 class CopilotCliSummaryProvider:
@@ -222,6 +362,31 @@ def _fake_description(scored: ScoredItem, kind: BriefingKind = "hourly") -> str:
     return f"{text}."
 
 
+def build_curation_payload(request: CurationRequest) -> dict[str, Any]:
+    return {
+        "schemaVersion": 1,
+        "task": "Select and order the most relevant news items for inclusion in the briefing.",
+        "kind": request.kind,
+        "windowStart": request.window_start,
+        "windowEnd": request.window_end,
+        "generatedAt": request.generated_at,
+        "timezone": request.timezone,
+        "maxItems": request.max_items,
+        "items": [scored.to_dict() for scored in request.items],
+        "outputContract": {
+            "selectedIds": ["ContentItem.id (ordered list of selected item IDs)"],
+        },
+        "curationGuide": [
+            f"Select at most {request.max_items} items.",
+            "Prefer items that are fresh and directly relevant to the configured interests.",
+            "Prefer diversity: avoid selecting multiple items about the exact same story unless they add distinct perspectives.",
+            "Use the item score and matched interests as primary signals, but apply editorial judgment for newsworthiness.",
+            "When items have relatedItems, select the parent item ID only.",
+            "Never mention scoring internals such as source weight, score, recency bonus, or duplicate group IDs.",
+        ],
+    }
+
+
 def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
     return {
         "schemaVersion": 1,
@@ -321,4 +486,14 @@ def provider_from_env(app_config: AppConfig) -> AiSummaryProvider:
         return FakeSummaryProvider()
     if provider == "copilot-cli":
         return CopilotCliSummaryProvider()
+    raise ValueError(f"Unsupported AI_PROVIDER: {provider}")
+
+
+def curation_provider_from_env(app_config: AppConfig) -> AiCurationProvider:
+    del app_config
+    provider = os.environ.get("AI_PROVIDER", "fake").strip().lower()
+    if provider == "fake":
+        return FakeCurationProvider()
+    if provider == "copilot-cli":
+        return CopilotCliCurationProvider()
     raise ValueError(f"Unsupported AI_PROVIDER: {provider}")
