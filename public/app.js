@@ -274,7 +274,9 @@ function recordTimestamp(record) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
-function todayBriefingView(currentBriefing, earlierBriefings, seenState) {
+function todayBriefingView(currentBriefing, earlierBriefings, seenState, labels = {}) {
+  const combinedTitle = labels.combinedTitle || 'Today so far';
+  const latestTitle = labels.latestTitle || 'Latest update';
   const allBriefings = [currentBriefing, ...earlierBriefings];
   const usedItemIds = new Set();
   const usedFallbackKeys = new Set();
@@ -285,10 +287,10 @@ function todayBriefingView(currentBriefing, earlierBriefings, seenState) {
 
   if (!hasSeenItemsForDay(seenState)) {
     const bullets = [...remainingCurrentRecords, ...earlierRecords].map((record) => record.bullet);
-    if (bullets.length) sections.push({ title: 'Today so far', bullets });
+    if (bullets.length) sections.push({ title: combinedTitle, bullets });
   } else {
     const latestBullets = remainingCurrentRecords.map((record) => record.bullet);
-    if (latestBullets.length) sections.push({ title: 'Latest update', bullets: latestBullets });
+    if (latestBullets.length) sections.push({ title: latestTitle, bullets: latestBullets });
     const recordsByDayPart = new Map();
     earlierRecords.forEach((record) => {
       const label = dayPartLabel(record.generatedAt);
@@ -673,48 +675,96 @@ function localDateKeyParts(date, options) {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
-function previousLocalDateKey(dateKey) {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() - 1);
-  return date.toISOString().slice(0, 10);
+function normalizeManifestPath(path) {
+  return String(path || '').replace(/^data\//, '');
 }
 
-async function findYesterdayBriefing(manifest, latest, currentBriefing) {
-  const yesterdayDate = previousLocalDateKey(localDateKey(currentBriefing.generatedAt));
-  const candidates = (manifest.briefings || [])
-    .filter((path) => path !== latest.latestBriefingYamlUrl)
-    .slice()
-    .sort()
-    .reverse()
-    .slice(0, 72);
+function articlePathDayKey(path) {
+  const match = normalizeManifestPath(path).match(/articles\/(\d{4})\/(\d{2})\/(\d{2})\.ya?ml$/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+}
 
-  for (const yamlPath of candidates) {
-    try {
-      const briefing = await getJson(resolveDataUrl(yamlPath.replace(/\.yaml$/, '.json')));
-      if (localDateKey(briefing.generatedAt) === yesterdayDate) return briefing;
-    } catch {
-      // Ignore retained manifest entries whose JSON mirror is unavailable.
-    }
+function briefingPathDayKey(path) {
+  const match = normalizeManifestPath(path).match(/briefings\/(\d{4})\/(\d{2})\/(\d{2})\//);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+}
+
+function availableArticleDays(manifest) {
+  return Array.from(new Set((manifest.articles || []).map(articlePathDayKey).filter(Boolean))).sort().reverse();
+}
+
+function retainedDateRange(availableDays) {
+  if (!availableDays.length) return [];
+  const newest = new Date(`${availableDays[0]}T00:00:00Z`);
+  const oldest = new Date(`${availableDays[availableDays.length - 1]}T00:00:00Z`);
+  const days = [];
+  for (const date = new Date(newest); date >= oldest; date.setUTCDate(date.getUTCDate() - 1)) {
+    days.push(date.toISOString().slice(0, 10));
   }
-  return null;
+  return days;
 }
 
-async function loadEarlierTodayBriefings(manifest, latest, currentBriefing) {
-  const currentDay = localDateKey(currentBriefing.generatedAt);
-  const currentYamlPath = latest.latestBriefingYamlUrl;
+function formatDatePickerLabel(dayKey) {
+  const date = new Date(`${dayKey}T12:00:00Z`);
+  try {
+    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(date);
+  } catch {
+    return dayKey;
+  }
+}
+
+function renderArchivePicker(manifest, selectedDayKey, onSelect) {
+  const availableDays = availableArticleDays(manifest);
+  const availableSet = new Set(availableDays);
+  if (!availableDays.length) {
+    yesterdayEl.innerHTML = `
+      <p class="eyebrow">Archive</p>
+      <h2>No retained days yet</h2>
+      <p class="meta">Older briefings will appear here after article data is retained.</p>
+    `;
+    return;
+  }
+
+  const days = retainedDateRange(availableDays)
+    .map((dayKey) => {
+      const isAvailable = availableSet.has(dayKey);
+      const isSelected = dayKey === selectedDayKey;
+      return `<button class="date-picker__day${isSelected ? ' date-picker__day--selected' : ''}" type="button" data-briefing-day="${escapeHtml(dayKey)}" aria-pressed="${isSelected ? 'true' : 'false'}" ${isAvailable ? '' : 'disabled'}><span>${escapeHtml(formatDatePickerLabel(dayKey))}</span></button>`;
+    })
+    .join('');
+  yesterdayEl.innerHTML = `
+    <p class="eyebrow">Archive</p>
+    <h2>Browse by date</h2>
+    <div class="date-picker" aria-label="Briefing date picker">${days}</div>
+    <p id="archiveStatus" class="meta">Choose a retained day to load its articles.</p>
+  `;
+  yesterdayEl.querySelectorAll('[data-briefing-day]').forEach((button) => {
+    button.addEventListener('click', () => onSelect(button.dataset.briefingDay));
+  });
+}
+
+function setArchiveStatus(message, isError = false) {
+  const statusEl = yesterdayEl.querySelector('#archiveStatus');
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.classList.toggle('status--bad', isError);
+}
+
+async function loadBriefingSetForDay(manifest, latest, currentBriefing, dayKey) {
+  const latestYamlPath = normalizeManifestPath(latest.latestBriefingYamlUrl);
   const candidates = (manifest.briefings || [])
-    .filter((path) => path !== currentYamlPath && /\/hourly-\d{2}\.yaml$/.test(path))
+    .filter((path) => briefingPathDayKey(path) === dayKey)
     .slice()
     .sort()
     .reverse();
   const briefings = [];
   for (const yamlPath of candidates) {
     try {
-      const briefing = await getJson(resolveDataUrl(yamlPath.replace(/\.yaml$/, '.json')));
-      if (briefing.kind === 'hourly' && localDateKey(briefing.generatedAt) === currentDay) {
-        briefings.push(briefing);
-      }
+      const briefing =
+        normalizeManifestPath(yamlPath) === latestYamlPath
+          ? currentBriefing
+          : await getJson(resolveDataUrl(yamlPath.replace(/\.yaml$/, '.json')));
+      if (briefingPathDayKey(yamlPath) === dayKey) briefings.push(briefing);
     } catch {
       // Ignore retained manifest entries whose JSON mirror is unavailable.
     }
@@ -722,33 +772,33 @@ async function loadEarlierTodayBriefings(manifest, latest, currentBriefing) {
   return briefings.sort((left, right) => new Date(right.generatedAt) - new Date(left.generatedAt));
 }
 
-async function renderYesterday(manifest, latest, currentBriefing) {
-  const briefing = await findYesterdayBriefing(manifest, latest, currentBriefing);
-  if (!briefing) {
-    yesterdayEl.innerHTML = `
-      <p class="eyebrow">Yesterday</p>
-      <h2>No yesterday summary yet</h2>
-      <p class="meta">Once yesterday has retained briefing data, its latest daily roll-up will appear here.</p>
-    `;
-    return;
-  }
+function renderBriefingForDay(appState, briefings, dayKey) {
+  const latestForDay = briefings[0];
+  const earlierBriefings = briefings.slice(1);
+  const seenState = createSeenBriefingState(latestForDay, appState.manifest);
+  const isCurrentDay = dayKey === appState.currentDayKey;
+  const dayBriefing = todayBriefingView(latestForDay, earlierBriefings, seenState, {
+    combinedTitle: isCurrentDay ? 'Today so far' : `${formatDatePickerLabel(dayKey)} updates`,
+    latestTitle: isCurrentDay ? 'Latest update' : 'Latest retained update',
+  });
+  renderBriefing(dayBriefing, seenState);
+  observeBriefingItems(seenState);
+}
 
-  const citations = citationMap(briefing);
-  const topBullet = briefing.sections?.[0]?.bullets?.[0];
-  const topBulletCitation = (topBullet?.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
-  const yesterdayTitle = topBullet?.title || topBulletCitation?.title || briefing.headline;
-  const rawYesterdayDescription = stripInterestBoilerplate(
-    topBullet?.description || stripLeadingTitle(topBullet?.text, yesterdayTitle) || topBullet?.text || '',
-  );
-  const yesterdayDescription = rawYesterdayDescription || 'No summary text was available for yesterday.';
-  yesterdayEl.innerHTML = `
-    <p class="eyebrow">Yesterday</p>
-    <h2>${escapeHtml(truncateText(briefing.headline, MAX_HEADLINE_LENGTH))}</h2>
-    <div class="yesterday-summary">
-      <p>${escapeHtml(yesterdayDescription)}</p>
-      <p class="meta">Generated ${escapeHtml(formatDate(briefing.generatedAt))}</p>
-    </div>
-  `;
+async function selectBriefingDay(appState, dayKey) {
+  if (!availableArticleDays(appState.manifest).includes(dayKey)) return;
+  setArchiveStatus(`Loading ${formatDatePickerLabel(dayKey)}…`);
+  try {
+    const briefings = await loadBriefingSetForDay(appState.manifest, appState.latest, appState.currentBriefing, dayKey);
+    if (!briefings.length) {
+      throw new Error('No briefing was retained for this day.');
+    }
+    activeBriefingFilter = null;
+    renderBriefingForDay(appState, briefings, dayKey);
+    renderArchivePicker(appState.manifest, dayKey, (selectedDayKey) => selectBriefingDay(appState, selectedDayKey));
+  } catch (error) {
+    setArchiveStatus(error.message || 'Could not load that day.', true);
+  }
 }
 
 async function loadBuildInfo() {
@@ -916,19 +966,18 @@ async function main() {
       getJson('data/sources/status.json'),
       getJson('data/manifest.json'),
     ]);
-    const seenState = createSeenBriefingState(briefing, manifest);
-    const earlierBriefings = await loadEarlierTodayBriefings(manifest, latest, briefing);
-    const todayBriefing = todayBriefingView(briefing, earlierBriefings, seenState);
+    const currentDayKey = articlePathDayKey(latest.latestArticlesYamlUrl || latest.latestArticlesUrl) || localDateKey(briefing.generatedAt);
+    const appState = { latest, manifest, currentBriefing: briefing, currentDayKey };
+    const currentDayBriefings = await loadBriefingSetForDay(manifest, latest, briefing, currentDayKey);
     renderHero(briefing);
-    renderBriefing(todayBriefing, seenState);
+    renderBriefingForDay(appState, currentDayBriefings.length ? currentDayBriefings : [briefing], currentDayKey);
+    renderArchivePicker(manifest, currentDayKey, (selectedDayKey) => selectBriefingDay(appState, selectedDayKey));
     window.addEventListener('scroll', scheduleSeenPositionCheck, { passive: true });
     window.addEventListener('resize', scheduleSeenPositionCheck);
     window.addEventListener('wheel', resumeSeenPositionChecksAfterInput, { passive: true });
     window.addEventListener('touchmove', resumeSeenPositionChecksAfterInput, { passive: true });
     window.addEventListener('keydown', resumeSeenPositionChecksAfterInput);
-    observeBriefingItems(seenState);
     renderSources(status);
-    await renderYesterday(manifest, latest, briefing);
     await renderFooter(buildInfo);
     if ('serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(buildInfo.buildId || 'dev')}`, { updateViaCache: 'none' });
