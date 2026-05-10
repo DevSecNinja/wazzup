@@ -428,6 +428,34 @@ main {
   list-style: none;
 }
 
+.source-item {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.source-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.source-title {
+  line-height: 1.3;
+  text-align: left;
+}
+
+.source-heading .status {
+  flex: 0 0 auto;
+}
+
+.source-meta {
+  margin: 0.55rem 0 0;
+  line-height: 1.55;
+}
+
 .yesterday-summary p { margin-bottom: 0; }
 
 .site-footer {
