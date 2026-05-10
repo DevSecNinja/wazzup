@@ -525,7 +525,8 @@ sources:
       - standings
     fetch:
       timeoutSeconds: 8
-    notes: "Official NBA news feed for league-wide headlines. Disabled because nba.com currently times out from the pipeline environment; ESPN NBA remains enabled as the working NBA source."
+    notes: "Official NBA news feed for league-wide headlines. Disabled because nba.com currently times out from the pipeline
+      environment; ESPN NBA remains enabled as the working NBA source."
 
   - id: espn-nba
     name: ESPN NBA

@@ -68,11 +68,11 @@ mise exec -- task install
 The CI workflow ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs,
 in order:
 
-1. `task install`           – installs `PyYAML`.
-2. `task ci`                – runs `format:check`, `lint`, `test`, `build`.
+1. `task install` – installs `PyYAML`.
+2. `task ci` – runs `format:check`, `lint`, `test`, `build`.
 3. `task pipeline:generate:fixtures` – deterministic briefing from
    `tests/fixtures` with `AI_PROVIDER=fake`.
-4. `task validate:data`     – schema/shape checks of `public/data`.
+4. `task validate:data` – schema/shape checks of `public/data`.
 
 Always reproduce that exact order locally before pushing. The individual
 pieces (validated to work in this devcontainer) are:

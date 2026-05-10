@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 
 from wazzup.config import load_sources
@@ -24,6 +25,34 @@ class FeedTests(unittest.TestCase):
         self.assertIn("MS Security", items[0].tags)
         self.assertIn("security", items[0].tags)
         self.assertEqual(len(items[0].tags), len(set(tag.lower() for tag in items[0].tags)))
+
+    def test_parse_feed_skips_items_without_valid_publication_date(self) -> None:
+        source = load_sources("config/sources.yml")[0]
+        payload = b"""<?xml version="1.0"?>
+<rss><channel>
+  <item>
+    <title>Dated article</title>
+    <link>https://example.com/dated</link>
+    <pubDate>Wed, 06 May 2026 15:00:00 +0000</pubDate>
+    <description>Valid publication date.</description>
+  </item>
+  <item>
+    <title>Undated article</title>
+    <link>https://example.com/undated</link>
+    <description>Missing publication date.</description>
+  </item>
+  <item>
+    <title>Invalid date article</title>
+    <link>https://example.com/invalid</link>
+    <pubDate>not a date</pubDate>
+    <description>Invalid publication date.</description>
+  </item>
+</channel></rss>"""
+
+        items = parse_feed(source, payload, datetime(2026, 5, 10, 10, tzinfo=UTC))
+
+        self.assertEqual(["Dated article"], [item.title for item in items])
+        self.assertEqual("2026-05-06T15:00:00Z", items[0].published_at)
 
     def test_deduplicate_prefers_priority_source_for_same_title_day(self) -> None:
         sources = load_sources("config/sources.yml")
