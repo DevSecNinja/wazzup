@@ -92,6 +92,8 @@ class PwaAssetTests(unittest.TestCase):
         app = Path("public/app.js").read_text(encoding="utf-8")
         self.assertIn("manifest.briefings", app)
         self.assertIn("/\\/hourly-\\d{2}\\.yaml$/.test(path)", app)
+        self.assertIn("const remainingCurrentRecords = currentRecords.slice(1);", app)
+        self.assertIn("[...remainingCurrentRecords, ...earlierRecords]", app)
         self.assertIn("localDateKey(briefing.generatedAt) === currentDay", app)
         self.assertIn("mergeCitations(allBriefings)", app)
         self.assertIn("uniqueBulletRecords(earlierBriefings.flatMap(extractBulletRecords)", app)
@@ -102,6 +104,9 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("Array.from(recordsByDayPart.entries())", app)
         self.assertIn("latestTimestamp: Math.max(...records.map(recordTimestamp))", app)
         self.assertIn(".sort((left, right) => right.latestTimestamp - left.latestTimestamp)", app)
+        self.assertIn("const heroDescription = stripInterestBoilerplate(", app)
+        self.assertIn("topBullet?.description || stripLeadingTitle(topBullet?.text, heroTitle) || topBullet?.text || ''", app)
+        self.assertIn("heroSummaryEl.textContent = heroDescription || 'No notable updates were found in today’s rolling briefing.';", app)
 
     def test_briefing_items_open_first_citation_url(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
@@ -211,10 +216,15 @@ class PwaAssetTests(unittest.TestCase):
 
     def test_homepage_uses_simple_header_and_yesterday_card(self) -> None:
         html = Path("public/index.html").read_text(encoding="utf-8")
+        app = Path("public/app.js").read_text(encoding="utf-8")
         self.assertIn("viewport-fit=cover", html)
         self.assertIn("black-translucent", html)
         self.assertIn('rel="apple-touch-icon" sizes="180x180"', html)
         self.assertIn('class="button button--compact button--utility"', html)
+        self.assertIn('id="heroMeta"', html)
+        self.assertIn("const heroMetaEl = document.querySelector('#heroMeta');", app)
+        self.assertIn('<div class="tag-list">', app)
+        self.assertIn('<div class="citations">', app)
         self.assertNotIn("topbar__links", html)
         self.assertNotIn("Previous hours", html)
         self.assertIn("id=\"yesterday\"", html)

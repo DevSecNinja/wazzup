@@ -3,6 +3,7 @@ const sourcesEl = document.querySelector('#sources');
 const yesterdayEl = document.querySelector('#yesterday');
 const heroHeadlineEl = document.querySelector('#heroHeadline');
 const heroSummaryEl = document.querySelector('#heroSummary');
+const heroMetaEl = document.querySelector('#heroMeta');
 const notifyButton = document.querySelector('#notifyButton');
 const commitLink = document.querySelector('#commitLink');
 const starCountText = document.querySelector('#starCountText');
@@ -277,13 +278,16 @@ function todayBriefingView(currentBriefing, earlierBriefings, seenState) {
   const usedItemIds = new Set();
   const usedFallbackKeys = new Set();
   const currentRecords = uniqueBulletRecords(extractBulletRecords(currentBriefing), usedItemIds, usedFallbackKeys);
+  const remainingCurrentRecords = currentRecords.slice(1);
   const earlierRecords = uniqueBulletRecords(earlierBriefings.flatMap(extractBulletRecords), usedItemIds, usedFallbackKeys);
   const sections = [];
 
   if (!hasSeenItemsForDay(seenState)) {
-    sections.push({ title: 'Today so far', bullets: [...currentRecords, ...earlierRecords].map((record) => record.bullet) });
+    const bullets = [...remainingCurrentRecords, ...earlierRecords].map((record) => record.bullet);
+    if (bullets.length) sections.push({ title: 'Today so far', bullets });
   } else {
-    sections.push({ title: 'Latest update', bullets: currentRecords.map((record) => record.bullet) });
+    const latestBullets = remainingCurrentRecords.map((record) => record.bullet);
+    if (latestBullets.length) sections.push({ title: 'Latest update', bullets: latestBullets });
     const recordsByDayPart = new Map();
     earlierRecords.forEach((record) => {
       const label = dayPartLabel(record.generatedAt);
@@ -573,8 +577,31 @@ function renderHero(briefing) {
   const citations = citationMap(briefing);
   const topBullet = briefing.sections?.[0]?.bullets?.[0];
   const normalized = topBullet ? normalizeBullet(topBullet, citations) : null;
+  const topBulletCitation = (topBullet?.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
+  const heroTitle = topBullet?.title || topBulletCitation?.title || briefing.headline;
+  const heroDescription = stripInterestBoilerplate(
+    topBullet?.description || stripLeadingTitle(topBullet?.text, heroTitle) || topBullet?.text || '',
+  );
   heroHeadlineEl.textContent = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
-  heroSummaryEl.textContent = normalized?.description || 'No notable updates were found in today’s rolling briefing.';
+  heroSummaryEl.textContent = heroDescription || 'No notable updates were found in today’s rolling briefing.';
+  if (heroMetaEl) {
+    if (!topBullet || !normalized) {
+      heroMetaEl.textContent = '';
+    } else {
+      const links = (topBullet.citations || [])
+        .map((itemId) => citations.get(itemId))
+        .filter(Boolean)
+        .map(
+          (citation) =>
+            `<a class="citation" href="${escapeHtml(citation.url)}" target="_blank" rel="noopener noreferrer">${citation.publishedAt ? `${escapeHtml(formatDate(citation.publishedAt))} · ` : ''}${escapeHtml(citation.sourceName)}</a>`,
+        )
+        .join('');
+      const tags = normalized.tags
+        .map((tag) => `<button class="tag tag--button" type="button" data-filter-type="category" data-filter-value="${escapeHtml(tag)}" data-filter-label="${escapeHtml(tag)}" aria-pressed="false">${escapeHtml(tag)}</button>`)
+        .join('');
+      heroMetaEl.innerHTML = `${tags ? `<div class="tag-list">${tags}</div>` : ''}${links ? `<div class="citations">${links}</div>` : ''}`;
+    }
+  }
 }
 
 function renderSources(status) {
@@ -877,6 +904,7 @@ async function main() {
   } catch (error) {
     heroHeadlineEl.textContent = 'Briefing unavailable';
     heroSummaryEl.textContent = 'The latest briefing could not be loaded. Try again after the next scheduled run.';
+    if (heroMetaEl) heroMetaEl.textContent = '';
     briefingEl.innerHTML = `<p class="eyebrow">Error</p><h2>Could not load briefing</h2><p class="meta">${escapeHtml(error.message)}</p>`;
     sourcesEl.innerHTML = '<p class="eyebrow">Source health</p><h2>Unavailable</h2>';
     yesterdayEl.innerHTML = '<p class="eyebrow">Yesterday</p><h2>Unavailable</h2>';
