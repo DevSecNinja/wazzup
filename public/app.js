@@ -677,9 +677,10 @@ async function renderYesterday(manifest, latest, currentBriefing) {
 
   const citations = citationMap(briefing);
   const topBullet = briefing.sections?.[0]?.bullets?.[0];
-  const normalized = topBullet ? normalizeBullet(topBullet, citations) : null;
+  const topBulletCitation = (topBullet?.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
+  const yesterdayTitle = topBullet?.title || topBulletCitation?.title || briefing.headline;
   const rawYesterdayDescription = stripInterestBoilerplate(
-    topBullet?.description || stripLeadingTitle(topBullet?.text, briefing.headline) || topBullet?.text || '',
+    topBullet?.description || stripLeadingTitle(topBullet?.text, yesterdayTitle) || topBullet?.text || '',
   );
   const yesterdayDescription = rawYesterdayDescription || 'No summary text was available for yesterday.';
   yesterdayEl.innerHTML = `
