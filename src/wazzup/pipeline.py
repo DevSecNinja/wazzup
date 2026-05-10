@@ -87,6 +87,14 @@ def rolling_day_window(now: datetime, timezone: str) -> tuple[datetime, datetime
     return local_start.astimezone(UTC), now.astimezone(UTC)
 
 
+def content_window(kind: BriefingKind, now: datetime, timezone: str) -> tuple[datetime, datetime]:
+    window_start, window_end = briefing_window(kind, now, timezone)
+    if kind == "hourly":
+        return rolling_day_window(now, timezone)
+    today_start, _ = rolling_day_window(now, timezone)
+    return max(window_start, today_start), window_end
+
+
 def filter_items_to_window(items: list[ContentItem], window_start: datetime, window_end: datetime) -> list[ContentItem]:
     return [item for item in items if window_start <= parse_iso(item.published_at) <= window_end]
 
@@ -182,11 +190,7 @@ def generate(argv: Sequence[str] | None = None) -> dict:
         app_config.morning_local_time,
         app_config.evening_local_time,
     )
-    window_start, window_end = briefing_window(kind, now, app_config.timezone)
-    content_window_start = window_start
-    content_window_end = window_end
-    if kind == "hourly":
-        content_window_start, content_window_end = rolling_day_window(now, app_config.timezone)
+    content_window_start, content_window_end = content_window(kind, now, app_config.timezone)
     window_items = filter_items_to_window(items, content_window_start, content_window_end)
     scored = score_items(window_items, sources, app_config, now)
     if kind == "hourly":
