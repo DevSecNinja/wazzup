@@ -75,7 +75,7 @@ jobs:
             exit 0
           fi
 
-          gh workflow run "${TARGET_WORKFLOW}" --ref "${GITHUB_REF_NAME}" -f forceBriefing=auto -f aiProvider=copilot-cli
+          gh workflow run "${TARGET_WORKFLOW}" --repo "${GITHUB_REPOSITORY}" --ref "${GITHUB_REF_NAME}" -f forceBriefing=auto -f aiProvider=copilot-cli
           echo "- Action: dispatched News hourly catch-up" >>"${GITHUB_STEP_SUMMARY}"
 
       - name: Write skipped summary

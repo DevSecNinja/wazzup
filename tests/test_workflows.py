@@ -26,6 +26,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("| jq --arg cutoff", workflow)
         self.assertIn("Existing News hourly runs this UTC hour", workflow)
         self.assertIn("gh workflow run \"${TARGET_WORKFLOW}\"", workflow)
+        self.assertIn("--repo \"${GITHUB_REPOSITORY}\"", workflow)
         self.assertIn("forceBriefing=auto", workflow)
         self.assertIn("aiProvider=copilot-cli", workflow)
 
