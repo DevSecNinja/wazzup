@@ -37,18 +37,19 @@ flowchart LR
 
 ## Runtime components
 
-| Component            | Responsibility                                                                                     | Current implementation                                                                                 |
-| -------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Source configuration | Defines feeds, short source tags, categories, weights, headers, and interest hints.                | [../config/sources.yml](../config/sources.yml) and [../config/interests.yml](../config/interests.yml). |
-| Fetcher              | Retrieves RSS and Atom XML feeds.                                                                  | `urllib.request` based Python fetcher in [../src/wazzup/feeds.py](../src/wazzup/feeds.py).             |
-| Normalizer           | Converts source entries into `ContentItem` records.                                                | Pure functions with fixtures.                                                                          |
-| Deduplicator         | Groups duplicate or near-duplicate articles.                                                       | Canonical URL + raw ref/GUID + normalized title/day transitive groups.                                 |
-| Ranker               | Scores items against interests, source quality, recency, and coverage.                             | Deterministic scoring plus optional AI reranking later.                                                |
-| Summarizer           | Generates article and briefing summaries.                                                          | AI provider abstraction with prompt versioning.                                                        |
-| Publisher            | Writes canonical static YAML, JSON browser mirrors, source health, `latest`, and `manifest` files. | [../src/wazzup/publisher.py](../src/wazzup/publisher.py).                                              |
-| State store          | Persists generated data across scheduled runs without commits.                                     | `news-state` GitHub Release asset `wazzup-state.zip`.                                                  |
-| Delivery adapters    | Pushes selected briefings to external channels.                                                    | Not implemented yet.                                                                                   |
-| Frontend             | Displays latest briefing and source health.                                                        | Static vanilla PWA in [../public](../public).                                                          |
+| Component            | Responsibility                                                                                     | Current implementation                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Source configuration | Defines feeds, short source tags, categories, weights, headers, and interest hints.                | [../config/sources.yml](../config/sources.yml) and [../config/interests.yml](../config/interests.yml).        |
+| Fetcher              | Retrieves RSS and Atom XML feeds.                                                                  | `urllib.request` based Python fetcher in [../src/wazzup/feeds.py](../src/wazzup/feeds.py).                    |
+| Normalizer           | Converts source entries into `ContentItem` records.                                                | Pure functions with fixtures.                                                                                 |
+| Deduplicator         | Groups duplicate or near-duplicate articles.                                                       | Canonical URL + raw ref/GUID + normalized title/day transitive groups.                                        |
+| Ranker               | Scores items against interests, source quality, recency, and coverage.                             | Deterministic scoring plus optional AI reranking later.                                                       |
+| Curator              | Selects and orders the most relevant items from the ranked list for the briefing.                  | AI curation provider abstraction; `wazzup-curator` agent for Copilot CLI, deterministic passthrough for fake. |
+| Summarizer           | Generates article and briefing summaries from the curated item selection.                          | AI summary provider abstraction with prompt versioning; `wazzup-writer` agent for Copilot CLI.                |
+| Publisher            | Writes canonical static YAML, JSON browser mirrors, source health, `latest`, and `manifest` files. | [../src/wazzup/publisher.py](../src/wazzup/publisher.py).                                                     |
+| State store          | Persists generated data across scheduled runs without commits.                                     | `news-state` GitHub Release asset `wazzup-state.zip`.                                                         |
+| Delivery adapters    | Pushes selected briefings to external channels.                                                    | Not implemented yet.                                                                                          |
+| Frontend             | Displays latest briefing and source health.                                                        | Static vanilla PWA in [../public](../public).                                                                 |
 
 ## Pipeline flow
 
@@ -57,7 +58,8 @@ sequenceDiagram
     participant Cron as GitHub Actions cron
     participant CLI as Pipeline CLI
     participant Feeds as Feeds
-    participant AI as AI summary provider
+    participant Curator as AI curator (wazzup-curator)
+    participant Writer as AI writer (wazzup-writer)
     participant Pages as GitHub Pages data
     participant User as User channels
 
@@ -66,8 +68,10 @@ sequenceDiagram
     CLI->>Feeds: fetch configured sources
     Feeds-->>CLI: feed entries
     CLI->>CLI: normalize, dedupe, score
-    CLI->>AI: summarize selected articles/briefing
-    AI-->>CLI: structured summary data
+    CLI->>Curator: select most relevant items
+    Curator-->>CLI: ordered selected item IDs
+    CLI->>Writer: summarize curated articles
+    Writer-->>CLI: structured summary data
     CLI->>CLI: validate contracts and item caps
     CLI->>Pages: persist YAML/JSON state to release asset
     Pages->>Pages: reusable Pages workflow restores state and deploys public artifact
@@ -279,33 +283,45 @@ Build the first implementation as an end-to-end thin slice instead of isolated l
 
 This sequence keeps the system demonstrable from the beginning and limits architectural drift.
 
-## AI summarization integration
+## AI integration
 
-Use a provider interface instead of calling a provider directly from pipeline logic:
+The pipeline uses two sequential AI steps with separate provider interfaces and agents:
+
+### Curation
 
 ```text
-AiSummaryProvider.generateStructuredSummary(request) -> SummaryResponse
+AiCurationProvider.curate_items(request) -> CurationResponse
 ```
 
-Implemented and planned provider order:
+The curator selects and orders the most relevant items from the scored list. It returns only item IDs, not any written text. This separation keeps the curation concern (what to cover) distinct from the writing concern (how to describe it).
 
-| Provider                              | Best use                                                                  | Notes                                                                                                                                                                            |
-| ------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Copilot CLI                           | Default requested scheduled summarization provider.                       | Implemented with `copilot -p`, `COPILOT_GITHUB_TOKEN`, `--no-ask-user`, and narrow `--allow-tool` permissions. Requires `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret. |
-| Fake provider                         | Tests, local deterministic development, and tokenless scheduled fallback. | Implemented and used by CI.                                                                                                                                                      |
-| Azure OpenAI / OpenAI / GitHub Models | Direct API-based summarization with clearer model and token accounting.   | Planned.                                                                                                                                                                         |
-| Ollama / Foundry                      | Local/self-contained or platform-specific experiments.                    | Planned.                                                                                                                                                                         |
+### Summarization
 
-The pipeline should prepare a provider-neutral summary request, then adapters translate it into the provider-specific invocation. For Copilot CLI, the adapter should write a prompt bundle to a temporary file, run the CLI in programmatic mode, request structured JSON output, and validate the output before publishing.
+```text
+AiSummaryProvider.generate_structured_summary(request) -> SummaryResponse
+```
+
+The writer receives the curated item selection and generates the full briefing — headline, sections, and bullets with citations.
+
+### Provider implementations
+
+| Provider                              | Curation                                         | Summarization                               | Notes                                                                                                                                                                            |
+| ------------------------------------- | ------------------------------------------------ | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Copilot CLI                           | `wazzup-curator` agent (`curation-v1` prompt)    | `wazzup-writer` agent (`summary-v1` prompt) | Implemented with `copilot -p`, `COPILOT_GITHUB_TOKEN`, `--no-ask-user`, and narrow `--allow-tool` permissions. Requires `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret. |
+| Fake provider                         | Deterministic passthrough (top N by score order) | Deterministic template-based bullets        | Implemented and used by CI.                                                                                                                                                      |
+| Azure OpenAI / OpenAI / GitHub Models | Planned.                                         | Planned.                                    | Direct API-based invocation with clearer model and token accounting.                                                                                                             |
+| Ollama / Foundry                      | Planned.                                         | Planned.                                    | Local/self-contained or platform-specific experiments.                                                                                                                           |
+
+The pipeline prepares provider-neutral requests, then adapters translate them into provider-specific invocations. For Copilot CLI, each adapter writes a prompt bundle to a temporary file, runs the CLI in programmatic mode, requests structured JSON output, and validates the output before proceeding.
 
 Implementation requirements and current status:
 
 - Validate provider output with JSON Schema or a runtime type validator. Runtime validation is implemented in [../src/wazzup/ai.py](../src/wazzup/ai.py); formal schema files are deferred.
-- Keep prompt templates versioned.
-- Include citations in the request and require cited output.
+- Keep prompt templates versioned (`curation-v1`, `summary-v1`).
+- Include citations in the summary request and require cited output.
 - Cache article-level summaries by `contentHash` and `promptVersion`. Deferred.
 - Enforce max input items, max tokens, and monthly cost budget. Max input items are enforced through `WAZZUP_MAX_AI_ITEMS`; token/monthly cost accounting is deferred.
-- Provide a fake deterministic provider for tests. Implemented.
+- Provide a fake deterministic provider for tests. Implemented for both curation and summarization.
 - Restrict Copilot CLI tool permissions to the minimum needed, and avoid giving it write access outside a temporary output directory.
 - Track provider metadata in every briefing, including provider type, model if known, prompt version, token or request estimate, and validation result.
 

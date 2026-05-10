@@ -8,15 +8,21 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from wazzup.ai import (
+    CopilotCliCurationProvider,
     CopilotCliSummaryProvider,
+    CurationRequest,
     DEFAULT_COPILOT_AGENT,
+    DEFAULT_COPILOT_CURATOR_AGENT,
     DEFAULT_COPILOT_MODEL,
+    FakeCurationProvider,
     FakeSummaryProvider,
     MAX_SUMMARY_DESCRIPTION_LENGTH,
     MAX_SUMMARY_HEADLINE_LENGTH,
     MAX_SUMMARY_TITLE_LENGTH,
     SummaryRequest,
+    build_curation_payload,
     build_prompt_payload,
+    curation_provider_from_env,
     provider_from_env,
     response_from_payload,
 )
@@ -393,6 +399,203 @@ class AiProviderTests(unittest.TestCase):
         self.assertEqual("copilot-cli-fallback", response.provider["type"])
         self.assertIn("fallbackReason", response.provider)
         self.assertTrue(response.sections[0]["bullets"])
+
+
+class AiCurationProviderTests(unittest.TestCase):
+    def test_curation_provider_defaults_to_fake(self) -> None:
+        previous_provider = os.environ.get("AI_PROVIDER")
+        os.environ.pop("AI_PROVIDER", None)
+        try:
+            provider = curation_provider_from_env(load_app_config("config/interests.yml"))
+            self.assertEqual("fake", provider.name)
+        finally:
+            if previous_provider is not None:
+                os.environ["AI_PROVIDER"] = previous_provider
+
+    def test_fake_curation_provider_returns_top_max_items(self) -> None:
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        items = [
+            replace(
+                item,
+                id=f"item-{index}",
+                title=f"Article {index}",
+                canonical_url=f"https://example.com/{index}",
+            )
+            for index in range(10)
+        ]
+        scored = score_items(items, [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
+
+        response = FakeCurationProvider().curate_items(
+            CurationRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                items=scored,
+                max_items=5,
+            )
+        )
+
+        self.assertEqual(5, len(response.selected_ids))
+        self.assertEqual([s.item.id for s in scored[:5]], response.selected_ids)
+        self.assertEqual("fake", response.provider["type"])
+
+    def test_fake_curation_provider_returns_all_when_fewer_than_max(self) -> None:
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
+
+        response = FakeCurationProvider().curate_items(
+            CurationRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                items=scored,
+                max_items=12,
+            )
+        )
+
+        self.assertEqual(len(scored), len(response.selected_ids))
+
+    def test_curation_payload_includes_max_items_and_guide(self) -> None:
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
+
+        payload = build_curation_payload(
+            CurationRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                items=scored,
+                max_items=8,
+            )
+        )
+
+        self.assertEqual(8, payload["maxItems"])
+        self.assertIn("selectedIds", payload["outputContract"])
+        guide = "\n".join(payload["curationGuide"])
+        self.assertIn("8 items", guide)
+        self.assertIn("diversity", guide)
+        self.assertIn("fresh", guide.lower())
+
+    def test_curation_payload_includes_scored_items(self) -> None:
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
+
+        payload = build_curation_payload(
+            CurationRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                items=scored,
+                max_items=12,
+            )
+        )
+
+        self.assertEqual(len(scored), len(payload["items"]))
+        self.assertEqual(scored[0].item.id, payload["items"][0]["id"])
+
+    @patch("wazzup.ai.subprocess.run")
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_cli_curation_uses_curator_agent(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        previous_agent = os.environ.get("COPILOT_CURATOR_AGENT")
+        previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
+        os.environ.pop("COPILOT_CURATOR_AGENT", None)
+        os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
+
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
+
+        def fake_run(command, capture_output, cwd, env, text):  # type: ignore[no-untyped-def]
+            del capture_output, text
+            selected_id = scored[0].item.id
+            Path(env["WAZZUP_COPILOT_OUTPUT_PATH"]).write_text(
+                f'{{"selectedIds":["{selected_id}"]}}',
+                encoding="utf-8",
+            )
+            self.assertEqual(Path.cwd(), Path(cwd))
+            self.assertIn("--agent", command)
+            self.assertEqual(DEFAULT_COPILOT_CURATOR_AGENT, command[command.index("--agent") + 1])
+            self.assertIn("--model", command)
+            self.assertEqual(DEFAULT_COPILOT_MODEL, command[command.index("--model") + 1])
+            prompt = command[command.index("-p") + 1]
+            self.assertIn("curating items", prompt)
+            return Mock(returncode=0, stdout="", stderr="")
+
+        run_mock.side_effect = fake_run
+        try:
+            response = CopilotCliCurationProvider().curate_items(
+                CurationRequest(
+                    kind="hourly",
+                    window_start="2026-05-06T20:00:00Z",
+                    window_end="2026-05-06T21:00:00Z",
+                    generated_at="2026-05-06T21:00:00Z",
+                    timezone="Europe/Amsterdam",
+                    items=scored,
+                    max_items=12,
+                )
+            )
+        finally:
+            if previous_agent is None:
+                os.environ.pop("COPILOT_CURATOR_AGENT", None)
+            else:
+                os.environ["COPILOT_CURATOR_AGENT"] = previous_agent
+            if previous_token is None:
+                os.environ.pop("COPILOT_GITHUB_TOKEN", None)
+            else:
+                os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
+
+        self.assertEqual(DEFAULT_COPILOT_CURATOR_AGENT, response.provider["agent"])
+        self.assertEqual([scored[0].item.id], response.selected_ids)
+
+    @patch("wazzup.ai.subprocess.run")
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_cli_curation_falls_back_on_invalid_response(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
+        os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
+
+        def fake_run(_command, capture_output, cwd, env, text):  # type: ignore[no-untyped-def]
+            del capture_output, text
+            Path(env["WAZZUP_COPILOT_OUTPUT_PATH"]).write_text('{"selectedIds": "not-a-list"}', encoding="utf-8")
+            self.assertEqual(Path.cwd(), Path(cwd))
+            return Mock(returncode=0, stdout="", stderr="")
+
+        run_mock.side_effect = fake_run
+        try:
+            response = CopilotCliCurationProvider().curate_items(
+                CurationRequest(
+                    kind="hourly",
+                    window_start="2026-05-06T20:00:00Z",
+                    window_end="2026-05-06T21:00:00Z",
+                    generated_at="2026-05-06T21:00:00Z",
+                    timezone="Europe/Amsterdam",
+                    items=scored,
+                    max_items=12,
+                )
+            )
+        finally:
+            if previous_token is None:
+                os.environ.pop("COPILOT_GITHUB_TOKEN", None)
+            else:
+                os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
+
+        self.assertEqual("copilot-cli-fallback", response.provider["type"])
+        self.assertIn("fallbackReason", response.provider)
+        self.assertTrue(response.selected_ids)
 
 
 if __name__ == "__main__":

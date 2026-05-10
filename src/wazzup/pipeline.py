@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Sequence
 from zoneinfo import ZoneInfo
 
-from .ai import SummaryRequest, provider_from_env
+from .ai import CurationRequest, SummaryRequest, curation_provider_from_env, provider_from_env
 from .config import load_app_config, load_sources
 from .feeds import deduplicate, fetch_and_parse, isoformat, parse_feed, utc_now
 from .models import BriefingKind, ContentItem, ScoredItem, SourceStatus
@@ -152,6 +152,27 @@ def diversify_scored_items(scored_items: list[ScoredItem], max_consecutive: int 
     return diversified
 
 
+def curated_scored_items(scored_items: list[ScoredItem], selected_ids: list[str], max_items: int) -> list[ScoredItem]:
+    if max_items <= 0:
+        return []
+    id_to_scored = {scored.item.id: scored for scored in scored_items}
+    curated: list[ScoredItem] = []
+    seen_ids: set[str] = set()
+    for item_id in selected_ids:
+        if item_id in seen_ids:
+            continue
+        scored = id_to_scored.get(item_id)
+        if scored is None:
+            continue
+        curated.append(scored)
+        seen_ids.add(item_id)
+        if len(curated) >= max_items:
+            break
+    if not curated and scored_items:
+        return scored_items[:max_items]
+    return curated
+
+
 def featured_hourly_item_ids_for_local_day(data_dir: Path, now: datetime, timezone: str) -> set[str]:
     local_now = now.astimezone(ZoneInfo(timezone))
     daily_briefings_dir = data_dir / "briefings" / f"{local_now:%Y}" / f"{local_now:%m}" / f"{local_now:%d}"
@@ -232,6 +253,19 @@ def generate(argv: Sequence[str] | None = None) -> dict:
         scored = exclude_already_featured_hourly_items(scored, featured_item_ids)
     scored = diversify_scored_items(scored)
     scored = scored[: args.max_items]
+    curator = curation_provider_from_env(app_config)
+    curation = curator.curate_items(
+        CurationRequest(
+            kind=kind,
+            window_start=isoformat(content_window_start),
+            window_end=isoformat(content_window_end),
+            generated_at=isoformat(now),
+            timezone=app_config.timezone,
+            items=scored,
+            max_items=args.max_items,
+        )
+    )
+    curated = curated_scored_items(scored, curation.selected_ids, args.max_items)
     provider = provider_from_env(app_config)
     summary = provider.generate_structured_summary(
         SummaryRequest(
@@ -241,7 +275,7 @@ def generate(argv: Sequence[str] | None = None) -> dict:
             generated_at=isoformat(now),
             timezone=app_config.timezone,
             summary_language=app_config.summary_language,
-            items=scored,
+            items=curated,
         )
     )
     latest = publish_outputs(
@@ -251,7 +285,7 @@ def generate(argv: Sequence[str] | None = None) -> dict:
         content_window_end,
         now,
         app_config,
-        scored,
+        curated,
         summary,
         statuses,
     )
