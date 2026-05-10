@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from wazzup.models import ContentItem, ScoredItem
 from wazzup.pipeline import (
+    content_window,
     diversification_key,
     diversify_scored_items,
     exclude_already_featured_hourly_items,
@@ -51,6 +52,14 @@ def scored_item(item_id: str, published_at: str, score: float) -> ScoredItem:
 
 
 class PipelineTests(unittest.TestCase):
+    def test_morning_content_window_starts_at_local_midnight(self) -> None:
+        now = datetime(2026, 5, 10, 5, 10, tzinfo=UTC)
+
+        window_start, window_end = content_window("morning", now, "Europe/Amsterdam")
+
+        self.assertEqual("2026-05-09T22:00:00+00:00", window_start.isoformat())
+        self.assertEqual("2026-05-10T05:00:00+00:00", window_end.isoformat())
+
     def test_diversification_key_prefers_interest_and_falls_back_to_source(self) -> None:
         interested = replace(scored_item("interested", "2026-05-06T15:35:00Z", 50), matched_interests=["motorsport"])
         uninterested = scored_item("uninterested", "2026-05-06T15:34:00Z", 49)

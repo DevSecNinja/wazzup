@@ -80,18 +80,24 @@ footer {
 }
 
 .hero__content h1 {
-  max-width: 48rem;
+  max-width: none;
   margin: 0;
   font-size: clamp(2rem, 4.5vw, 4rem);
   line-height: 1.02;
   letter-spacing: -0.06em;
 }
 
-.hero__content p:last-child {
-  max-width: 42rem;
+#heroSummary {
+  max-width: 56rem;
   color: var(--muted);
   font-size: 1.15rem;
   line-height: 1.7;
+}
+
+#heroMeta {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
 }
 
 .button {
