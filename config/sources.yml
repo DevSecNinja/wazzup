@@ -92,26 +92,6 @@ sources:
         reason: "Consider enabling later if a narrower Dutch technology-news signal is preferred over the general NOS feed."
     notes: "Official NOS general news RSS feed discovered for the NOS homepage."
 
-  - id: zandvoortsecourant
-    name: Zandvoortsecourant.nl
-    sourceTag: Zandvoort
-    enabled: true
-    type: rss
-    homepageUrl: https://www.zandvoortsecourant.nl/
-    feedUrl: https://www.zandvoortsecourant.nl/rss
-    language: nl
-    region: nl
-    weight: 0.6
-    categories:
-      - local-news
-      - netherlands
-      - zandvoort
-    interestHints:
-      - local news
-      - zandvoort
-      - dutch news
-    notes: "Local Zandvoort news feed from issue #2 OPML."
-
   - id: nytimes-most-shared
     name: The New York Times - Most Shared
     sourceTag: NYT

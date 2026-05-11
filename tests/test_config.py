@@ -16,6 +16,7 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("economist", {source.id for source in sources})
         self.assertIn("financial-times", {source.id for source in sources})
         self.assertIn("the-hacker-news", {source.id for source in sources})
+        self.assertNotIn("zandvoortsecourant", {source.id for source in sources})
         self.assertIn("tech", {category for source in sources for category in source.categories})
         self.assertIn("Accept", sources[0].headers)
 
