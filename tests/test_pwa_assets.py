@@ -244,6 +244,8 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("function availableArticleDays(manifest)", app)
         self.assertIn("(manifest.articles || []).map(articlePathDayKey).filter(Boolean)", app)
         self.assertIn("function retainedDateRange(availableDays)", app)
+        self.assertIn("if (!availableDays.length) {\n    yesterdayEl.hidden = true;\n    yesterdayEl.innerHTML = '';", app)
+        self.assertIn("yesterdayEl.hidden = false;", app)
         self.assertIn("disabled", app)
         self.assertIn("Choose a retained day to load its articles.", app)
         self.assertIn("async function selectBriefingDay(appState, dayKey)", app)

@@ -717,13 +717,11 @@ function renderArchivePicker(manifest, selectedDayKey, onSelect) {
   const availableDays = availableArticleDays(manifest);
   const availableSet = new Set(availableDays);
   if (!availableDays.length) {
-    yesterdayEl.innerHTML = `
-      <p class="eyebrow">Archive</p>
-      <h2>No retained days yet</h2>
-      <p class="meta">Older briefings will appear here after article data is retained.</p>
-    `;
+    yesterdayEl.hidden = true;
+    yesterdayEl.innerHTML = '';
     return;
   }
+  yesterdayEl.hidden = false;
 
   const days = retainedDateRange(availableDays)
     .map((dayKey) => {
