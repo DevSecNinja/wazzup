@@ -805,9 +805,13 @@ async function renderFooter(buildInfo) {
   }
 }
 
+function serviceWorkerVersion(buildInfo) {
+  return String(buildInfo?.commitSha || buildInfo?.shortSha || buildInfo?.buildId || 'dev');
+}
+
 function setupAppUpdateRefresh(registration, buildInfo) {
   if (!refreshButton) return;
-  const buildId = String(buildInfo?.buildId || 'dev');
+  const buildId = serviceWorkerVersion(buildInfo);
   const wasControlled = Boolean(navigator.serviceWorker.controller);
   let refreshing = false;
   const showRefreshButton = () => {
@@ -996,7 +1000,7 @@ async function main() {
     await renderYesterday(manifest, latest, briefing);
     await renderFooter(buildInfo);
     if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(buildInfo.buildId || 'dev')}`, { updateViaCache: 'none' });
+      const registration = await navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(serviceWorkerVersion(buildInfo))}`, { updateViaCache: 'none' });
       setupAppUpdateRefresh(registration, buildInfo);
       await registration.update();
       await enableNotifications(registration, briefing, latest);
