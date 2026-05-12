@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from .ai import SummaryResponse
+from .ai import SummaryResponse, TransparencyReportResponse
 from .feeds import isoformat, stable_hash
 from .models import AppConfig, BriefingKind, ContentItem, ScoredItem, SourceStatus
 
@@ -112,6 +112,88 @@ def articles_path(data_dir: Path, window_end: datetime) -> Path:
     return data_dir / "articles" / year / month / f"{day}.yaml"
 
 
+def transparency_report_path(data_dir: Path, kind: BriefingKind, window_end: datetime) -> Path:
+    year, month, day = date_parts(window_end)
+    if kind == "hourly":
+        filename = f"hourly-{window_end:%H}.yaml"
+    else:
+        filename = f"{kind}.yaml"
+    return data_dir / "transparency" / year / month / day / filename
+
+
+def build_transparency_report(
+    kind: BriefingKind,
+    window_start: datetime,
+    window_end: datetime,
+    generated_at: datetime,
+    app_config: AppConfig,
+    scored_items: list[ScoredItem],
+    statuses: list[SourceStatus],
+    report: TransparencyReportResponse,
+) -> dict[str, Any]:
+    failed_sources = [status for status in statuses if not status.ok]
+    return {
+        "schemaVersion": 1,
+        "id": f"transparency-{kind}-{stable_hash(isoformat(window_start), isoformat(window_end), report.title)}",
+        "kind": kind,
+        "windowStart": isoformat(window_start),
+        "windowEnd": isoformat(window_end),
+        "generatedAt": isoformat(generated_at),
+        "timezone": app_config.timezone,
+        "language": app_config.summary_language,
+        "title": report.title,
+        "summary": report.summary,
+        "sections": report.sections,
+        "metrics": {
+            "sourceCount": len(statuses),
+            "failedSourceCount": len(failed_sources),
+            "rawItemCount": sum(status.item_count for status in statuses),
+            "selectedItemCount": len(scored_items),
+            "selectedSourceItemIds": [scored.item.id for scored in scored_items],
+        },
+        "failedSources": [status.to_dict() for status in failed_sources],
+        "provider": report.provider,
+        "promptVersion": report.provider.get("promptVersion", "transparency-v1"),
+    }
+
+
+def markdown_transparency_report(payload: dict[str, Any]) -> str:
+    lines = [f"# {payload['title']}", "", str(payload["summary"]), ""]
+    metrics = payload.get("metrics", {})
+    if isinstance(metrics, dict):
+        lines.extend(
+            [
+                "## Metrics",
+                "",
+                f"- Sources checked: {metrics.get('sourceCount', 0)}",
+                f"- Failed sources: {metrics.get('failedSourceCount', 0)}",
+                f"- Raw feed items fetched: {metrics.get('rawItemCount', 0)}",
+                f"- Selected items: {metrics.get('selectedItemCount', 0)}",
+                "",
+            ]
+        )
+    for section in payload.get("sections", []):
+        if not isinstance(section, dict):
+            continue
+        title = str(section.get("title", "")).strip()
+        if not title:
+            continue
+        lines.extend([f"## {title}", ""])
+        bullets = section.get("bullets", [])
+        if isinstance(bullets, list):
+            for bullet in bullets:
+                text = str(bullet).strip()
+                if text:
+                    lines.append(f"- {text}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_markdown(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(markdown_transparency_report(payload), encoding="utf-8")
+
+
 def publish_outputs(
     public_dir: Path,
     kind: BriefingKind,
@@ -121,6 +203,7 @@ def publish_outputs(
     app_config: AppConfig,
     scored_items: list[ScoredItem],
     summary: SummaryResponse,
+    transparency_report: TransparencyReportResponse,
     statuses: list[SourceStatus],
 ) -> dict[str, Any]:
     data_dir = public_dir / "data"
@@ -132,8 +215,10 @@ def publish_outputs(
 
         previous_latest = json.loads(latest_json_path.read_text(encoding="utf-8"))
     briefing = build_briefing(kind, window_start, window_end, generated_at, app_config, scored_items, summary)
+    transparency = build_transparency_report(kind, window_start, window_end, generated_at, app_config, scored_items, statuses, transparency_report)
     b_path = briefing_path(data_dir, kind, window_end)
     a_path = articles_path(data_dir, window_end)
+    t_path = transparency_report_path(data_dir, kind, window_end)
     write_data(b_path, briefing)
     write_data(
         a_path,
@@ -143,6 +228,9 @@ def publish_outputs(
             "items": [scored.to_dict() for scored in scored_items],
         },
     )
+    write_data(t_path, transparency)
+    write_markdown(t_path.with_suffix(".md"), transparency)
+    write_markdown(data_dir / "transparency" / "latest.md", transparency)
     write_data(
         data_dir / "sources" / "status.yaml",
         {
@@ -157,8 +245,11 @@ def publish_outputs(
         "generatedAt": isoformat(generated_at),
         "latestBriefingYamlUrl": public_data_url(data_dir, b_path),
         "latestArticlesYamlUrl": public_data_url(data_dir, a_path),
+        "latestTransparencyReportYamlUrl": public_data_url(data_dir, t_path),
         "latestBriefingUrl": public_data_url(data_dir, b_path.with_suffix(".json")),
         "latestArticlesUrl": public_data_url(data_dir, a_path.with_suffix(".json")),
+        "latestTransparencyReportUrl": public_data_url(data_dir, t_path.with_suffix(".json")),
+        "latestTransparencyReportMarkdownUrl": public_data_url(data_dir, t_path.with_suffix(".md")),
         "latestHourlyBriefingUrl": (
             public_data_url(data_dir, b_path.with_suffix(".json"))
             if kind == "hourly"
@@ -197,6 +288,7 @@ def public_data_url(data_dir: Path, path: Path) -> str:
 def write_manifest(data_dir: Path, generated_at: datetime, retention_days: int) -> None:
     briefings = sorted(relative_data_url(data_dir, path) for path in (data_dir / "briefings").rglob("*.yaml"))
     articles = sorted(relative_data_url(data_dir, path) for path in (data_dir / "articles").rglob("*.yaml"))
+    transparency_reports = sorted(relative_data_url(data_dir, path) for path in (data_dir / "transparency").rglob("*.yaml"))
     write_data(
         data_dir / "manifest.yaml",
         {
@@ -206,22 +298,24 @@ def write_manifest(data_dir: Path, generated_at: datetime, retention_days: int) 
             "retentionDays": retention_days,
             "briefings": briefings,
             "articles": articles,
+            "transparencyReports": transparency_reports,
         },
     )
 
 
 def enforce_retention(data_dir: Path, now: datetime, retention_days: int) -> None:
     cutoff_date = (now.astimezone(UTC) - timedelta(days=retention_days)).date()
-    for root_name in ["articles", "briefings"]:
+    for root_name in ["articles", "briefings", "transparency"]:
         root = data_dir / root_name
         if not root.exists():
             continue
-        for path in [*root.rglob("*.yaml"), *root.rglob("*.json")]:
+        for path in [*root.rglob("*.yaml"), *root.rglob("*.json"), *root.rglob("*.md")]:
             path_date = date_from_data_path(root_name, path)
             if path_date is not None and path_date < cutoff_date:
                 path.unlink(missing_ok=True)
     prune_empty_directories(data_dir / "articles")
     prune_empty_directories(data_dir / "briefings")
+    prune_empty_directories(data_dir / "transparency")
 
 
 def date_from_data_path(root_name: str, path: Path) -> datetime.date | None:
@@ -232,8 +326,10 @@ def date_from_data_path(root_name: str, path: Path) -> datetime.date | None:
         month = int(parts[root_index + 2])
         if root_name == "articles":
             day = int(Path(parts[root_index + 3]).stem)
-        else:
+        elif root_name in {"briefings", "transparency"}:
             day = int(parts[root_index + 3])
+        else:
+            return None
         return datetime(year, month, day, tzinfo=UTC).date()
     except (ValueError, IndexError):
         return None

@@ -112,8 +112,11 @@ def validate_data_dir(data_dir: Path) -> None:
             "generatedAt",
             "latestBriefingYamlUrl",
             "latestArticlesYamlUrl",
+            "latestTransparencyReportYamlUrl",
             "latestBriefingUrl",
             "latestArticlesUrl",
+            "latestTransparencyReportUrl",
+            "latestTransparencyReportMarkdownUrl",
             "health",
         ],
         "latest.json",
@@ -122,10 +125,16 @@ def validate_data_dir(data_dir: Path) -> None:
         raise ValidationError("Generated data must declare YAML as the canonical format")
     briefing_path = resolve_data_url(data_dir, latest["latestBriefingUrl"])
     articles_path = resolve_data_url(data_dir, latest["latestArticlesUrl"])
+    transparency_path = resolve_data_url(data_dir, latest["latestTransparencyReportUrl"])
     validate_briefing(briefing_path)
     validate_articles(articles_path)
+    load_json(transparency_path)
     load_yaml(resolve_data_url(data_dir, latest["latestBriefingYamlUrl"]))
     load_yaml(resolve_data_url(data_dir, latest["latestArticlesYamlUrl"]))
+    load_yaml(resolve_data_url(data_dir, latest["latestTransparencyReportYamlUrl"]))
+    markdown_path = resolve_data_url(data_dir, latest["latestTransparencyReportMarkdownUrl"])
+    if not markdown_path.exists():
+        raise ValidationError(f"Missing transparency report markdown: {markdown_path}")
     load_json(data_dir / "sources" / "status.json")
     load_yaml(data_dir / "sources" / "status.yaml")
     load_yaml(data_dir / "manifest.yaml")

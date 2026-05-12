@@ -220,19 +220,27 @@ class PipelineTests(unittest.TestCase):
                     )
                 self.assertIn("latestBriefingUrl", latest)
                 self.assertIn("latestArticlesUrl", latest)
+                self.assertIn("latestTransparencyReportUrl", latest)
+                self.assertIn("latestTransparencyReportMarkdownUrl", latest)
                 self.assertTrue(latest["latestBriefingUrl"].startswith("data/"))
                 self.assertTrue(latest["latestArticlesUrl"].startswith("data/"))
+                self.assertTrue(latest["latestTransparencyReportUrl"].startswith("data/"))
                 validate_data_dir(public_dir / "data")
                 briefing_path = public_dir / latest["latestBriefingUrl"]
                 articles_path = public_dir / latest["latestArticlesUrl"]
+                transparency_path = public_dir / latest["latestTransparencyReportUrl"]
+                transparency_markdown_path = public_dir / latest["latestTransparencyReportMarkdownUrl"]
                 briefing = briefing_path.read_text(encoding="utf-8")
                 self.assertIn("Top updates", briefing)
                 briefing_json = json.loads(briefing_path.read_text(encoding="utf-8"))
                 articles_text = articles_path.read_text(encoding="utf-8")
                 articles_json = json.loads(articles_text)
+                transparency_json = json.loads(transparency_path.read_text(encoding="utf-8"))
                 self.assertEqual("2026-05-05T22:00:00Z", briefing_json["windowStart"])
                 self.assertEqual("2026-05-06T18:00:00Z", briefing_json["windowEnd"])
                 self.assertIsInstance(articles_json["items"], list)
+                self.assertEqual("transparency-v1", transparency_json["promptVersion"])
+                self.assertTrue(transparency_markdown_path.read_text(encoding="utf-8").startswith("# Transparency report"))
                 self.assertTrue(articles_text.lstrip().startswith("{"))
                 self.assertIn("publishedAt", briefing_json["citations"][0])
                 self.assertIn("sourceTag", briefing_json["citations"][0])

@@ -19,8 +19,8 @@ Use a dedicated GitHub Release named `news-state` as the durable state store for
 1. The scheduled workflow downloads `wazzup-state.zip` from the `news-state` release if it exists.
 2. The workflow extracts the archive into `public/data`.
 3. The pipeline fetches feeds, generates the new briefing, and writes updated YAML plus JSON browser mirrors.
-4. The pipeline enforces the 35-day retention window.
-5. The workflow uploads the updated `wazzup-state.zip` release asset with `--clobber`.
+4. The pipeline writes a transparency report for the run and enforces the 35-day retention window.
+5. The workflow uploads the updated `wazzup-state.zip` release asset with `--clobber` and attaches the latest Markdown transparency report as `wazzup-transparency-report.md` when present.
 6. The separate Pages workflow deploys `public` to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.
 
 Implemented refinement after the first Pages deployment failure:
