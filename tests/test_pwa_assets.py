@@ -68,6 +68,7 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("buildInfo?.commitSha || buildInfo?.shortSha || buildInfo?.buildId || 'dev'", app)
         self.assertIn("function setupAppUpdateRefresh(registration, buildInfo)", app)
         self.assertIn("const wasControlled = Boolean(navigator.serviceWorker.controller);", app)
+        self.assertIn("const hasRefreshedBuild = () => safeSessionStorageGet(REFRESHED_BUILD_STORAGE_KEY) === buildId;", app)
         self.assertIn("registration.addEventListener('updatefound'", app)
         self.assertIn("navigator.serviceWorker.addEventListener('controllerchange'", app)
         self.assertIn("window.location.reload()", app)
@@ -307,6 +308,12 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("self.addEventListener('periodicsync'", sw)
         self.assertIn("self.addEventListener('sync'", sw)
         self.assertIn("self.addEventListener('notificationclick'", sw)
+
+    def test_refresh_button_stays_hidden_after_same_build_reload(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        self.assertIn("const hasRefreshedBuild = () => safeSessionStorageGet(REFRESHED_BUILD_STORAGE_KEY) === buildId;", app)
+        self.assertIn("const showRefreshButton = () => {\n    if (hasRefreshedBuild()) return;", app)
+        self.assertIn("if (hasRefreshedBuild()) return;\n    safeSessionStorageSet(REFRESHED_BUILD_STORAGE_KEY, buildId);", app)
 
 
 if __name__ == "__main__":
