@@ -441,8 +441,7 @@ main {
 .status { color: var(--success); }
 .status--bad { color: var(--warning); }
 
-.source-list,
-.yesterday-summary {
+.source-list {
   display: grid;
   gap: 0.75rem;
   padding: 0;
@@ -478,6 +477,38 @@ main {
 }
 
 .yesterday-summary p { margin-bottom: 0; }
+
+.date-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
+  gap: 0.45rem;
+}
+
+.date-picker__day {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.45rem 0.6rem;
+  background: rgba(15, 23, 42, 0.48);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.date-picker__day:hover,
+.date-picker__day:focus-visible,
+.date-picker__day--selected {
+  border-color: rgba(103, 232, 249, 0.55);
+  background: rgba(34, 211, 238, 0.14);
+}
+
+.date-picker__day:disabled {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.24);
+  color: rgba(168, 179, 199, 0.45);
+  cursor: not-allowed;
+}
 
 .site-footer {
   color: var(--muted);
