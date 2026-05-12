@@ -344,7 +344,7 @@ Implemented frontend behavior:
 - The sidebar shows source health and the latest retained summary from yesterday, rendered inline rather than linking to generated JSON.
 - It consumes JSON mirrors, not canonical YAML, to avoid a browser-side YAML parser dependency.
 - It supports opt-in local notifications when the browser supports background sync. Unsupported browsers, including iOS browsers without Background Sync or Periodic Background Sync, show notifications as unavailable instead of promising delayed catch-up notifications on app open. True background push notifications still require stored subscriptions and are deferred.
-- The service worker cache is versioned by the `buildId` query string from `build-info.json`, uses `updateViaCache: 'none'`, and supports offline reading for assets/data that have already been fetched.
+- The service worker cache is versioned by the app commit from `build-info.json`, uses `updateViaCache: 'none'`, and supports offline reading for assets/data that have already been fetched.
 
 A dedicated daily briefing kind is not implemented yet. The current site behavior is a rolling current-day briefing plus an inline yesterday card that renders the latest retained roll-up from yesterday.
 

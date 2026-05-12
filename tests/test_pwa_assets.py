@@ -64,6 +64,8 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("type: 'sync-latest-briefing'", app)
         self.assertIn("const refreshButton = document.querySelector('#refreshButton');", app)
         self.assertIn("REFRESHED_BUILD_STORAGE_KEY", app)
+        self.assertIn("function serviceWorkerVersion(buildInfo)", app)
+        self.assertIn("buildInfo?.commitSha || buildInfo?.shortSha || buildInfo?.buildId || 'dev'", app)
         self.assertIn("function setupAppUpdateRefresh(registration, buildInfo)", app)
         self.assertIn("const wasControlled = Boolean(navigator.serviceWorker.controller);", app)
         self.assertIn("registration.addEventListener('updatefound'", app)
