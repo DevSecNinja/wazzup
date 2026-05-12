@@ -65,6 +65,14 @@ a { color: inherit; }
   box-shadow: 0 0 30px rgba(34, 211, 238, 0.35);
 }
 
+.topbar__actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .site-footer a {
   color: var(--muted);
   text-decoration: none;
