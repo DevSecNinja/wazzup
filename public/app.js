@@ -616,7 +616,12 @@ function renderHero(briefing) {
   const heroTitleText = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
   const heroUrl = normalized?.primaryUrl;
   if (heroUrl) {
-    heroHeadlineEl.innerHTML = `<a href="${escapeHtml(heroUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(heroTitleText)}</a>`;
+    const link = document.createElement('a');
+    link.href = heroUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = heroTitleText;
+    heroHeadlineEl.replaceChildren(link);
   } else {
     heroHeadlineEl.textContent = heroTitleText;
   }
