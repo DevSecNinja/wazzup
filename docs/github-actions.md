@@ -247,12 +247,14 @@ Use pinned tags or SHA references for reusable workflows. Avoid using a moving b
 [../.github/workflows/pages.yml](../.github/workflows/pages.yml) runs after successful `News hourly` completion, on pushes to `main`, or by manual dispatch. This means content and PWA shell changes deploy when they merge, while scheduled news runs still deploy freshly generated data after state persistence succeeds. It delegates deployment to the reusable Pages workflow with these important inputs:
 
 - `artifact-path: public`
-- `install-command`: install mise, trust config, install tools, and run `task install`
-- `test-command`: `~/.local/bin/mise exec -- task ci`
-- `build-command`: `~/.local/bin/mise exec -- task pages:build`
+- `install-command`: install Python runtime dependencies directly from [../requirements.txt](../requirements.txt)
+- `test-command`: run the direct equivalents of `task ci` without installing the full mise toolchain
+- `build-command`: `PYTHONPATH=src python3 scripts/pages_build.py`
 - `cloudflare-preview: false`
 
 Operational learning: do not inject `GH_TOKEN="${{ github.token }}"` into the reusable workflow `build-command` string. In practice, the token was evaluated to an empty value inside the called workflow and `gh release download` failed. The fixed design makes `task pages:build` restore `news-state` through the public release asset URL when no `GH_TOKEN` or `GITHUB_TOKEN` is available.
+
+Operational learning: do not run `mise install` inside the reusable Pages workflow. Caller expressions such as `${{ github.token }}` are not reliably available inside string inputs, so mise can make unauthenticated GitHub API requests and hit rate limits before the Pages build starts. The Pages deployment now uses direct Python commands plus [../scripts/pages_build.py](../scripts/pages_build.py), while CI and local validation continue to use mise/Task as the canonical full toolchain.
 
 ## Future release-please workflow
 
@@ -321,7 +323,7 @@ Workflow shell logic should live in [Taskfile.yml](../Taskfile.yml) wherever pra
 
 ## Standardized Pages deployment
 
-The scheduled `News hourly` workflow is responsible for mutating release-backed state. It does not deploy Pages directly. After it succeeds, the `Pages` workflow calls the reusable Pages workflow from `DevSecNinja/.github` and restores the `news-state` release asset through `task pages:build` before deployment. The Pages restore path supports unauthenticated release-asset downloads so it works inside the reusable workflow without injecting `GH_TOKEN` into a string input.
+The scheduled `News hourly` workflow is responsible for mutating release-backed state. It does not deploy Pages directly. After it succeeds, the `Pages` workflow calls the reusable Pages workflow from `DevSecNinja/.github` and restores the `news-state` release asset through `scripts/pages_build.py` before deployment. The Pages restore path supports unauthenticated release-asset downloads so it works inside the reusable workflow without injecting `GH_TOKEN` into a string input.
 
 Observed failure modes and fixes:
 
@@ -329,6 +331,7 @@ Observed failure modes and fixes:
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | News hourly failed in Copilot CLI                        | `COPILOT_GITHUB_TOKEN` was empty while `AI_PROVIDER=copilot-cli`.                                  | Select effective provider first and fall back to `fake` when no Copilot token secret exists.                          |
 | Pages deploy failed validating `public/data/latest.json` | Reusable workflow received empty `GH_TOKEN`, state restore skipped, and `public/data` was missing. | Restore public release asset without a token in Pages builds and make missing retained state fatal for `pages:build`. |
+| Pages deploy failed during mise install                  | Reusable workflow install command could not pass `github.token`, so mise made unauthenticated GitHub API calls and hit rate limits. | Avoid mise in Pages deploy; install Python deps directly and run `scripts/pages_build.py`.                            |
 
 ## Security hardening
 

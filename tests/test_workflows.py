@@ -37,8 +37,16 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("- main", workflow)
         self.assertIn("workflow_run:", workflow)
         self.assertIn("workflow_dispatch:", workflow)
-        self.assertIn('export GITHUB_TOKEN="${{ github.token }}"', workflow)
-        self.assertIn("build-command: ~/.local/bin/mise exec -- task pages:build", workflow)
+        self.assertIn("python3 -m pip install --break-system-packages -r requirements.txt", workflow)
+        self.assertIn("PYTHONPATH=src python3 -m unittest discover -s tests", workflow)
+        self.assertIn("build-command: PYTHONPATH=src python3 scripts/pages_build.py", workflow)
+        self.assertNotIn('export GITHUB_TOKEN="${{ github.token }}"', workflow)
+        self.assertNotIn("mise install", workflow)
+
+    def test_data_validation_accepts_legacy_latest_without_transparency_report(self) -> None:
+        validator = Path("src/wazzup/validate_data.py").read_text(encoding="utf-8")
+        self.assertIn("def validate_optional_transparency_report", validator)
+        self.assertIn("if not present_keys:", validator)
 
 
 if __name__ == "__main__":

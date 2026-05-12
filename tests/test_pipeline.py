@@ -222,6 +222,7 @@ class PipelineTests(unittest.TestCase):
                 self.assertIn("latestArticlesUrl", latest)
                 self.assertIn("latestTransparencyReportUrl", latest)
                 self.assertIn("latestTransparencyReportMarkdownUrl", latest)
+                self.assertIn("latestTransparencyReportYamlUrl", latest)
                 self.assertTrue(latest["latestBriefingUrl"].startswith("data/"))
                 self.assertTrue(latest["latestArticlesUrl"].startswith("data/"))
                 self.assertTrue(latest["latestTransparencyReportUrl"].startswith("data/"))

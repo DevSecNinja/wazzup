@@ -112,11 +112,8 @@ def validate_data_dir(data_dir: Path) -> None:
             "generatedAt",
             "latestBriefingYamlUrl",
             "latestArticlesYamlUrl",
-            "latestTransparencyReportYamlUrl",
             "latestBriefingUrl",
             "latestArticlesUrl",
-            "latestTransparencyReportUrl",
-            "latestTransparencyReportMarkdownUrl",
             "health",
         ],
         "latest.json",
@@ -125,19 +122,33 @@ def validate_data_dir(data_dir: Path) -> None:
         raise ValidationError("Generated data must declare YAML as the canonical format")
     briefing_path = resolve_data_url(data_dir, latest["latestBriefingUrl"])
     articles_path = resolve_data_url(data_dir, latest["latestArticlesUrl"])
-    transparency_path = resolve_data_url(data_dir, latest["latestTransparencyReportUrl"])
     validate_briefing(briefing_path)
     validate_articles(articles_path)
-    load_json(transparency_path)
     load_yaml(resolve_data_url(data_dir, latest["latestBriefingYamlUrl"]))
     load_yaml(resolve_data_url(data_dir, latest["latestArticlesYamlUrl"]))
+    validate_optional_transparency_report(data_dir, latest)
+    load_json(data_dir / "sources" / "status.json")
+    load_yaml(data_dir / "sources" / "status.yaml")
+    load_yaml(data_dir / "manifest.yaml")
+
+
+def validate_optional_transparency_report(data_dir: Path, latest: dict[str, Any]) -> None:
+    transparency_keys = [
+        "latestTransparencyReportYamlUrl",
+        "latestTransparencyReportUrl",
+        "latestTransparencyReportMarkdownUrl",
+    ]
+    present_keys = [key for key in transparency_keys if key in latest]
+    if not present_keys:
+        return
+    if len(present_keys) != len(transparency_keys):
+        missing = [key for key in transparency_keys if key not in latest]
+        raise ValidationError(f"latest.json missing transparency keys: {', '.join(missing)}")
+    load_json(resolve_data_url(data_dir, latest["latestTransparencyReportUrl"]))
     load_yaml(resolve_data_url(data_dir, latest["latestTransparencyReportYamlUrl"]))
     markdown_path = resolve_data_url(data_dir, latest["latestTransparencyReportMarkdownUrl"])
     if not markdown_path.exists():
         raise ValidationError(f"Missing transparency report markdown: {markdown_path}")
-    load_json(data_dir / "sources" / "status.json")
-    load_yaml(data_dir / "sources" / "status.yaml")
-    load_yaml(data_dir / "manifest.yaml")
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

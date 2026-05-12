@@ -29,6 +29,7 @@ Implemented refinement after the first Pages deployment failure:
 - If no token is available, `task state:restore` downloads the public release asset URL directly with `curl`.
 - `task pages:build` sets `STATE_REQUIRED=true`; if state cannot be restored, Pages deployment fails explicitly instead of deploying missing `public/data/latest.json`.
 - The reusable Pages workflow receives `build-command: ~/.local/bin/mise exec -- task pages:build` without trying to inject `GH_TOKEN` into a string input.
+- The Pages reusable workflow later moved to `PYTHONPATH=src python3 scripts/pages_build.py` instead of `mise install`/`task pages:build`, because `github.token` is not reliably available inside reusable workflow string inputs and unauthenticated mise GitHub API calls can hit rate limits before deployment starts.
 
 Do not create one GitHub Release per hour for operational state. That would create up to 8,760 releases per year before retries and manual runs. The mutable `news-state` release remains the hot state store. If human time travel becomes important beyond the 35-day Pages window, add immutable daily or monthly archive/recap releases with concise release bodies and attached snapshots.
 
