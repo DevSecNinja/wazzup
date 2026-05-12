@@ -176,6 +176,17 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("font-size: clamp(1.35rem, 2.2vw, 1.8rem)", css)
         self.assertIn("letter-spacing: 0", css)
 
+    def test_source_health_rows_align_status_with_feed_title(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        css = Path("public/styles.css").read_text(encoding="utf-8")
+        self.assertIn('class="source-item"', app)
+        self.assertIn('<div class="source-heading">', app)
+        self.assertIn('class="source-filter source-title"', app)
+        self.assertIn(".source-item", css)
+        self.assertIn(".source-heading", css)
+        self.assertIn("justify-content: space-between", css)
+        self.assertIn(".source-heading .status", css)
+
     def test_pwa_tracks_seen_briefing_items_locally(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
         css = Path("public/styles.css").read_text(encoding="utf-8")

@@ -670,9 +670,11 @@ function renderSources(status) {
     .sort((sourceA, sourceB) => sourceA.sourceId.localeCompare(sourceB.sourceId));
   const items = sources
     .map(
-      (source) => `<li>
-        <span class="status ${source.ok ? '' : 'status--bad'}">${source.ok ? 'OK' : 'Failed'}</span>
-        <button class="source-filter" type="button" data-filter-type="source" data-filter-value="${escapeHtml(source.sourceId)}" data-filter-label="${escapeHtml(source.sourceId)}" aria-pressed="false">${escapeHtml(source.sourceId)}</button>
+      (source) => `<li class="source-item">
+        <div class="source-heading">
+          <button class="source-filter source-title" type="button" data-filter-type="source" data-filter-value="${escapeHtml(source.sourceId)}" data-filter-label="${escapeHtml(source.sourceId)}" aria-pressed="false">${escapeHtml(source.sourceId)}</button>
+          <span class="status ${source.ok ? '' : 'status--bad'}">${source.ok ? 'OK' : 'Failed'}</span>
+        </div>
         <p class="source-meta">${escapeHtml(source.itemCount)} items · latest ${source.lastArticleAt ? escapeHtml(formatDate(source.lastArticleAt)) : 'n/a'} · ${escapeHtml(source.message)}</p>
       </li>`,
     )
