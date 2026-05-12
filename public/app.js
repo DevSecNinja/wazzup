@@ -4,6 +4,7 @@ const yesterdayEl = document.querySelector('#yesterday');
 const heroHeadlineEl = document.querySelector('#heroHeadline');
 const heroSummaryEl = document.querySelector('#heroSummary');
 const heroMetaEl = document.querySelector('#heroMeta');
+const refreshButton = document.querySelector('#refreshButton');
 const notifyButton = document.querySelector('#notifyButton');
 const commitLink = document.querySelector('#commitLink');
 const starCountText = document.querySelector('#starCountText');
@@ -17,6 +18,7 @@ const DEFAULT_RETENTION_DAYS = 35;
 const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
 const NOTIFICATIONS_DISABLED_STORAGE_KEY = 'wazzup:notificationsDisabled';
+const REFRESHED_BUILD_STORAGE_KEY = 'wazzup:refreshedBuildId';
 const SEEN_VIEWPORT_LINE_RATIO = 0.25;
 const SCROLL_BOTTOM_EPSILON = 4;
 
@@ -173,6 +175,22 @@ function safeLocalStorageSet(key, value) {
     localStorage.setItem(key, value);
   } catch {
     // Ignore storage failures so the PWA still renders offline data.
+  }
+}
+
+function safeSessionStorageGet(key) {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSessionStorageSet(key, value) {
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    // Ignore storage failures; a manual refresh button is still shown.
   }
 }
 
@@ -615,7 +633,18 @@ function renderHero(briefing) {
   const heroDescription = stripInterestBoilerplate(
     topBullet?.description || stripLeadingTitle(topBullet?.text, heroTitle) || topBullet?.text || '',
   );
-  heroHeadlineEl.textContent = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
+  const heroTitleText = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
+  const heroUrl = normalized?.primaryUrl;
+  if (heroUrl) {
+    const link = document.createElement('a');
+    link.href = heroUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = heroTitleText;
+    heroHeadlineEl.replaceChildren(link);
+  } else {
+    heroHeadlineEl.textContent = heroTitleText;
+  }
   heroSummaryEl.textContent = heroDescription || 'No notable updates were found in today’s rolling briefing.';
   if (heroMetaEl) {
     if (!topBullet || !normalized) {
@@ -643,9 +672,11 @@ function renderSources(status) {
     .sort((sourceA, sourceB) => sourceA.sourceId.localeCompare(sourceB.sourceId));
   const items = sources
     .map(
-      (source) => `<li>
-        <span class="status ${source.ok ? '' : 'status--bad'}">${source.ok ? 'OK' : 'Failed'}</span>
-        <button class="source-filter" type="button" data-filter-type="source" data-filter-value="${escapeHtml(source.sourceId)}" data-filter-label="${escapeHtml(source.sourceId)}" aria-pressed="false">${escapeHtml(source.sourceId)}</button>
+      (source) => `<li class="source-item">
+        <div class="source-heading">
+          <button class="source-filter source-title" type="button" data-filter-type="source" data-filter-value="${escapeHtml(source.sourceId)}" data-filter-label="${escapeHtml(source.sourceId)}" aria-pressed="false">${escapeHtml(source.sourceId)}</button>
+          <span class="status ${source.ok ? '' : 'status--bad'}">${source.ok ? 'OK' : 'Failed'}</span>
+        </div>
         <p class="source-meta">${escapeHtml(source.itemCount)} items · latest ${source.lastArticleAt ? escapeHtml(formatDate(source.lastArticleAt)) : 'n/a'} · ${escapeHtml(source.message)}</p>
       </li>`,
     )
@@ -824,6 +855,54 @@ async function renderFooter(buildInfo) {
   }
 }
 
+function serviceWorkerVersion(buildInfo) {
+  return String(buildInfo?.commitSha || buildInfo?.shortSha || buildInfo?.buildId || 'dev');
+}
+
+function serviceWorkerScriptVersion(worker) {
+  try {
+    return new URL(worker.scriptURL).searchParams.get('v') || '';
+  } catch {
+    return '';
+  }
+}
+
+function setupAppUpdateRefresh(registration, buildInfo) {
+  if (!refreshButton) return;
+  const buildId = serviceWorkerVersion(buildInfo);
+  const wasControlled = Boolean(navigator.serviceWorker.controller);
+  let refreshing = false;
+  const isCurrentBuildWorker = (worker) => serviceWorkerScriptVersion(worker) === buildId;
+  const hasRefreshedBuild = () => safeSessionStorageGet(REFRESHED_BUILD_STORAGE_KEY) === buildId;
+  const showRefreshButton = (worker) => {
+    if (!isCurrentBuildWorker(worker) || hasRefreshedBuild()) return;
+    refreshButton.hidden = false;
+    refreshButton.textContent = 'Refresh available';
+  };
+  const refreshPage = () => {
+    if (refreshing) return;
+    refreshing = true;
+    refreshButton.hidden = false;
+    refreshButton.textContent = 'Refreshing…';
+    window.location.reload();
+  };
+  refreshButton.addEventListener('click', refreshPage);
+  if (registration.waiting) showRefreshButton(registration.waiting);
+  registration.addEventListener('updatefound', () => {
+    const newWorker = registration.installing;
+    if (!newWorker) return;
+    newWorker.addEventListener('statechange', () => {
+      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) showRefreshButton(newWorker);
+    });
+  });
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!wasControlled) return;
+    if (!isCurrentBuildWorker(navigator.serviceWorker.controller) || hasRefreshedBuild()) return;
+    safeSessionStorageSet(REFRESHED_BUILD_STORAGE_KEY, buildId);
+    refreshPage();
+  });
+}
+
 async function registerBackgroundNotifications(registration) {
   if (!registration) return;
   if ('periodicSync' in registration) {
@@ -978,7 +1057,8 @@ async function main() {
     renderSources(status);
     await renderFooter(buildInfo);
     if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(buildInfo.buildId || 'dev')}`, { updateViaCache: 'none' });
+      const registration = await navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(serviceWorkerVersion(buildInfo))}`, { updateViaCache: 'none' });
+      setupAppUpdateRefresh(registration, buildInfo);
       await registration.update();
       await enableNotifications(registration, briefing, latest);
     }

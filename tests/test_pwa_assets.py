@@ -62,6 +62,16 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("Enable notifications", app)
         self.assertIn("status = await navigator.permissions.query", app)
         self.assertIn("type: 'sync-latest-briefing'", app)
+        self.assertIn("const refreshButton = document.querySelector('#refreshButton');", app)
+        self.assertIn("REFRESHED_BUILD_STORAGE_KEY", app)
+        self.assertIn("function serviceWorkerVersion(buildInfo)", app)
+        self.assertIn("buildInfo?.commitSha || buildInfo?.shortSha || buildInfo?.buildId || 'dev'", app)
+        self.assertIn("function setupAppUpdateRefresh(registration, buildInfo)", app)
+        self.assertIn("const wasControlled = Boolean(navigator.serviceWorker.controller);", app)
+        self.assertIn("const hasRefreshedBuild = () => safeSessionStorageGet(REFRESHED_BUILD_STORAGE_KEY) === buildId;", app)
+        self.assertIn("registration.addEventListener('updatefound'", app)
+        self.assertIn("navigator.serviceWorker.addEventListener('controllerchange'", app)
+        self.assertIn("window.location.reload()", app)
         self.assertIn("FALLBACK_TIME_ZONE = 'Europe/Amsterdam'", app)
         self.assertIn("MAX_HEADLINE_LENGTH", app)
         self.assertIn("normalizeBullet", app)
@@ -121,6 +131,20 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn(".bullet[data-primary-url]:focus-visible h4", css)
         self.assertIn("text-decoration: underline", css)
 
+    def test_hero_headline_links_to_top_article(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        css = Path("public/styles.css").read_text(encoding="utf-8")
+        self.assertIn("const heroUrl = normalized?.primaryUrl;", app)
+        self.assertIn("const link = document.createElement('a');", app)
+        self.assertIn("link.href = heroUrl;", app)
+        self.assertIn("link.target = '_blank';", app)
+        self.assertIn("link.rel = 'noopener noreferrer';", app)
+        self.assertIn("link.textContent = heroTitleText;", app)
+        self.assertIn("heroHeadlineEl.replaceChildren(link);", app)
+        self.assertIn(".hero__content h1 a", css)
+        self.assertIn(".hero__content h1 a:hover", css)
+        self.assertIn(".hero__content h1 a:focus-visible", css)
+
     def test_notifications_fall_back_without_background_sync(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
         self.assertIn("function supportsBackgroundNotifications(registration)", app)
@@ -152,6 +176,17 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("#yesterday h2,\n#sources h2", css)
         self.assertIn("font-size: clamp(1.35rem, 2.2vw, 1.8rem)", css)
         self.assertIn("letter-spacing: 0", css)
+
+    def test_source_health_rows_align_status_with_feed_title(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        css = Path("public/styles.css").read_text(encoding="utf-8")
+        self.assertIn('class="source-item"', app)
+        self.assertIn('<div class="source-heading">', app)
+        self.assertIn('class="source-filter source-title"', app)
+        self.assertIn(".source-item", css)
+        self.assertIn(".source-heading", css)
+        self.assertIn("justify-content: space-between", css)
+        self.assertIn(".source-heading .status", css)
 
     def test_pwa_tracks_seen_briefing_items_locally(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
@@ -224,9 +259,14 @@ class PwaAssetTests(unittest.TestCase):
     def test_homepage_uses_simple_header_and_yesterday_card(self) -> None:
         html = Path("public/index.html").read_text(encoding="utf-8")
         app = Path("public/app.js").read_text(encoding="utf-8")
+        css = Path("public/styles.css").read_text(encoding="utf-8")
         self.assertIn("viewport-fit=cover", html)
         self.assertIn("black-translucent", html)
         self.assertIn('rel="apple-touch-icon" sizes="180x180"', html)
+        self.assertIn('id="refreshButton"', html)
+        self.assertIn("Refresh available", html)
+        self.assertIn("[hidden] { display: none !important; }", css)
+        self.assertIn('class="topbar__actions"', html)
         self.assertIn('class="button button--compact button--utility"', html)
         self.assertIn('id="heroMeta"', html)
         self.assertIn("const heroMetaEl = document.querySelector('#heroMeta');", app)
@@ -265,6 +305,7 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("--app-bg-solid: #020617", css)
         self.assertIn("env(safe-area-inset-top", css)
         self.assertIn("overscroll-behavior-y: none", css)
+        self.assertIn(".topbar__actions", css)
 
     def test_footer_contains_repo_commit_and_star_targets(self) -> None:
         html = Path("public/index.html").read_text(encoding="utf-8")
@@ -288,6 +329,22 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn("self.addEventListener('periodicsync'", sw)
         self.assertIn("self.addEventListener('sync'", sw)
         self.assertIn("self.addEventListener('notificationclick'", sw)
+
+    def test_refresh_button_stays_hidden_after_same_build_reload(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        self.assertIn("const hasRefreshedBuild = () => safeSessionStorageGet(REFRESHED_BUILD_STORAGE_KEY) === buildId;", app)
+        self.assertIn("const showRefreshButton = (worker) => {\n    if (!isCurrentBuildWorker(worker) || hasRefreshedBuild()) return;", app)
+        self.assertIn("if (!isCurrentBuildWorker(navigator.serviceWorker.controller) || hasRefreshedBuild()) return;\n    safeSessionStorageSet(REFRESHED_BUILD_STORAGE_KEY, buildId);", app)
+
+    def test_refresh_button_ignores_obsolete_waiting_service_worker(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        self.assertIn("function serviceWorkerScriptVersion(worker)", app)
+        self.assertIn("new URL(worker.scriptURL).searchParams.get('v') || ''", app)
+        self.assertIn("const isCurrentBuildWorker = (worker) => serviceWorkerScriptVersion(worker) === buildId;", app)
+        self.assertIn("const showRefreshButton = (worker) => {\n    if (!isCurrentBuildWorker(worker) || hasRefreshedBuild()) return;", app)
+        self.assertIn("if (registration.waiting) showRefreshButton(registration.waiting);", app)
+        self.assertIn("if (newWorker.state === 'installed' && navigator.serviceWorker.controller) showRefreshButton(newWorker);", app)
+        self.assertIn("if (!isCurrentBuildWorker(navigator.serviceWorker.controller) || hasRefreshedBuild()) return;", app)
 
 
 if __name__ == "__main__":
