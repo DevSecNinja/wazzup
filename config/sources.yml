@@ -374,6 +374,28 @@ sources:
       - finance
     notes: "Financial Times home feed."
 
+  - id: fd-nl
+    name: FD.nl
+    sourceTag: FD
+    enabled: true
+    type: rss
+    homepageUrl: https://fd.nl/
+    feedUrl: https://fd.nl/?rss
+    language: nl
+    region: nl
+    weight: 0.95
+    categories:
+      - business
+      - finance
+      - netherlands
+    interestHints:
+      - dutch business news
+      - finance
+      - markets
+      - economy
+      - netherlands
+    notes: "Het Financieele Dagblad home RSS feed discovered from the FD.nl homepage."
+
   - id: apple-newsroom
     name: Apple Newsroom
     sourceTag: Apple

@@ -8,7 +8,14 @@ from pathlib import Path
 from typing import Sequence
 from zoneinfo import ZoneInfo
 
-from .ai import CurationRequest, SummaryRequest, curation_provider_from_env, provider_from_env
+from .ai import (
+    CurationRequest,
+    SummaryRequest,
+    TransparencyReportRequest,
+    curation_provider_from_env,
+    provider_from_env,
+    transparency_provider_from_env,
+)
 from .config import load_app_config, load_sources
 from .feeds import deduplicate, fetch_and_parse, isoformat, parse_feed, utc_now
 from .models import BriefingKind, ContentItem, ScoredItem, SourceStatus
@@ -252,7 +259,8 @@ def generate(argv: Sequence[str] | None = None) -> dict:
         featured_item_ids = featured_hourly_item_ids_for_local_day(Path(args.public_dir) / "data", now, app_config.timezone)
         scored = exclude_already_featured_hourly_items(scored, featured_item_ids)
     scored = diversify_scored_items(scored)
-    scored = scored[: args.max_items]
+    ranked_candidates = scored
+    curation_candidates = ranked_candidates[: args.max_items]
     curator = curation_provider_from_env(app_config)
     curation = curator.curate_items(
         CurationRequest(
@@ -261,11 +269,11 @@ def generate(argv: Sequence[str] | None = None) -> dict:
             window_end=isoformat(content_window_end),
             generated_at=isoformat(now),
             timezone=app_config.timezone,
-            items=scored,
+            items=curation_candidates,
             max_items=args.max_items,
         )
     )
-    curated = curated_scored_items(scored, curation.selected_ids, args.max_items)
+    curated = curated_scored_items(curation_candidates, curation.selected_ids, args.max_items)
     provider = provider_from_env(app_config)
     summary = provider.generate_structured_summary(
         SummaryRequest(
@@ -278,6 +286,23 @@ def generate(argv: Sequence[str] | None = None) -> dict:
             items=curated,
         )
     )
+    transparency_provider = transparency_provider_from_env(app_config)
+    transparency_report = transparency_provider.generate_transparency_report(
+        TransparencyReportRequest(
+            kind=kind,
+            window_start=isoformat(content_window_start),
+            window_end=isoformat(content_window_end),
+            generated_at=isoformat(now),
+            timezone=app_config.timezone,
+            summary_language=app_config.summary_language,
+            max_items=args.max_items,
+            statuses=statuses,
+            ranked_items=ranked_candidates,
+            selected_items=curated,
+            curation_provider=curation.provider,
+            summary_provider=summary.provider,
+        )
+    )
     latest = publish_outputs(
         Path(args.public_dir),
         kind,
@@ -287,6 +312,7 @@ def generate(argv: Sequence[str] | None = None) -> dict:
         app_config,
         curated,
         summary,
+        transparency_report,
         statuses,
     )
     return latest

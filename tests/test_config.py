@@ -15,6 +15,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual("MS TI", sources[1].source_tag)
         self.assertIn("economist", {source.id for source in sources})
         self.assertIn("financial-times", {source.id for source in sources})
+        self.assertIn("fd-nl", {source.id for source in sources})
         self.assertIn("the-hacker-news", {source.id for source in sources})
         self.assertIn("formula1-official-news", {source.id for source in sources})
         self.assertIn("autosport-f1", {source.id for source in sources})
@@ -33,7 +34,9 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("nba", {category for source in sources for category in source.categories})
         timeout_by_id = {source.id: source.timeout_seconds for source in sources}
         enabled_by_id = {source.id: source.enabled for source in sources}
+        feed_url_by_id = {source.id: source.feed_url for source in sources}
         self.assertEqual(30, timeout_by_id["microsoft-security-blog"])
+        self.assertEqual("https://fd.nl/?rss", feed_url_by_id["fd-nl"])
         self.assertEqual(8, timeout_by_id["nba-official-news"])
         self.assertFalse(enabled_by_id["nba-official-news"])
         self.assertTrue(enabled_by_id["espn-nba"])
@@ -51,7 +54,11 @@ class ConfigTests(unittest.TestCase):
         interests = {interest.id: interest for interest in config.interests}
         self.assertIn("formula-1", interests)
         self.assertIn("nba", interests)
+        self.assertIn("finance-investing", interests)
         self.assertIn("grand prix", interests["formula-1"].keywords)
+        self.assertIn("investing", interests["finance-investing"].keywords)
+        self.assertGreater(interests["finance-investing"].weight, interests["nba"].weight)
+        self.assertEqual(0.7, interests["nba"].weight)
         self.assertIn("basketball", interests["nba"].keywords)
 
 

@@ -6,6 +6,7 @@ vars:
   FORCE_BRIEFING: '{{default "auto" .FORCE_BRIEFING}}'
   STATE_RELEASE: '{{default "news-state" .STATE_RELEASE}}'
   STATE_ASSET: '{{default "wazzup-state.zip" .STATE_ASSET}}'
+  TRANSPARENCY_REPORT_ASSET: '{{default "wazzup-transparency-report.md" .TRANSPARENCY_REPORT_ASSET}}'
 
 env:
   PYTHONPATH: src
@@ -112,15 +113,24 @@ tasks:
 
         mkdir -p .state
         (cd public && zip -qr ../.state/{{.STATE_ASSET}} data)
+        if [[ -f public/data/transparency/latest.md ]]; then
+          cp public/data/transparency/latest.md .state/{{.TRANSPARENCY_REPORT_ASSET}}
+        fi
 
         if gh release view {{.STATE_RELEASE}} --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
           gh release upload {{.STATE_RELEASE}} .state/{{.STATE_ASSET}} --clobber --repo "${GITHUB_REPOSITORY}"
+          if [[ -f .state/{{.TRANSPARENCY_REPORT_ASSET}} ]]; then
+            gh release upload {{.STATE_RELEASE}} .state/{{.TRANSPARENCY_REPORT_ASSET}} --clobber --repo "${GITHUB_REPOSITORY}"
+          fi
         else
           gh release create {{.STATE_RELEASE}} .state/{{.STATE_ASSET}} \
             --title "Wazzup retained news state" \
             --notes "Rolling generated YAML state and JSON mirrors for the Wazzup GitHub Pages deployment." \
             --prerelease \
             --repo "${GITHUB_REPOSITORY}"
+          if [[ -f .state/{{.TRANSPARENCY_REPORT_ASSET}} ]]; then
+            gh release upload {{.STATE_RELEASE}} .state/{{.TRANSPARENCY_REPORT_ASSET}} --clobber --repo "${GITHUB_REPOSITORY}"
+          fi
         fi
 
   news:generate:

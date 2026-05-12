@@ -59,9 +59,27 @@ interests:
       - paddock
       - driver standings
       - constructor standings
+  - id: finance-investing
+    name: Finance and investing
+    weight: 1.1
+    keywords:
+      - finance
+      - investing
+      - investor
+      - investments
+      - markets
+      - stocks
+      - bonds
+      - portfolio
+      - earnings
+      - interest rates
+      - economy
+      - inflation
+      - central bank
+      - mortgage rates
   - id: nba
     name: NBA
-    weight: 0.9
+    weight: 0.7
     keywords:
       - nba
       - basketball

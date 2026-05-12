@@ -46,7 +46,8 @@ flowchart LR
 | Ranker               | Scores items against interests, source quality, recency, and coverage.                             | Deterministic scoring plus optional AI reranking later.                                                       |
 | Curator              | Selects and orders the most relevant items from the ranked list for the briefing.                  | AI curation provider abstraction; `wazzup-curator` agent for Copilot CLI, deterministic passthrough for fake. |
 | Summarizer           | Generates article and briefing summaries from the curated item selection.                          | AI summary provider abstraction with prompt versioning; `wazzup-writer` agent for Copilot CLI.                |
-| Publisher            | Writes canonical static YAML, JSON browser mirrors, source health, `latest`, and `manifest` files. | [../src/wazzup/publisher.py](../src/wazzup/publisher.py).                                                     |
+| Transparency reporter | Explains run inputs, source health, selection, and AI providers for auditability.                  | AI report provider abstraction; `wazzup-transparency-reporter` agent for Copilot CLI, deterministic fake report for tests. |
+| Publisher            | Writes canonical static YAML, JSON browser mirrors, source health, transparency reports, `latest`, and `manifest` files. | [../src/wazzup/publisher.py](../src/wazzup/publisher.py).                                                     |
 | State store          | Persists generated data across scheduled runs without commits.                                     | `news-state` GitHub Release asset `wazzup-state.zip`.                                                         |
 | Delivery adapters    | Pushes selected briefings to external channels.                                                    | Not implemented yet.                                                                                          |
 | Frontend             | Displays latest briefing and source health.                                                        | Static vanilla PWA in [../public](../public).                                                                 |
@@ -60,6 +61,7 @@ sequenceDiagram
     participant Feeds as Feeds
     participant Curator as AI curator (wazzup-curator)
     participant Writer as AI writer (wazzup-writer)
+    participant Reporter as AI transparency reporter
     participant Pages as GitHub Pages data
     participant User as User channels
 
@@ -72,6 +74,8 @@ sequenceDiagram
     Curator-->>CLI: ordered selected item IDs
     CLI->>Writer: summarize curated articles
     Writer-->>CLI: structured summary data
+    CLI->>Reporter: write transparency report
+    Reporter-->>CLI: structured report data
     CLI->>CLI: validate contracts and item caps
     CLI->>Pages: persist YAML/JSON state to release asset
     Pages->>Pages: reusable Pages workflow restores state and deploys public artifact
@@ -194,6 +198,10 @@ public/data/
   manifest.json               # browser mirror
   sources/status.yaml         # canonical
   sources/status.json         # browser mirror
+  transparency/latest.md      # latest human-readable report copied to the GitHub Release asset
+  transparency/YYYY/MM/DD/hourly-HH.yaml
+  transparency/YYYY/MM/DD/hourly-HH.json
+  transparency/YYYY/MM/DD/hourly-HH.md
   articles/YYYY/MM/DD.yaml    # canonical
   articles/YYYY/MM/DD.json    # browser mirror
   briefings/YYYY/MM/DD/hourly-HH.yaml
