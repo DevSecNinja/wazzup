@@ -613,7 +613,13 @@ function renderHero(briefing) {
   const heroDescription = stripInterestBoilerplate(
     topBullet?.description || stripLeadingTitle(topBullet?.text, heroTitle) || topBullet?.text || '',
   );
-  heroHeadlineEl.textContent = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
+  const heroTitleText = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
+  const heroUrl = normalized?.primaryUrl;
+  if (heroUrl) {
+    heroHeadlineEl.innerHTML = `<a href="${escapeHtml(heroUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(heroTitleText)}</a>`;
+  } else {
+    heroHeadlineEl.textContent = heroTitleText;
+  }
   heroSummaryEl.textContent = heroDescription || 'No notable updates were found in today’s rolling briefing.';
   if (heroMetaEl) {
     if (!topBullet || !normalized) {

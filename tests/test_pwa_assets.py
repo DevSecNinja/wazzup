@@ -121,6 +121,15 @@ class PwaAssetTests(unittest.TestCase):
         self.assertIn(".bullet[data-primary-url]:focus-visible h4", css)
         self.assertIn("text-decoration: underline", css)
 
+    def test_hero_headline_links_to_top_article(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        css = Path("public/styles.css").read_text(encoding="utf-8")
+        self.assertIn("const heroUrl = normalized?.primaryUrl;", app)
+        self.assertIn('<a href="${escapeHtml(heroUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(heroTitleText)}</a>', app)
+        self.assertIn(".hero__content h1 a", css)
+        self.assertIn(".hero__content h1 a:hover", css)
+        self.assertIn(".hero__content h1 a:focus-visible", css)
+
     def test_notifications_fall_back_without_background_sync(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
         self.assertIn("function supportsBackgroundNotifications(registration)", app)
