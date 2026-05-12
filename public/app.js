@@ -811,14 +811,23 @@ function serviceWorkerVersion(buildInfo) {
   return String(buildInfo?.commitSha || buildInfo?.shortSha || buildInfo?.buildId || 'dev');
 }
 
+function serviceWorkerScriptVersion(worker) {
+  try {
+    return new URL(worker.scriptURL).searchParams.get('v') || '';
+  } catch {
+    return '';
+  }
+}
+
 function setupAppUpdateRefresh(registration, buildInfo) {
   if (!refreshButton) return;
   const buildId = serviceWorkerVersion(buildInfo);
   const wasControlled = Boolean(navigator.serviceWorker.controller);
   let refreshing = false;
+  const isCurrentBuildWorker = (worker) => serviceWorkerScriptVersion(worker) === buildId;
   const hasRefreshedBuild = () => safeSessionStorageGet(REFRESHED_BUILD_STORAGE_KEY) === buildId;
-  const showRefreshButton = () => {
-    if (hasRefreshedBuild()) return;
+  const showRefreshButton = (worker) => {
+    if (!isCurrentBuildWorker(worker) || hasRefreshedBuild()) return;
     refreshButton.hidden = false;
     refreshButton.textContent = 'Refresh available';
   };
@@ -830,17 +839,17 @@ function setupAppUpdateRefresh(registration, buildInfo) {
     window.location.reload();
   };
   refreshButton.addEventListener('click', refreshPage);
-  if (registration.waiting) showRefreshButton();
+  if (registration.waiting) showRefreshButton(registration.waiting);
   registration.addEventListener('updatefound', () => {
     const newWorker = registration.installing;
     if (!newWorker) return;
     newWorker.addEventListener('statechange', () => {
-      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) showRefreshButton();
+      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) showRefreshButton(newWorker);
     });
   });
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!wasControlled) return;
-    if (hasRefreshedBuild()) return;
+    if (!isCurrentBuildWorker(navigator.serviceWorker.controller) || hasRefreshedBuild()) return;
     safeSessionStorageSet(REFRESHED_BUILD_STORAGE_KEY, buildId);
     refreshPage();
   });

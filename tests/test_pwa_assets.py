@@ -259,11 +259,13 @@ class PwaAssetTests(unittest.TestCase):
     def test_homepage_uses_simple_header_and_yesterday_card(self) -> None:
         html = Path("public/index.html").read_text(encoding="utf-8")
         app = Path("public/app.js").read_text(encoding="utf-8")
+        css = Path("public/styles.css").read_text(encoding="utf-8")
         self.assertIn("viewport-fit=cover", html)
         self.assertIn("black-translucent", html)
         self.assertIn('rel="apple-touch-icon" sizes="180x180"', html)
         self.assertIn('id="refreshButton"', html)
         self.assertIn("Refresh available", html)
+        self.assertIn("[hidden] { display: none !important; }", css)
         self.assertIn('class="topbar__actions"', html)
         self.assertIn('class="button button--compact button--utility"', html)
         self.assertIn('id="heroMeta"', html)
@@ -312,8 +314,18 @@ class PwaAssetTests(unittest.TestCase):
     def test_refresh_button_stays_hidden_after_same_build_reload(self) -> None:
         app = Path("public/app.js").read_text(encoding="utf-8")
         self.assertIn("const hasRefreshedBuild = () => safeSessionStorageGet(REFRESHED_BUILD_STORAGE_KEY) === buildId;", app)
-        self.assertIn("const showRefreshButton = () => {\n    if (hasRefreshedBuild()) return;", app)
-        self.assertIn("if (hasRefreshedBuild()) return;\n    safeSessionStorageSet(REFRESHED_BUILD_STORAGE_KEY, buildId);", app)
+        self.assertIn("const showRefreshButton = (worker) => {\n    if (!isCurrentBuildWorker(worker) || hasRefreshedBuild()) return;", app)
+        self.assertIn("if (!isCurrentBuildWorker(navigator.serviceWorker.controller) || hasRefreshedBuild()) return;\n    safeSessionStorageSet(REFRESHED_BUILD_STORAGE_KEY, buildId);", app)
+
+    def test_refresh_button_ignores_obsolete_waiting_service_worker(self) -> None:
+        app = Path("public/app.js").read_text(encoding="utf-8")
+        self.assertIn("function serviceWorkerScriptVersion(worker)", app)
+        self.assertIn("new URL(worker.scriptURL).searchParams.get('v') || ''", app)
+        self.assertIn("const isCurrentBuildWorker = (worker) => serviceWorkerScriptVersion(worker) === buildId;", app)
+        self.assertIn("const showRefreshButton = (worker) => {\n    if (!isCurrentBuildWorker(worker) || hasRefreshedBuild()) return;", app)
+        self.assertIn("if (registration.waiting) showRefreshButton(registration.waiting);", app)
+        self.assertIn("if (newWorker.state === 'installed' && navigator.serviceWorker.controller) showRefreshButton(newWorker);", app)
+        self.assertIn("if (!isCurrentBuildWorker(navigator.serviceWorker.controller) || hasRefreshedBuild()) return;", app)
 
 
 if __name__ == "__main__":
