@@ -4,6 +4,7 @@ const yesterdayEl = document.querySelector('#yesterday');
 const heroHeadlineEl = document.querySelector('#heroHeadline');
 const heroSummaryEl = document.querySelector('#heroSummary');
 const heroMetaEl = document.querySelector('#heroMeta');
+const refreshButton = document.querySelector('#refreshButton');
 const notifyButton = document.querySelector('#notifyButton');
 const commitLink = document.querySelector('#commitLink');
 const starCountText = document.querySelector('#starCountText');
@@ -17,6 +18,7 @@ const DEFAULT_RETENTION_DAYS = 35;
 const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
 const NOTIFICATIONS_DISABLED_STORAGE_KEY = 'wazzup:notificationsDisabled';
+const REFRESHED_BUILD_STORAGE_KEY = 'wazzup:refreshedBuildId';
 const SEEN_VIEWPORT_LINE_RATIO = 0.25;
 const SCROLL_BOTTOM_EPSILON = 4;
 
@@ -173,6 +175,22 @@ function safeLocalStorageSet(key, value) {
     localStorage.setItem(key, value);
   } catch {
     // Ignore storage failures so the PWA still renders offline data.
+  }
+}
+
+function safeSessionStorageGet(key) {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSessionStorageSet(key, value) {
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    // Ignore storage failures; a manual refresh button is still shown.
   }
 }
 
@@ -787,6 +805,42 @@ async function renderFooter(buildInfo) {
   }
 }
 
+function setupAppUpdateRefresh(registration, buildInfo) {
+  if (!refreshButton) return;
+  const buildId = String(buildInfo?.buildId || 'dev');
+  const wasControlled = Boolean(navigator.serviceWorker.controller);
+  let refreshing = false;
+  const showRefreshButton = () => {
+    refreshButton.hidden = false;
+    refreshButton.textContent = 'Refresh available';
+  };
+  const refreshPage = () => {
+    if (refreshing) return;
+    refreshing = true;
+    refreshButton.hidden = false;
+    refreshButton.textContent = 'Refreshing…';
+    window.location.reload();
+  };
+  refreshButton.addEventListener('click', refreshPage);
+  if (registration.waiting) showRefreshButton();
+  registration.addEventListener('updatefound', () => {
+    const newWorker = registration.installing;
+    if (!newWorker) return;
+    newWorker.addEventListener('statechange', () => {
+      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) showRefreshButton();
+    });
+  });
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!wasControlled) return;
+    if (safeSessionStorageGet(REFRESHED_BUILD_STORAGE_KEY) === buildId) {
+      showRefreshButton();
+      return;
+    }
+    safeSessionStorageSet(REFRESHED_BUILD_STORAGE_KEY, buildId);
+    refreshPage();
+  });
+}
+
 async function registerBackgroundNotifications(registration) {
   if (!registration) return;
   if ('periodicSync' in registration) {
@@ -943,6 +997,7 @@ async function main() {
     await renderFooter(buildInfo);
     if ('serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(buildInfo.buildId || 'dev')}`, { updateViaCache: 'none' });
+      setupAppUpdateRefresh(registration, buildInfo);
       await registration.update();
       await enableNotifications(registration, briefing, latest);
     }
