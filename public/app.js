@@ -816,7 +816,9 @@ function setupAppUpdateRefresh(registration, buildInfo) {
   const buildId = serviceWorkerVersion(buildInfo);
   const wasControlled = Boolean(navigator.serviceWorker.controller);
   let refreshing = false;
+  const hasRefreshedBuild = () => safeSessionStorageGet(REFRESHED_BUILD_STORAGE_KEY) === buildId;
   const showRefreshButton = () => {
+    if (hasRefreshedBuild()) return;
     refreshButton.hidden = false;
     refreshButton.textContent = 'Refresh available';
   };
@@ -838,10 +840,7 @@ function setupAppUpdateRefresh(registration, buildInfo) {
   });
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!wasControlled) return;
-    if (safeSessionStorageGet(REFRESHED_BUILD_STORAGE_KEY) === buildId) {
-      showRefreshButton();
-      return;
-    }
+    if (hasRefreshedBuild()) return;
     safeSessionStorageSet(REFRESHED_BUILD_STORAGE_KEY, buildId);
     refreshPage();
   });
