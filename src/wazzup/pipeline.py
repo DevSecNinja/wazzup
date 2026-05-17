@@ -98,6 +98,8 @@ def content_window(kind: BriefingKind, now: datetime, timezone: str) -> tuple[da
     window_start, window_end = briefing_window(kind, now, timezone)
     if kind == "hourly":
         return rolling_day_window(now, timezone)
+    if kind == "morning":
+        return window_start, window_end
     today_start, _ = rolling_day_window(now, timezone)
     return max(window_start, today_start), window_end
 

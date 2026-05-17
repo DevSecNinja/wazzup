@@ -7,7 +7,7 @@
 | CI                  | Pull request and manual dispatch                                           | Formatting, syntax linting, tests, compile checks, fixture generation, and generated-data validation.                                            |
 | Lint                | Pull request and manual dispatch                                           | Reusable organization lint workflow from `DevSecNinja/.github`.                                                                                  |
 | Auto-fix formatting | Manual dispatch                                                            | Reusable organization formatting workflow that commits dprint/yamlfmt fixes back to the branch.                                                  |
-| News hourly         | Hourly schedule with local cadence gate and manual dispatch                | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
+| News hourly         | Hourly schedule with a local two-hour active-window cadence gate and manual dispatch | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
 | Pages               | Successful `News hourly` workflow run, push to `main`, and manual dispatch | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.                                  |
 | Config Sync         | Weekly and manual dispatch                                                 | Open PRs when shared repo config from `DevSecNinja/.github` drifts.                                                                              |
 | Label Sync          | Daily, manual dispatch, and label config changes                           | Sync repository labels from the org base labels plus repo-specific labels.                                                                       |
@@ -81,7 +81,7 @@ jobs:
 
 CI intentionally does not run on every push to `main` to avoid duplicate checks when PR validation already covered the change. Deployment/state workflows still run on their own operational triggers.
 
-## Implemented hourly news workflow
+## Implemented scheduled news workflow
 
 Key excerpts from [../.github/workflows/news-hourly.yml](../.github/workflows/news-hourly.yml):
 
@@ -157,7 +157,7 @@ jobs:
           COPILOT_MODEL: ${{ env.COPILOT_MODEL }}
 ```
 
-The workflow triggers hourly because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. A first cadence step computes the local hour and continues every hour from 06:00 to 21:59, then only on even local hours from 22:00 to 05:59. Manual dispatch always runs.
+The workflow triggers hourly because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. A first cadence step computes the local hour and continues only on odd local hours from 07:00 to 21:59. This aligns the first run with the configured morning briefing, keeps AI calls to a daytime two-hour cadence, and skips overnight runs entirely. Manual dispatch always runs.
 
 Operational learning: the first live News hourly run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
 
@@ -293,7 +293,7 @@ Rules:
 
 ## Scheduling details
 
-Use a single cron and calculate briefing windows in application code using the configured IANA time zone. This handles daylight-saving transitions better than maintaining separate UTC cron expressions. The implemented cadence is every two hours at minute 7 (`7 */2 * * *`), which is a better fit for the rolling daily briefing and avoids unnecessary AI calls when feeds are quiet.
+Use a single hourly cron and calculate the active cadence plus briefing windows in application code or workflow shell using the configured IANA time zone. This handles daylight-saving transitions better than maintaining separate UTC cron expressions. The implemented cadence is every two local hours from 07:00 through 21:59, which is a better fit for the rolling daily briefing and avoids unnecessary AI calls overnight or when feeds are quiet.
 
 Recommended behavior:
 

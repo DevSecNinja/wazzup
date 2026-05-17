@@ -16,14 +16,14 @@ concurrency:
 
 jobs:
   catch-up:
-    name: Dispatch delayed hourly run
+    name: Dispatch delayed scheduled run
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
       WAZZUP_TIMEZONE: Europe/Amsterdam
       TARGET_WORKFLOW: news-hourly.yml
     steps:
-      - name: Check local cadence
+      - name: Check scheduled cadence
         id: cadence
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -39,15 +39,12 @@ jobs:
           local_hour="$(TZ="${WAZZUP_TIMEZONE}" date +%H)"
           hour=$((10#${local_hour}))
 
-          if (( hour >= 6 && hour < 22 )); then
+          if (( hour >= 6 && hour < 22 && hour % 2 == 1 )); then
             echo "should_run=true" >>"${GITHUB_OUTPUT}"
-            echo "reason=active local hour" >>"${GITHUB_OUTPUT}"
-          elif (( hour % 2 == 0 )); then
-            echo "should_run=true" >>"${GITHUB_OUTPUT}"
-            echo "reason=overnight two-hour cadence" >>"${GITHUB_OUTPUT}"
+            echo "reason=active two-hour local cadence" >>"${GITHUB_OUTPUT}"
           else
             echo "should_run=false" >>"${GITHUB_OUTPUT}"
-            echo "reason=overnight odd local hour" >>"${GITHUB_OUTPUT}"
+            echo "reason=outside active two-hour local cadence" >>"${GITHUB_OUTPUT}"
           fi
 
       - name: Dispatch catch-up if needed
@@ -67,11 +64,11 @@ jobs:
             echo ""
             echo "- Cadence: ${CADENCE_REASON}"
             echo "- Current UTC hour start: ${current_hour_start}"
-            echo "- Existing News hourly runs this UTC hour: ${run_count}"
+            echo "- Existing News hourly runs this scheduled UTC hour: ${run_count}"
           } >>"${GITHUB_STEP_SUMMARY}"
 
           if (( run_count > 0 )); then
-            echo "News hourly has already run or been dispatched this UTC hour."
+            echo "News hourly has already run or been dispatched this scheduled UTC hour."
             exit 0
           fi
 

@@ -19,7 +19,7 @@ Wazzup is a GitHub-native personal news briefing app. It collects configured RSS
 
 ## Implemented app
 
-1. Fetch configured RSS/Atom feeds from GitHub Actions using the local cadence gate: hourly from 06:00 through 21:59 Europe/Amsterdam and every two hours overnight.
+1. Fetch configured RSS/Atom feeds from GitHub Actions every two hours at 07:00, 09:00, ... 21:00 Europe/Amsterdam.
 2. Normalize articles into stable YAML records with JSON browser mirrors.
 3. Deduplicate by canonical URL, raw feed reference/GUID, and normalized title plus publication day.
 4. Rank articles using deterministic interest, source weight, and freshness scoring.
@@ -41,7 +41,7 @@ Important current limitations and deviations from the original target architectu
 - The backend is Python under [src/wazzup](src/wazzup), not TypeScript.
 - The frontend is vanilla JavaScript in [public/app.js](public/app.js), not TypeScript/Web Components yet.
 - JSON Feed and podcast adapters are modeled but not implemented yet.
-- Automatic morning/evening due-time selection is implemented in the pipeline and exposed through the scheduled workflow's `auto` mode; the workflow still runs on an hourly UTC cron with a local cadence gate.
+- Automatic morning/evening due-time selection is implemented in the pipeline and exposed through the scheduled workflow's `auto` mode; the workflow runs on an hourly UTC cron with a local two-hour active-window cadence gate.
 - YAML is canonical generated state; JSON is generated only as a browser/PWA mirror.
 - Copilot CLI is optional at runtime. If no `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret exists, News hourly falls back to the deterministic fake provider so the pipeline and Pages deployment continue to work.
 - The service worker cache is versioned from generated build metadata; the footer shows the short commit and links back to the repository.

@@ -4,7 +4,7 @@
 
 Wazzup currently uses a GitHub-native static architecture:
 
-- GitHub Actions runs the backend pipeline hourly.
+- GitHub Actions runs the backend pipeline every two hours during the local active window.
 - The Python pipeline fetches sources, normalizes content, deduplicates and ranks items, calls an AI summary provider, and writes versioned YAML outputs with JSON browser mirrors.
 - GitHub Pages hosts both the minimal PWA and the generated YAML/JSON data.
 - A dedicated GitHub Release asset stores the rolling generated-data state between scheduled runs.
@@ -65,7 +65,7 @@ sequenceDiagram
     participant Pages as GitHub Pages data
     participant User as User channels
 
-    Cron->>CLI: run hourly
+    Cron->>CLI: run every two local active hours
     CLI->>Pages: restore previous release-backed data window
     CLI->>Feeds: fetch configured sources
     Feeds-->>CLI: feed entries
@@ -264,7 +264,7 @@ Example fields:
 
 ## Scheduling model
 
-GitHub Actions cron runs in UTC and can be delayed. The workflow should run hourly and let the pipeline decide whether a morning or evening briefing is due in the configured IANA time zone.
+GitHub Actions cron runs in UTC and can be delayed. The workflow should use an hourly UTC cron with a local cadence gate, run every two hours during the configured active window, and let the pipeline decide whether a morning or evening briefing is due in the configured IANA time zone.
 
 Recommended defaults:
 

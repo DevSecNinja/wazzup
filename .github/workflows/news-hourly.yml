@@ -62,15 +62,12 @@ jobs:
           local_hour="$(TZ="${WAZZUP_TIMEZONE}" date +%H)"
           hour=$((10#${local_hour}))
 
-          if (( hour >= 6 && hour < 22 )); then
+          if (( hour >= 6 && hour < 22 && hour % 2 == 1 )); then
             echo "should_run=true" >>"${GITHUB_OUTPUT}"
-            echo "reason=active local hour" >>"${GITHUB_OUTPUT}"
-          elif (( hour % 2 == 0 )); then
-            echo "should_run=true" >>"${GITHUB_OUTPUT}"
-            echo "reason=overnight two-hour cadence" >>"${GITHUB_OUTPUT}"
+            echo "reason=active two-hour local cadence" >>"${GITHUB_OUTPUT}"
           else
             echo "should_run=false" >>"${GITHUB_OUTPUT}"
-            echo "reason=overnight odd local hour" >>"${GITHUB_OUTPUT}"
+            echo "reason=outside active two-hour local cadence" >>"${GITHUB_OUTPUT}"
           fi
 
       - name: Checkout code
@@ -171,6 +168,6 @@ jobs:
             echo "## Wazzup news state"
             echo ""
             echo "- Skipped scheduled run: ${CADENCE_REASON}"
-            echo "- Active cadence: hourly from 06:00 to 21:59 local time"
-            echo "- Overnight cadence: every two hours from 22:00 to 05:59 local time"
+            echo "- Active cadence: every two hours from 07:00 to 21:59 local time"
+            echo "- Overnight cadence: skipped"
           } >>"${GITHUB_STEP_SUMMARY}"

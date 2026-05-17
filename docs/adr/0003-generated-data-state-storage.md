@@ -6,7 +6,7 @@ Accepted and implemented
 
 ## Context
 
-The scheduled pipeline generates frequent data: 24 hourly snapshots plus morning and evening briefings means at least 26 generated outputs per day. Committing those outputs would create roughly 9,490 generated-data commits per year before retries, manual runs, or future recap artifacts.
+The scheduled pipeline generates frequent data: 8 scheduled daytime snapshots plus morning and evening briefings means up to 10 generated outputs per day. Committing those outputs would create roughly 3,650 generated-data commits per year before retries, manual runs, or future recap artifacts.
 
 The system still needs durable state between scheduled runs so the next workflow can publish a rolling 35-day Pages window instead of only the latest run.
 
