@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted and implemented for the MVP provider set
+Accepted and implemented for the current provider set
 
 ## Context
 
@@ -17,7 +17,7 @@ The product should lean toward the Copilot CLI path because it fits the GitHub-n
 
 Implement AI summarization behind an `AiSummaryProvider` interface.
 
-Preferred provider order for the MVP:
+Preferred provider order:
 
 1. Copilot CLI provider for GitHub-native scheduled runs when a Copilot token secret exists.
 2. Fake deterministic provider for CI, repeatable tests, local runs, and tokenless scheduled fallback.
@@ -38,13 +38,14 @@ Implemented safety behavior:
 - [../../.github/workflows/news-hourly.yml](../../.github/workflows/news-hourly.yml) selects an effective provider before installing Node or Copilot CLI.
 - If `copilot-cli` is requested without either token secret, the workflow logs a warning and uses `AI_PROVIDER=fake`.
 - [../../src/wazzup/ai.py](../../src/wazzup/ai.py) checks for `COPILOT_GITHUB_TOKEN` in GitHub Actions and raises an actionable error if the workflow guard is bypassed.
+- The provider defaults to model `claude-sonnet-4.6` and the repo-local `wazzup-writer` custom agent, both overridable through environment variables.
 - Copilot CLI stdout/stderr is captured and included in sanitized failure diagnostics when the CLI exits non-zero.
 
 ## Consequences
 
 ### Positive
 
-- Keeps the MVP strongly aligned with GitHub Actions and GitHub-native automation.
+- Keeps the current implementation strongly aligned with GitHub Actions and GitHub-native automation.
 - Avoids introducing a separate hosted backend for summarization.
 - Allows provider changes without rewriting feed, ranking, storage, or frontend code.
 - Keeps tests deterministic through the fake provider.
@@ -83,7 +84,7 @@ Run local models in Actions only.
 
 ## Follow-up decisions
 
-- Confirm Copilot license and PAT setup work in scheduled automation with a real `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret.
+- Confirm Copilot license and PAT setup work in scheduled automation with a real `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret. Resolved for the current provider set.
 - Define formal structured summary schema files. Runtime validation exists; schema files are deferred.
 - Build a small canary workflow comparing Copilot CLI and fake provider output validation.
 - Defer Ollama, Foundry, and other provider experiments until the Copilot CLI path is understood.

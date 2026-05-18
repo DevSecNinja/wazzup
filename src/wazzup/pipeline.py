@@ -8,7 +8,14 @@ from pathlib import Path
 from typing import Sequence
 from zoneinfo import ZoneInfo
 
-from .ai import SummaryRequest, provider_from_env
+from .ai import (
+    CurationRequest,
+    SummaryRequest,
+    TransparencyReportRequest,
+    curation_provider_from_env,
+    provider_from_env,
+    transparency_provider_from_env,
+)
 from .config import load_app_config, load_sources
 from .feeds import deduplicate, fetch_and_parse, isoformat, parse_feed, utc_now
 from .models import BriefingKind, ContentItem, ScoredItem, SourceStatus
@@ -87,6 +94,16 @@ def rolling_day_window(now: datetime, timezone: str) -> tuple[datetime, datetime
     return local_start.astimezone(UTC), now.astimezone(UTC)
 
 
+def content_window(kind: BriefingKind, now: datetime, timezone: str) -> tuple[datetime, datetime]:
+    window_start, window_end = briefing_window(kind, now, timezone)
+    if kind == "hourly":
+        return rolling_day_window(now, timezone)
+    if kind == "morning":
+        return window_start, window_end
+    today_start, _ = rolling_day_window(now, timezone)
+    return max(window_start, today_start), window_end
+
+
 def filter_items_to_window(items: list[ContentItem], window_start: datetime, window_end: datetime) -> list[ContentItem]:
     return [item for item in items if window_start <= parse_iso(item.published_at) <= window_end]
 
@@ -109,6 +126,60 @@ def prioritize_hourly_new_items(scored_items: list[ScoredItem], now: datetime) -
 
     # New hourly articles stay above older high-scoring items; score only breaks ties among recent items.
     return [scored for _, scored in sorted(recent_items, key=newest_first)] + older_items
+
+
+def diversification_key(scored: ScoredItem) -> str:
+    if scored.matched_interests:
+        return f"interest:{scored.matched_interests[0]}"
+    return f"source:{scored.item.source_id}"
+
+
+def diversify_scored_items(scored_items: list[ScoredItem], max_consecutive: int = 2) -> list[ScoredItem]:
+    if max_consecutive < 1 or len(scored_items) <= max_consecutive:
+        return scored_items
+    remaining = list(scored_items)
+    diversified: list[ScoredItem] = []
+    last_key: str | None = None
+    streak = 0
+    while remaining:
+        pick_index = 0
+        picked_key = diversification_key(remaining[0])
+        if streak >= max_consecutive and picked_key == last_key:
+            for index, candidate in enumerate(remaining[1:], start=1):
+                candidate_key = diversification_key(candidate)
+                if candidate_key != last_key:
+                    pick_index = index
+                    picked_key = candidate_key
+                    break
+        picked = remaining.pop(pick_index)
+        diversified.append(picked)
+        if picked_key == last_key:
+            streak += 1
+        else:
+            last_key = picked_key
+            streak = 1
+    return diversified
+
+
+def curated_scored_items(scored_items: list[ScoredItem], selected_ids: list[str], max_items: int) -> list[ScoredItem]:
+    if max_items <= 0:
+        return []
+    id_to_scored = {scored.item.id: scored for scored in scored_items}
+    curated: list[ScoredItem] = []
+    seen_ids: set[str] = set()
+    for item_id in selected_ids:
+        if item_id in seen_ids:
+            continue
+        scored = id_to_scored.get(item_id)
+        if scored is None:
+            continue
+        curated.append(scored)
+        seen_ids.add(item_id)
+        if len(curated) >= max_items:
+            break
+    if not curated and scored_items:
+        return scored_items[:max_items]
+    return curated
 
 
 def featured_hourly_item_ids_for_local_day(data_dir: Path, now: datetime, timezone: str) -> set[str]:
@@ -182,18 +253,29 @@ def generate(argv: Sequence[str] | None = None) -> dict:
         app_config.morning_local_time,
         app_config.evening_local_time,
     )
-    window_start, window_end = briefing_window(kind, now, app_config.timezone)
-    content_window_start = window_start
-    content_window_end = window_end
-    if kind == "hourly":
-        content_window_start, content_window_end = rolling_day_window(now, app_config.timezone)
+    content_window_start, content_window_end = content_window(kind, now, app_config.timezone)
     window_items = filter_items_to_window(items, content_window_start, content_window_end)
     scored = score_items(window_items, sources, app_config, now)
     if kind == "hourly":
         scored = prioritize_hourly_new_items(scored, now)
         featured_item_ids = featured_hourly_item_ids_for_local_day(Path(args.public_dir) / "data", now, app_config.timezone)
         scored = exclude_already_featured_hourly_items(scored, featured_item_ids)
-    scored = scored[: args.max_items]
+    scored = diversify_scored_items(scored)
+    ranked_candidates = scored
+    curation_candidates = ranked_candidates[: args.max_items]
+    curator = curation_provider_from_env(app_config)
+    curation = curator.curate_items(
+        CurationRequest(
+            kind=kind,
+            window_start=isoformat(content_window_start),
+            window_end=isoformat(content_window_end),
+            generated_at=isoformat(now),
+            timezone=app_config.timezone,
+            items=curation_candidates,
+            max_items=args.max_items,
+        )
+    )
+    curated = curated_scored_items(curation_candidates, curation.selected_ids, args.max_items)
     provider = provider_from_env(app_config)
     summary = provider.generate_structured_summary(
         SummaryRequest(
@@ -203,7 +285,24 @@ def generate(argv: Sequence[str] | None = None) -> dict:
             generated_at=isoformat(now),
             timezone=app_config.timezone,
             summary_language=app_config.summary_language,
-            items=scored,
+            items=curated,
+        )
+    )
+    transparency_provider = transparency_provider_from_env(app_config)
+    transparency_report = transparency_provider.generate_transparency_report(
+        TransparencyReportRequest(
+            kind=kind,
+            window_start=isoformat(content_window_start),
+            window_end=isoformat(content_window_end),
+            generated_at=isoformat(now),
+            timezone=app_config.timezone,
+            summary_language=app_config.summary_language,
+            max_items=args.max_items,
+            statuses=statuses,
+            ranked_items=ranked_candidates,
+            selected_items=curated,
+            curation_provider=curation.provider,
+            summary_provider=summary.provider,
         )
     )
     latest = publish_outputs(
@@ -213,8 +312,9 @@ def generate(argv: Sequence[str] | None = None) -> dict:
         content_window_end,
         now,
         app_config,
-        scored,
+        curated,
         summary,
+        transparency_report,
         statuses,
     )
     return latest

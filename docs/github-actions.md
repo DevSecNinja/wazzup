@@ -2,25 +2,25 @@
 
 ## Workflow overview
 
-| Workflow            | Trigger                                                     | Responsibility                                                                                                                                   |
-| ------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CI                  | Pull request and manual dispatch                            | Formatting, syntax linting, tests, compile checks, fixture generation, and generated-data validation.                                            |
-| Lint                | Pull request and manual dispatch                            | Reusable organization lint workflow from `DevSecNinja/.github`.                                                                                  |
-| Auto-fix formatting | Manual dispatch                                             | Reusable organization formatting workflow that commits dprint/yamlfmt fixes back to the branch.                                                  |
-| News hourly         | Hourly schedule with local cadence gate and manual dispatch | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
-| Pages               | Successful `News hourly` workflow run and manual dispatch   | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.                                  |
-| Config Sync         | Weekly and manual dispatch                                  | Open PRs when shared repo config from `DevSecNinja/.github` drifts.                                                                              |
-| Label Sync          | Daily, manual dispatch, and label config changes            | Sync repository labels from the org base labels plus repo-specific labels.                                                                       |
-| Labeler             | Pull requests, issues, and manual dispatch                  | Apply area/type labels using shared labeler automation.                                                                                          |
-| Live smoke          | Not implemented yet                                         | Optional real feed and AI provider canary checks with strict budgets.                                                                            |
-| Archive cleanup     | Not implemented yet                                         | Keep release-backed rolling state compact and optionally publish monthly recap archives.                                                         |
-| Release automation  | Not implemented yet                                         | Future release-please workflow driven by Conventional Commits.                                                                                   |
+| Workflow            | Trigger                                                                    | Responsibility                                                                                                                                   |
+| ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CI                  | Pull request and manual dispatch                                           | Formatting, syntax linting, tests, compile checks, fixture generation, and generated-data validation.                                            |
+| Lint                | Pull request and manual dispatch                                           | Reusable organization lint workflow from `DevSecNinja/.github`.                                                                                  |
+| Auto-fix formatting | Manual dispatch                                                            | Reusable organization formatting workflow that commits dprint/yamlfmt fixes back to the branch.                                                  |
+| News hourly         | Hourly schedule with a local two-hour active-window cadence gate and manual dispatch | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
+| Pages               | Successful `News hourly` workflow run, push to `main`, and manual dispatch | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.                                  |
+| Config Sync         | Weekly and manual dispatch                                                 | Open PRs when shared repo config from `DevSecNinja/.github` drifts.                                                                              |
+| Label Sync          | Daily, manual dispatch, and label config changes                           | Sync repository labels from the org base labels plus repo-specific labels.                                                                       |
+| Labeler             | Pull requests, issues, and manual dispatch                                 | Apply area/type labels using shared labeler automation.                                                                                          |
+| Live smoke          | Not implemented yet                                                        | Optional real feed and AI provider canary checks with strict budgets.                                                                            |
+| Archive cleanup     | Not implemented yet                                                        | Keep release-backed rolling state compact and optionally publish monthly recap archives.                                                         |
+| Release automation  | Not implemented yet                                                        | Future release-please workflow driven by Conventional Commits.                                                                                   |
 
 ## Recommended workflow boundaries
 
 - CI must not require external network calls beyond dependency installation.
 - CI must not call paid AI provider APIs.
-- Scheduled workflows may call feeds and AI providers, but should enforce budgets.
+- Scheduled workflows may call feeds and AI providers. They enforce prompt-size item caps today; token/monthly budget enforcement remains deferred.
 - Publishing should happen only after contract validation succeeds.
 - Delivery notifications should happen only after publishing succeeds.
 - Commit messages and PR titles must follow Conventional Commits before release-please is enabled.
@@ -42,7 +42,7 @@ Release Please remains deferred until the app has an explicit first release/vers
 
 ## AI runner options in Actions
 
-The preferred MVP path is Copilot CLI because it is GitHub-native and can run directly inside a scheduled workflow. The pipeline should still expose a provider abstraction so the same request can be handled by Copilot CLI, an API provider, Ollama, or a fake test provider.
+The preferred current path is Copilot CLI because it is GitHub-native and can run directly inside a scheduled workflow. The pipeline should still expose a provider abstraction so the same request can be handled by Copilot CLI, an API provider, Ollama, or a fake test provider.
 
 | Runner        | When to use                                                                                                           | Workflow implications                                                                                                                                                                                       |
 | ------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -72,7 +72,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@v4
         with:
-          version: 2026.4.18
+          version: 2026.4.19
       - run: task install
       - run: task ci
       - run: task pipeline:generate:fixtures
@@ -81,7 +81,7 @@ jobs:
 
 CI intentionally does not run on every push to `main` to avoid duplicate checks when PR validation already covered the change. Deployment/state workflows still run on their own operational triggers.
 
-## Implemented hourly news workflow
+## Implemented scheduled news workflow
 
 Key excerpts from [../.github/workflows/news-hourly.yml](../.github/workflows/news-hourly.yml):
 
@@ -157,7 +157,7 @@ jobs:
           COPILOT_MODEL: ${{ env.COPILOT_MODEL }}
 ```
 
-The workflow triggers hourly because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. A first cadence step computes the local hour and continues every hour from 06:00 to 21:59, then only on even local hours from 22:00 to 05:59. Manual dispatch always runs.
+The workflow triggers hourly because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. A first cadence step computes the local hour and continues only on odd local hours from 07:00 to 21:59. This aligns the first run with the configured morning briefing, keeps AI calls to a daytime two-hour cadence, and skips overnight runs entirely. Manual dispatch always runs.
 
 Operational learning: the first live News hourly run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
 
@@ -218,7 +218,7 @@ Ollama can be evaluated behind the same provider interface:
   run: task pipeline:generate
 ```
 
-This should not be the default MVP runner unless quality and runtime are acceptable. Prefer caching model layers and running it only on manual or scheduled canary workflows until validated.
+This should not be the default runner unless quality and runtime are acceptable. Prefer caching model layers and running it only on manual or scheduled canary workflows until validated.
 
 ## Reusable workflow integration
 
@@ -244,15 +244,17 @@ Use pinned tags or SHA references for reusable workflows. Avoid using a moving b
 
 ## Implemented Pages workflow
 
-[../.github/workflows/pages.yml](../.github/workflows/pages.yml) runs after successful `News hourly` completion or by manual dispatch. It delegates deployment to the reusable Pages workflow with these important inputs:
+[../.github/workflows/pages.yml](../.github/workflows/pages.yml) runs after successful `News hourly` completion, on pushes to `main`, or by manual dispatch. This means content and PWA shell changes deploy when they merge, while scheduled news runs still deploy freshly generated data after state persistence succeeds. It delegates deployment to the reusable Pages workflow with these important inputs:
 
 - `artifact-path: public`
-- `install-command`: install mise, trust config, install tools, and run `task install`
-- `test-command`: `~/.local/bin/mise exec -- task ci`
-- `build-command`: `~/.local/bin/mise exec -- task pages:build`
+- `install-command`: install Python runtime dependencies directly from [../requirements.txt](../requirements.txt)
+- `test-command`: run the direct equivalents of `task ci` without installing the full mise toolchain
+- `build-command`: `PYTHONPATH=src python3 scripts/pages_build.py`
 - `cloudflare-preview: false`
 
 Operational learning: do not inject `GH_TOKEN="${{ github.token }}"` into the reusable workflow `build-command` string. In practice, the token was evaluated to an empty value inside the called workflow and `gh release download` failed. The fixed design makes `task pages:build` restore `news-state` through the public release asset URL when no `GH_TOKEN` or `GITHUB_TOKEN` is available.
+
+Operational learning: do not run `mise install` inside the reusable Pages workflow. Caller expressions such as `${{ github.token }}` are not reliably available inside string inputs, so mise can make unauthenticated GitHub API requests and hit rate limits before the Pages build starts. The Pages deployment now uses direct Python commands plus [../scripts/pages_build.py](../scripts/pages_build.py), while CI and local validation continue to use mise/Task as the canonical full toolchain.
 
 ## Future release-please workflow
 
@@ -268,7 +270,7 @@ Expected future behavior:
 
 ## Secrets
 
-Expected MVP secrets:
+Expected secrets:
 
 | Secret                       | Purpose                                                                                                     |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -291,7 +293,7 @@ Rules:
 
 ## Scheduling details
 
-Use a single cron and calculate briefing windows in application code using the configured IANA time zone. This handles daylight-saving transitions better than maintaining separate UTC cron expressions. The implemented cadence is every two hours at minute 7 (`7 */2 * * *`), which is a better fit for the rolling daily briefing and avoids unnecessary AI calls when feeds are quiet.
+Use a single hourly cron and calculate the active cadence plus briefing windows in application code or workflow shell using the configured IANA time zone. This handles daylight-saving transitions better than maintaining separate UTC cron expressions. The implemented cadence is every two local hours from 07:00 through 21:59, which is a better fit for the rolling daily briefing and avoids unnecessary AI calls overnight or when feeds are quiet.
 
 Recommended behavior:
 
@@ -321,7 +323,7 @@ Workflow shell logic should live in [Taskfile.yml](../Taskfile.yml) wherever pra
 
 ## Standardized Pages deployment
 
-The scheduled `News hourly` workflow is responsible for mutating release-backed state. It does not deploy Pages directly. After it succeeds, the `Pages` workflow calls the reusable Pages workflow from `DevSecNinja/.github` and restores the `news-state` release asset through `task pages:build` before deployment. The Pages restore path supports unauthenticated release-asset downloads so it works inside the reusable workflow without injecting `GH_TOKEN` into a string input.
+The scheduled `News hourly` workflow is responsible for mutating release-backed state. It does not deploy Pages directly. After it succeeds, the `Pages` workflow calls the reusable Pages workflow from `DevSecNinja/.github` and restores the `news-state` release asset through `scripts/pages_build.py` before deployment. The Pages restore path supports unauthenticated release-asset downloads so it works inside the reusable workflow without injecting `GH_TOKEN` into a string input.
 
 Observed failure modes and fixes:
 
@@ -329,6 +331,7 @@ Observed failure modes and fixes:
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | News hourly failed in Copilot CLI                        | `COPILOT_GITHUB_TOKEN` was empty while `AI_PROVIDER=copilot-cli`.                                  | Select effective provider first and fall back to `fake` when no Copilot token secret exists.                          |
 | Pages deploy failed validating `public/data/latest.json` | Reusable workflow received empty `GH_TOKEN`, state restore skipped, and `public/data` was missing. | Restore public release asset without a token in Pages builds and make missing retained state fatal for `pages:build`. |
+| Pages deploy failed during mise install                  | Reusable workflow install command could not pass `github.token`, so mise made unauthenticated GitHub API calls and hit rate limits. | Avoid mise in Pages deploy; install Python deps directly and run `scripts/pages_build.py`.                            |
 
 ## Security hardening
 

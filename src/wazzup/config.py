@@ -45,8 +45,9 @@ def _str_list(value: Any, key: str) -> list[str]:
 def load_sources(path: str | Path = "config/sources.yml") -> list[SourceConfig]:
     payload = _read_yaml(Path(path))
     defaults = payload.get("defaults", {})
+    default_fetch = defaults.get("fetch", {}) or {}
     default_headers = dict(DEFAULT_HEADERS)
-    default_headers.update(defaults.get("fetch", {}).get("headers", {}) or {})
+    default_headers.update(default_fetch.get("headers", {}) or {})
     raw_sources = payload.get("sources")
     if not isinstance(raw_sources, list) or not raw_sources:
         raise ConfigError("sources.yml must contain a non-empty sources list")
@@ -63,6 +64,7 @@ def load_sources(path: str | Path = "config/sources.yml") -> list[SourceConfig]:
         source_type = _require_str(raw_source, "type")
         if source_type not in {"rss", "atom", "json-feed", "podcast"}:
             raise ConfigError(f"Unsupported source type: {source_type}")
+        fetch_config = raw_source.get("fetch", {}) or {}
         sources.append(
             SourceConfig(
                 id=_require_str(raw_source, "id"),
@@ -78,6 +80,7 @@ def load_sources(path: str | Path = "config/sources.yml") -> list[SourceConfig]:
                 interest_hints=_str_list(raw_source.get("interestHints"), "interestHints"),
                 enabled=bool(raw_source.get("enabled", True)),
                 headers=headers,
+                timeout_seconds=int(fetch_config.get("timeoutSeconds", default_fetch.get("timeoutSeconds", 30))),
                 notes=raw_source.get("notes") if isinstance(raw_source.get("notes"), str) else None,
             )
         )

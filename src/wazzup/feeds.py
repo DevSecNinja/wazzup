@@ -89,9 +89,9 @@ def normalize_title(value: str) -> str:
     return text
 
 
-def parse_date(value: str | None, fallback: datetime) -> datetime:
+def parse_date(value: str | None) -> datetime | None:
     if not value:
-        return fallback
+        return None
     raw = value.strip()
     try:
         parsed = parsedate_to_datetime(raw)
@@ -107,7 +107,7 @@ def parse_date(value: str | None, fallback: datetime) -> datetime:
             parsed = parsed.replace(tzinfo=UTC)
         return parsed.astimezone(UTC)
     except ValueError:
-        return fallback
+        return None
 
 
 def local_name(tag: str) -> str:
@@ -135,9 +135,10 @@ def atom_link(element: ET.Element) -> str:
     return child_text(element, "link")
 
 
-def fetch_feed(source: SourceConfig, timeout_seconds: int = 30) -> bytes:
+def fetch_feed(source: SourceConfig, timeout_seconds: int | None = None) -> bytes:
+    timeout = timeout_seconds if timeout_seconds is not None else source.timeout_seconds
     request = urllib.request.Request(source.feed_url, headers=source.headers)
-    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read()
 
 
@@ -170,7 +171,9 @@ def parse_feed(source: SourceConfig, payload: bytes, discovered_at: datetime | N
         if not title or not url:
             continue
         canonical_url = canonicalize_url(url)
-        published = parse_date(raw_date, discovered)
+        published = parse_date(raw_date)
+        if published is None:
+            continue
         clean_summary = clean_text(summary, max_length=500)
         feed_tags = [child.text or "" for child in children(entry, "category")]
         tags = merge_tags([source.source_tag], source.categories, feed_tags)

@@ -354,6 +354,28 @@ sources:
       - finance
     notes: "Financial Times home feed."
 
+  - id: fd-nl
+    name: FD.nl
+    sourceTag: FD
+    enabled: true
+    type: rss
+    homepageUrl: https://fd.nl/
+    feedUrl: https://fd.nl/?rss
+    language: nl
+    region: nl
+    weight: 0.95
+    categories:
+      - business
+      - finance
+      - netherlands
+    interestHints:
+      - dutch business news
+      - finance
+      - markets
+      - economy
+      - netherlands
+    notes: "Het Financieele Dagblad home RSS feed discovered from the FD.nl homepage."
+
   - id: apple-newsroom
     name: Apple Newsroom
     sourceTag: Apple
@@ -394,3 +416,248 @@ sources:
       - Linux
       - devops
     notes: "LinuxServer.io info feed from issue #2 OPML."
+
+  - id: formula1-official-news
+    name: Formula 1 Official News
+    sourceTag: F1
+    enabled: true
+    type: rss
+    homepageUrl: https://www.formula1.com/
+    feedUrl: https://www.formula1.com/en/latest/all.xml
+    language: en
+    region: global
+    weight: 1.0
+    categories:
+      - sports
+      - formula-1
+      - motorsport
+    interestHints:
+      - Formula 1
+      - F1
+      - motorsport
+      - race weekends
+      - driver standings
+    notes: "Official Formula 1 news feed for race, driver, team, and rules updates."
+
+  - id: autosport-f1
+    name: Autosport Formula 1
+    sourceTag: Autosport
+    enabled: true
+    type: rss
+    homepageUrl: https://www.autosport.com/f1/
+    feedUrl: https://www.autosport.com/rss/f1/news/
+    language: en
+    region: global
+    weight: 1.0
+    categories:
+      - sports
+      - formula-1
+      - motorsport
+    interestHints:
+      - Formula 1
+      - F1 analysis
+      - paddock news
+      - teams
+      - drivers
+    notes: "Formula 1 reporting and analysis from Autosport."
+
+  - id: motorsport-f1
+    name: Motorsport.com Formula 1
+    sourceTag: Motorsport
+    enabled: true
+    type: rss
+    homepageUrl: https://www.motorsport.com/f1/
+    feedUrl: https://www.motorsport.com/rss/f1/news/
+    language: en
+    region: global
+    weight: 0.95
+    categories:
+      - sports
+      - formula-1
+      - motorsport
+    interestHints:
+      - Formula 1
+      - F1 news
+      - race strategy
+      - team updates
+      - driver market
+    notes: "Formula 1 news feed from Motorsport.com."
+
+  - id: racefans
+    name: RaceFans
+    sourceTag: RaceFans
+    enabled: true
+    type: rss
+    homepageUrl: https://www.racefans.net/
+    feedUrl: https://www.racefans.net/feed/
+    language: en
+    region: global
+    weight: 0.95
+    categories:
+      - sports
+      - formula-1
+      - motorsport
+    interestHints:
+      - Formula 1
+      - F1 rules
+      - strategy
+      - steward decisions
+      - race calendar
+    notes: "Independent Formula 1 and motorsport reporting with useful detail on rules and strategy."
+
+  - id: nba-official-news
+    name: NBA Official News
+    sourceTag: NBA
+    enabled: false
+    type: rss
+    homepageUrl: https://www.nba.com/news
+    feedUrl: https://www.nba.com/news/rss.xml
+    language: en
+    region: us
+    weight: 1.0
+    categories:
+      - sports
+      - nba
+      - basketball
+    interestHints:
+      - NBA
+      - basketball
+      - trades
+      - injuries
+      - standings
+    fetch:
+      timeoutSeconds: 8
+    notes: "Official NBA news feed for league-wide headlines. Disabled because nba.com currently times out from the pipeline
+      environment; ESPN NBA remains enabled as the working NBA source."
+
+  - id: espn-nba
+    name: ESPN NBA
+    sourceTag: ESPN NBA
+    enabled: true
+    type: rss
+    homepageUrl: https://www.espn.com/nba/
+    feedUrl: https://www.espn.com/espn/rss/nba/news
+    language: en
+    region: us
+    weight: 0.95
+    categories:
+      - sports
+      - nba
+      - basketball
+    interestHints:
+      - NBA
+      - basketball
+      - trades
+      - injuries
+      - game recaps
+    notes: "ESPN NBA news feed for mainstream league, trade, injury, and game coverage."
+
+  - id: github-blog
+    name: GitHub Blog
+    sourceTag: GitHub
+    enabled: true
+    type: rss
+    homepageUrl: https://github.blog/
+    feedUrl: https://github.blog/feed/
+    language: en
+    region: global
+    weight: 1.1
+    categories:
+      - tech
+      - developer-platforms
+      - github
+    interestHints:
+      - GitHub
+      - developer platforms
+      - software supply chain
+      - AI coding tools
+      - platform updates
+    notes: "Official GitHub Blog feed for product, platform, security, and developer updates."
+
+  - id: openai-news
+    name: OpenAI News
+    sourceTag: OpenAI
+    enabled: true
+    type: rss
+    homepageUrl: https://openai.com/news/
+    feedUrl: https://openai.com/news/rss.xml
+    language: en
+    region: global
+    weight: 1.2
+    categories:
+      - ai
+      - llm
+      - developer-platforms
+    interestHints:
+      - artificial intelligence
+      - large language models
+      - model releases
+      - API updates
+      - AI safety
+    notes: "Official OpenAI News feed for model, API, and policy updates."
+
+  - id: anthropic-news
+    name: Anthropic News
+    sourceTag: Anthropic
+    enabled: true
+    type: rss
+    homepageUrl: https://www.anthropic.com/news
+    feedUrl: https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_engineering.xml
+    language: en
+    region: global
+    weight: 1.2
+    categories:
+      - ai
+      - llm
+      - safety
+    interestHints:
+      - artificial intelligence
+      - frontier models
+      - AI safety
+      - enterprise AI
+      - product releases
+    notes: "Official Anthropic News feed for Claude, product, and AI safety updates."
+
+  - id: hugging-face-blog
+    name: Hugging Face Blog
+    sourceTag: HuggingFace
+    enabled: true
+    type: rss
+    homepageUrl: https://huggingface.co/blog
+    feedUrl: https://huggingface.co/blog/feed.xml
+    language: en
+    region: global
+    weight: 1.15
+    categories:
+      - ai
+      - machine-learning
+      - developer-platforms
+    interestHints:
+      - open-source ai
+      - machine learning
+      - transformers
+      - model tooling
+      - developer workflows
+    notes: "Hugging Face engineering and product blog feed focused on open AI tooling."
+
+  - id: azure-updates
+    name: Microsoft Azure Updates
+    sourceTag: Azure
+    enabled: true
+    type: rss
+    homepageUrl: https://learn.microsoft.com/azure/updates/
+    feedUrl: https://www.microsoft.com/releasecommunications/api/v2/azure/rss
+    language: en
+    region: global
+    weight: 1.15
+    categories:
+      - microsoft
+      - azure
+      - cloud
+    interestHints:
+      - Azure
+      - cloud platform
+      - Microsoft cloud
+      - service updates
+      - platform changes
+    notes: "Official Microsoft Azure release communications RSS feed for service announcements and platform changes."

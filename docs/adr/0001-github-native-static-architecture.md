@@ -2,21 +2,21 @@
 
 ## Status
 
-Accepted and implemented for the MVP
+Accepted and implemented
 
 ## Context
 
-The product should collect technology news hourly, generate AI-assisted briefings, and present them to the user without requiring a maintained server or database. The user prefers GitHub-based automation and a minimal frontend. The system should still be designed so a future API, agent integration, or MCP server can reuse the same functionality.
+The product should collect technology news regularly, generate AI-assisted briefings, and present them to the user without requiring a maintained server or database. The user prefers GitHub-based automation and a minimal frontend. The system should still be designed so a future API, agent integration, or MCP server can reuse the same functionality.
 
-The MVP may publish generated data publicly through GitHub Pages. The implementation should keep 35 days of detailed static data, generate English briefings, start with a PWA-only delivery surface, and use Copilot CLI as the default AI runner.
+The current deployment may publish generated data publicly through GitHub Pages. The implementation should keep 35 days of detailed static data, generate English briefings, start with a PWA-only delivery surface, and use Copilot CLI as the default AI runner.
 
 ## Decision
 
-Use GitHub Actions as the scheduled backend and GitHub Pages as the static frontend/data host for the MVP.
+Use GitHub Actions as the scheduled backend and GitHub Pages as the static frontend/data host.
 
 The backend pipeline will:
 
-1. Fetch configured feeds hourly.
+1. Fetch configured feeds every two hours during the local active window.
 2. Normalize, deduplicate, and score items.
 3. Generate due briefings through an AI provider abstraction.
 4. Validate all generated data against versioned contracts.
@@ -83,7 +83,7 @@ This differs from the accepted release-backed state decision: releases store the
 ## Follow-up decisions
 
 - Select the implementation runtime and package manager. Resolved: Python, mise, and Task.
-- Validate Copilot CLI behavior in scheduled Actions runs. Partially resolved: Copilot CLI is implemented, and missing token secrets now fall back to `fake`.
+- Validate Copilot CLI behavior in scheduled Actions runs. Resolved for the current provider set: Copilot CLI is implemented with a repo-local writer agent, and missing token secrets fall back to `fake`.
 - Select the first delivery target beyond the PWA.
 - Define JSON schemas before writing pipeline logic. Deferred; runtime validators and tests currently protect the contract.
 - Replace manual service worker cache versioning with generated build metadata.

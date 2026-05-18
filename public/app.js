@@ -3,6 +3,8 @@ const sourcesEl = document.querySelector('#sources');
 const yesterdayEl = document.querySelector('#yesterday');
 const heroHeadlineEl = document.querySelector('#heroHeadline');
 const heroSummaryEl = document.querySelector('#heroSummary');
+const heroMetaEl = document.querySelector('#heroMeta');
+const refreshButton = document.querySelector('#refreshButton');
 const notifyButton = document.querySelector('#notifyButton');
 const commitLink = document.querySelector('#commitLink');
 const starCountText = document.querySelector('#starCountText');
@@ -15,12 +17,16 @@ const BACKGROUND_SYNC_TAG = 'wazzup-hourly-update';
 const DEFAULT_RETENTION_DAYS = 35;
 const SEEN_BRIEFING_ITEMS_STORAGE_KEY = 'wazzup:seenBriefingItems';
 const HIDE_SEEN_STORAGE_KEY = 'wazzup:hideSeen';
-const SEEN_VISIBILITY_RATIO = 0.85;
-const SEEN_DWELL_MS = 1500;
+const NOTIFICATIONS_DISABLED_STORAGE_KEY = 'wazzup:notificationsDisabled';
+const REFRESHED_BUILD_STORAGE_KEY = 'wazzup:refreshedBuildId';
+const SEEN_VIEWPORT_LINE_RATIO = 0.25;
+const SCROLL_BOTTOM_EPSILON = 4;
 
-let briefingSeenObserver = null;
-let briefingSeenTimers = new WeakMap();
+let seenPositionFrame = 0;
+let seenPositionState = null;
 let hideSeenEnabled = safeLocalStorageGet(HIDE_SEEN_STORAGE_KEY) === '1';
+let activeBriefingFilter = null;
+let pauseSeenScansUntilInput = false;
 
 async function getJson(path) {
   const response = await fetch(path, { cache: 'no-store' });
@@ -118,18 +124,20 @@ function normalizeTemperature(temperature) {
 }
 
 function normalizeBullet(bullet, citations) {
-  const firstCitation = (bullet.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
+  const citationRecords = (bullet.citations || []).map((itemId) => citations.get(itemId)).filter(Boolean);
+  const firstCitation = citationRecords[0];
   const fullTitle = bullet.title || firstCitation?.title || 'Update';
   const title = truncateText(fullTitle, MAX_HEADLINE_LENGTH);
   const rawDescription = stripInterestBoilerplate(
     bullet.description || stripLeadingTitle(bullet.text, fullTitle) || bullet.text || '',
   );
   const sourceTag = firstCitation?.sourceTag || firstCitation?.sourceName || '';
-  const tags = Array.from(new Set([sourceTag, ...(firstCitation?.tags || [])].filter(Boolean))).slice(0, 5);
+  const tags = Array.from(new Set([sourceTag, ...citationRecords.flatMap((citation) => citation.tags || [])].filter(Boolean))).slice(0, 5);
   return {
     title,
     description: truncateText(rawDescription, MAX_DESCRIPTION_LENGTH),
     tags,
+    sourceIds: Array.from(new Set(citationRecords.map((citation) => citation.sourceId).filter(Boolean))),
     primaryUrl: firstCitation?.url || '',
     temperature: normalizeTemperature(firstCitation?.temperature),
   };
@@ -167,6 +175,22 @@ function safeLocalStorageSet(key, value) {
     localStorage.setItem(key, value);
   } catch {
     // Ignore storage failures so the PWA still renders offline data.
+  }
+}
+
+function safeSessionStorageGet(key) {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSessionStorageSet(key, value) {
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    // Ignore storage failures; a manual refresh button is still shown.
   }
 }
 
@@ -263,27 +287,43 @@ function dayPartLabel(value) {
   return 'Earlier this evening';
 }
 
-function todayBriefingView(currentBriefing, earlierBriefings, seenState) {
+function recordTimestamp(record) {
+  const timestamp = new Date(record.generatedAt).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function todayBriefingView(currentBriefing, earlierBriefings, seenState, labels = {}) {
+  const combinedTitle = labels.combinedTitle || 'Today so far';
+  const latestTitle = labels.latestTitle || 'Latest update';
   const allBriefings = [currentBriefing, ...earlierBriefings];
   const usedItemIds = new Set();
   const usedFallbackKeys = new Set();
   const currentRecords = uniqueBulletRecords(extractBulletRecords(currentBriefing), usedItemIds, usedFallbackKeys);
+  const remainingCurrentRecords = currentRecords.slice(1);
   const earlierRecords = uniqueBulletRecords(earlierBriefings.flatMap(extractBulletRecords), usedItemIds, usedFallbackKeys);
   const sections = [];
 
   if (!hasSeenItemsForDay(seenState)) {
-    sections.push({ title: 'Today so far', bullets: [...currentRecords, ...earlierRecords].map((record) => record.bullet) });
+    const bullets = [...remainingCurrentRecords, ...earlierRecords].map((record) => record.bullet);
+    if (bullets.length) sections.push({ title: combinedTitle, bullets });
   } else {
-    sections.push({ title: 'Latest update', bullets: currentRecords.map((record) => record.bullet) });
+    const latestBullets = remainingCurrentRecords.map((record) => record.bullet);
+    if (latestBullets.length) sections.push({ title: latestTitle, bullets: latestBullets });
     const recordsByDayPart = new Map();
     earlierRecords.forEach((record) => {
       const label = dayPartLabel(record.generatedAt);
       recordsByDayPart.set(label, [...(recordsByDayPart.get(label) || []), record]);
     });
-    ['Earlier this morning', 'Earlier this afternoon', 'Earlier this evening'].forEach((label) => {
-      const records = recordsByDayPart.get(label) || [];
-      if (records.length) sections.push({ title: label, bullets: records.map((record) => record.bullet) });
-    });
+    Array.from(recordsByDayPart.entries())
+      .map(([title, records]) => ({
+        title,
+        records,
+        latestTimestamp: Math.max(...records.map(recordTimestamp)),
+      }))
+      .sort((left, right) => right.latestTimestamp - left.latestTimestamp)
+      .forEach(({ title, records }) => {
+        sections.push({ title, bullets: records.map((record) => record.bullet) });
+      });
   }
 
   return { ...currentBriefing, citations: mergeCitations(allBriefings), sections };
@@ -299,11 +339,26 @@ function setBulletSeenState(bulletEl, seen) {
   const statusEl = bulletEl.querySelector('.bullet__status');
   bulletEl.dataset.seenState = seen ? 'seen' : 'new';
   bulletEl.classList.toggle('bullet--seen', seen);
-  bulletEl.classList.toggle('bullet--hidden', hideSeenEnabled && seen);
+  if (!seen || !hideSeenEnabled) {
+    bulletEl.classList.toggle('bullet--hidden', false);
+  }
   if (!statusEl) return;
   statusEl.textContent = seen ? 'Seen' : 'New';
   statusEl.classList.toggle('bullet__status--seen', seen);
   statusEl.classList.toggle('bullet__status--new', !seen);
+  updateUnreadCount();
+}
+
+function visibleUnreadBullets() {
+  return Array.from(briefingEl.querySelectorAll('.bullet[data-seen-state="new"]')).filter(
+    (bulletEl) => !bulletEl.classList.contains('bullet--filtered'),
+  );
+}
+
+function hideSeenIfVisibleSetComplete() {
+  if (!hideSeenEnabled || visibleUnreadBullets().length > 0) return;
+  pauseSeenScansUntilInput = true;
+  applyHideSeenFilter();
 }
 
 function applyHideSeenFilter() {
@@ -315,17 +370,97 @@ function applyHideSeenFilter() {
   if (!button) return;
   button.textContent = hideSeenEnabled ? 'Show seen' : 'Hide seen';
   button.setAttribute('aria-pressed', hideSeenEnabled ? 'true' : 'false');
+  updateUnreadCount();
 }
 
-function bindHideSeenButton() {
+function bindHideSeenButton(seenState) {
   const button = briefingEl.querySelector('#hideSeenButton');
   if (!button) return;
   button.addEventListener('click', () => {
     hideSeenEnabled = !hideSeenEnabled;
     safeLocalStorageSet(HIDE_SEEN_STORAGE_KEY, hideSeenEnabled ? '1' : '0');
     applyHideSeenFilter();
+    pauseSeenScansUntilInput = false;
+    observeBriefingItems(seenState);
   });
   applyHideSeenFilter();
+}
+
+function unreadCountLabel(count) {
+  if (count === 1) return '1 unread';
+  return `${count} unread`;
+}
+
+function updateUnreadCount() {
+  const unreadEl = briefingEl.querySelector('#unreadCount');
+  if (!unreadEl) return;
+  const unreadCount = visibleUnreadBullets().length;
+  unreadEl.textContent = unreadCountLabel(unreadCount);
+}
+
+function setBriefingFilter(type, value, label) {
+  if (activeBriefingFilter?.type === type && activeBriefingFilter?.value === value) {
+    activeBriefingFilter = null;
+  } else {
+    activeBriefingFilter = { type, value, label };
+  }
+  applyBriefingFilter();
+}
+
+function bulletMatchesFilter(bulletEl) {
+  if (!activeBriefingFilter) return true;
+  if (activeBriefingFilter.type === 'category') {
+    return String(bulletEl.dataset.filterCategories || '').split(',').includes(activeBriefingFilter.value);
+  }
+  if (activeBriefingFilter.type === 'source') {
+    return String(bulletEl.dataset.filterSourceIds || '').split(',').includes(activeBriefingFilter.value);
+  }
+  return true;
+}
+
+function applyBriefingFilter() {
+  const bullets = Array.from(briefingEl.querySelectorAll('.bullet'));
+  bullets.forEach((bulletEl) => {
+    bulletEl.classList.toggle('bullet--filtered', !bulletMatchesFilter(bulletEl));
+  });
+  Array.from(briefingEl.querySelectorAll('.section')).forEach((sectionEl) => {
+    const visibleBullets = Array.from(sectionEl.querySelectorAll('.bullet')).some(
+      (bulletEl) => !bulletEl.classList.contains('bullet--filtered'),
+    );
+    sectionEl.classList.toggle('section--filtered-empty', !visibleBullets);
+  });
+  const activeFilterEl = briefingEl.querySelector('#activeFilter');
+  const clearFilterButton = briefingEl.querySelector('#clearFilterButton');
+  const emptyFilterEl = briefingEl.querySelector('#filterEmptyState');
+  const visibleBulletCount = bullets.filter((bulletEl) => !bulletEl.classList.contains('bullet--filtered')).length;
+  if (activeFilterEl) activeFilterEl.textContent = activeBriefingFilter ? `Filtered by ${activeBriefingFilter.label}` : '';
+  if (clearFilterButton) clearFilterButton.hidden = !activeBriefingFilter;
+  if (emptyFilterEl) emptyFilterEl.hidden = !activeBriefingFilter || visibleBulletCount > 0;
+  Array.from(document.querySelectorAll('[data-filter-type]')).forEach((button) => {
+    const pressed = activeBriefingFilter?.type === button.dataset.filterType && activeBriefingFilter?.value === button.dataset.filterValue;
+    button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  });
+  updateUnreadCount();
+}
+
+function bindBriefingFilters() {
+  document.querySelectorAll('[data-filter-type]').forEach((button) => {
+    if (button.dataset.filterBound === 'true') return;
+    button.dataset.filterBound = 'true';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      setBriefingFilter(button.dataset.filterType, button.dataset.filterValue, button.dataset.filterLabel || button.textContent.trim());
+    });
+  });
+  const clearFilterButton = briefingEl.querySelector('#clearFilterButton');
+  if (clearFilterButton && clearFilterButton.dataset.filterBound !== 'true') {
+    clearFilterButton.dataset.filterBound = 'true';
+    clearFilterButton.addEventListener('click', () => {
+      activeBriefingFilter = null;
+      applyBriefingFilter();
+    });
+  }
+  applyBriefingFilter();
 }
 
 function isInteractiveTarget(target) {
@@ -378,64 +513,66 @@ function markBriefingBulletSeen(bulletEl, seenState) {
   if (!itemIds.length) return;
   markSeenBriefingItems(seenState, itemIds);
   setBulletSeenState(bulletEl, true);
+  if (hideSeenEnabled) {
+    hideSeenIfVisibleSetComplete();
+  }
 }
 
-function clearPendingSeenTimers() {
+function isScrolledToBottom() {
+  const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const scrollHeight = Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0);
+  return scrollTop + viewportHeight >= scrollHeight - SCROLL_BOTTOM_EPSILON;
+}
+
+function hasBulletPassedSeenLine(bulletEl) {
+  const rect = bulletEl.getBoundingClientRect();
+  const bulletMidpoint = rect.top + rect.height / 2;
+  const viewportLine = (window.innerHeight || document.documentElement.clientHeight || 0) * SEEN_VIEWPORT_LINE_RATIO;
+  return bulletMidpoint <= viewportLine;
+}
+
+function markSeenByScrollPosition() {
+  if (!seenPositionState || pauseSeenScansUntilInput) return;
+  const atBottom = isScrolledToBottom();
   const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
+  let seenLineMatchFound = false;
   bullets.forEach((bulletEl) => {
-    const timer = briefingSeenTimers.get(bulletEl);
-    if (!timer) return;
-    clearTimeout(timer);
+    if (bulletEl.dataset.seenState === 'seen') return;
+    if (!atBottom && !hasBulletPassedSeenLine(bulletEl)) return;
+    if (seenLineMatchFound) return;
+    markBriefingBulletSeen(bulletEl, seenPositionState);
+    if (hideSeenEnabled || !atBottom) {
+      seenLineMatchFound = true;
+    }
   });
-  briefingSeenTimers = new WeakMap();
 }
 
-function scheduleBriefingBulletSeen(bulletEl, seenState) {
-  if (!bulletEl || bulletEl.dataset.seenState === 'seen' || briefingSeenTimers.has(bulletEl)) return;
-  const timer = window.setTimeout(() => {
-    briefingSeenTimers.delete(bulletEl);
-    if (!document.body.contains(bulletEl) || bulletEl.dataset.seenState === 'seen') return;
-    markBriefingBulletSeen(bulletEl, seenState);
-    briefingSeenObserver?.unobserve(bulletEl);
-  }, SEEN_DWELL_MS);
-  briefingSeenTimers.set(bulletEl, timer);
+function scheduleSeenPositionCheck() {
+  if (pauseSeenScansUntilInput) return;
+  if (seenPositionFrame) return;
+  seenPositionFrame = window.requestAnimationFrame(() => {
+    seenPositionFrame = 0;
+    markSeenByScrollPosition();
+  });
 }
 
-function cancelBriefingBulletSeen(bulletEl) {
-  const timer = briefingSeenTimers.get(bulletEl);
-  if (!timer) return;
-  clearTimeout(timer);
-  briefingSeenTimers.delete(bulletEl);
+function resumeSeenPositionChecksAfterInput() {
+  if (!pauseSeenScansUntilInput) return;
+  pauseSeenScansUntilInput = false;
+  scheduleSeenPositionCheck();
 }
 
 function observeBriefingItems(seenState) {
-  if (briefingSeenObserver) {
-    briefingSeenObserver.disconnect();
-    briefingSeenObserver = null;
+  seenPositionState = seenState;
+  if (seenPositionFrame) {
+    window.cancelAnimationFrame(seenPositionFrame);
+    seenPositionFrame = 0;
   }
-  clearPendingSeenTimers();
   const bullets = Array.from(briefingEl.querySelectorAll('[data-seen-item-ids]'));
   if (!bullets.length) return;
-  if (!('IntersectionObserver' in window)) {
-    bullets.forEach((bulletEl) => markBriefingBulletSeen(bulletEl, seenState));
-    return;
-  }
-  briefingSeenObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting || entry.intersectionRatio < SEEN_VISIBILITY_RATIO) {
-          cancelBriefingBulletSeen(entry.target);
-          return;
-        }
-        scheduleBriefingBulletSeen(entry.target, seenState);
-      });
-    },
-    { threshold: [SEEN_VISIBILITY_RATIO] },
-  );
-  bullets.forEach((bulletEl) => {
-    if (bulletEl.dataset.seenState === 'seen') return;
-    briefingSeenObserver.observe(bulletEl);
-  });
+  pauseSeenScansUntilInput = false;
+  scheduleSeenPositionCheck();
 }
 
 function renderBriefing(briefing, seenState) {
@@ -450,6 +587,8 @@ function renderBriefing(briefing, seenState) {
           const temperatureLevel = temperatureClass(temperature);
           const itemIds = bulletItemIds(briefing, bullet, sectionIndex, bulletIndex);
           const seen = isSeenBriefingItem(seenState, itemIds);
+          const filterCategories = normalized.tags.map(escapeHtml).join(',');
+          const filterSourceIds = normalized.sourceIds.map(escapeHtml).join(',');
           const primaryUrlAttrs = normalized.primaryUrl
             ? ` data-primary-url="${escapeHtml(normalized.primaryUrl)}" role="link" tabindex="0" aria-label="Open ${escapeHtml(normalized.title)}"`
             : '';
@@ -461,8 +600,10 @@ function renderBriefing(briefing, seenState) {
                 `<a class="citation" href="${escapeHtml(citation.url)}" target="_blank" rel="noopener noreferrer">${citation.publishedAt ? `${escapeHtml(formatDate(citation.publishedAt))} · ` : ''}${escapeHtml(citation.sourceName)}</a>`,
             )
             .join('');
-          const tags = normalized.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
-          return `<li class="bullet bullet--${temperatureLevel}${seen ? ' bullet--seen' : ''}" data-seen-item-ids="${escapeHtml(itemIds.join(','))}" data-seen-state="${seen ? 'seen' : 'new'}"${primaryUrlAttrs}><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '📄')}</span><h4>${escapeHtml(normalized.title)}</h4><span class="bullet__status bullet__status--${seen ? 'seen' : 'new'}">${seen ? 'Seen' : 'New'}</span></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${links}</div></li>`;
+          const tags = normalized.tags
+            .map((tag) => `<button class="tag tag--button" type="button" data-filter-type="category" data-filter-value="${escapeHtml(tag)}" data-filter-label="${escapeHtml(tag)}" aria-pressed="false">${escapeHtml(tag)}</button>`)
+            .join('');
+          return `<li class="bullet bullet--${temperatureLevel}${seen ? ' bullet--seen' : ''}" data-seen-item-ids="${escapeHtml(itemIds.join(','))}" data-seen-state="${seen ? 'seen' : 'new'}" data-filter-categories="${filterCategories}" data-filter-source-ids="${filterSourceIds}"${primaryUrlAttrs}><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '📄')}</span><h4>${escapeHtml(normalized.title)}</h4><span class="bullet__status bullet__status--${seen ? 'seen' : 'new'}">${seen ? 'Seen' : 'New'}</span></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${links}</div></li>`;
         })
         .join('');
       return `<section class="section">${hasMultipleSections ? `<h3>${escapeHtml(section.title)}</h3>` : ''}<ul class="bullet-list">${bullets}</ul></section>`;
@@ -471,22 +612,58 @@ function renderBriefing(briefing, seenState) {
 
   briefingEl.innerHTML = `
     <div class="briefing-header">
-      <p class="meta">Generated ${formatDate(briefing.generatedAt)}</p>
-      <div class="briefing-controls"><button id="hideSeenButton" class="button button--compact" type="button" aria-pressed="${hideSeenEnabled ? 'true' : 'false'}">${hideSeenEnabled ? 'Show seen' : 'Hide seen'}</button></div>
+      <p class="meta briefing-meta"><span id="unreadCount">0 unread</span><span class="briefing-meta__generated">Generated ${formatDate(briefing.generatedAt)}</span></p>
+      <div class="briefing-controls"><span id="activeFilter" class="active-filter"></span><button id="clearFilterButton" class="button button--compact" type="button" hidden>Clear filter</button><button id="hideSeenButton" class="button button--compact" type="button" aria-pressed="${hideSeenEnabled ? 'true' : 'false'}">${hideSeenEnabled ? 'Show seen' : 'Hide seen'}</button></div>
     </div>
+    <p id="filterEmptyState" class="filter-empty" hidden>No articles match this filter.</p>
     ${sections}
     ${briefing.provider?.type === 'fake' ? '<p class="provider-note">Deterministic fallback summary. Add a Copilot token secret for AI-written briefings.</p>' : ''}
   `;
-  bindHideSeenButton();
+  bindHideSeenButton(seenState);
   bindBriefingBulletLinks();
+  bindBriefingFilters();
 }
 
 function renderHero(briefing) {
   const citations = citationMap(briefing);
   const topBullet = briefing.sections?.[0]?.bullets?.[0];
   const normalized = topBullet ? normalizeBullet(topBullet, citations) : null;
-  heroHeadlineEl.textContent = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
-  heroSummaryEl.textContent = normalized?.description || 'No notable updates were found in today’s rolling briefing.';
+  const topBulletCitation = (topBullet?.citations || []).map((itemId) => citations.get(itemId)).find(Boolean);
+  const heroTitle = topBullet?.title || topBulletCitation?.title || briefing.headline;
+  const heroDescription = stripInterestBoilerplate(
+    topBullet?.description || stripLeadingTitle(topBullet?.text, heroTitle) || topBullet?.text || '',
+  );
+  const heroTitleText = normalized?.title || truncateText(briefing.headline, MAX_HEADLINE_LENGTH);
+  const heroUrl = normalized?.primaryUrl;
+  if (heroUrl) {
+    const link = document.createElement('a');
+    link.href = heroUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = heroTitleText;
+    heroHeadlineEl.replaceChildren(link);
+  } else {
+    heroHeadlineEl.textContent = heroTitleText;
+  }
+  heroSummaryEl.textContent = heroDescription || 'No notable updates were found in today’s rolling briefing.';
+  if (heroMetaEl) {
+    if (!topBullet || !normalized) {
+      heroMetaEl.textContent = '';
+    } else {
+      const links = (topBullet.citations || [])
+        .map((itemId) => citations.get(itemId))
+        .filter(Boolean)
+        .map(
+          (citation) =>
+            `<a class="citation" href="${escapeHtml(citation.url)}" target="_blank" rel="noopener noreferrer">${citation.publishedAt ? `${escapeHtml(formatDate(citation.publishedAt))} · ` : ''}${escapeHtml(citation.sourceName)}</a>`,
+        )
+        .join('');
+      const tags = normalized.tags
+        .map((tag) => `<button class="tag tag--button" type="button" data-filter-type="category" data-filter-value="${escapeHtml(tag)}" data-filter-label="${escapeHtml(tag)}" aria-pressed="false">${escapeHtml(tag)}</button>`)
+        .join('');
+      heroMetaEl.innerHTML = `${tags ? `<div class="tag-list">${tags}</div>` : ''}${links ? `<div class="citations">${links}</div>` : ''}`;
+    }
+  }
 }
 
 function renderSources(status) {
@@ -495,9 +672,11 @@ function renderSources(status) {
     .sort((sourceA, sourceB) => sourceA.sourceId.localeCompare(sourceB.sourceId));
   const items = sources
     .map(
-      (source) => `<li>
-        <span class="status ${source.ok ? '' : 'status--bad'}">${source.ok ? 'OK' : 'Failed'}</span>
-        <strong>${escapeHtml(source.sourceId)}</strong>
+      (source) => `<li class="source-item">
+        <div class="source-heading">
+          <button class="source-filter source-title" type="button" data-filter-type="source" data-filter-value="${escapeHtml(source.sourceId)}" data-filter-label="${escapeHtml(source.sourceId)}" aria-pressed="false">${escapeHtml(source.sourceId)}</button>
+          <span class="status ${source.ok ? '' : 'status--bad'}">${source.ok ? 'OK' : 'Failed'}</span>
+        </div>
         <p class="source-meta">${escapeHtml(source.itemCount)} items · latest ${source.lastArticleAt ? escapeHtml(formatDate(source.lastArticleAt)) : 'n/a'} · ${escapeHtml(source.message)}</p>
       </li>`,
     )
@@ -507,6 +686,7 @@ function renderSources(status) {
     <h2>${sources.filter((source) => source.ok).length}/${sources.length} sources healthy</h2>
     <ul class="source-list">${items}</ul>
   `;
+  bindBriefingFilters();
 }
 
 function localDateKey(value) {
@@ -526,48 +706,94 @@ function localDateKeyParts(date, options) {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
-function previousLocalDateKey(dateKey) {
-  const [year, month, day] = dateKey.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() - 1);
-  return date.toISOString().slice(0, 10);
+function normalizeManifestPath(path) {
+  return String(path || '').replace(/^data\//, '');
 }
 
-async function findYesterdayBriefing(manifest, latest, currentBriefing) {
-  const yesterdayDate = previousLocalDateKey(localDateKey(currentBriefing.generatedAt));
-  const candidates = (manifest.briefings || [])
-    .filter((path) => path !== latest.latestBriefingYamlUrl)
-    .slice()
-    .sort()
-    .reverse()
-    .slice(0, 72);
+function articlePathDayKey(path) {
+  const match = normalizeManifestPath(path).match(/articles\/(\d{4})\/(\d{2})\/(\d{2})\.ya?ml$/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+}
 
-  for (const yamlPath of candidates) {
-    try {
-      const briefing = await getJson(resolveDataUrl(yamlPath.replace(/\.yaml$/, '.json')));
-      if (localDateKey(briefing.generatedAt) === yesterdayDate) return briefing;
-    } catch {
-      // Ignore retained manifest entries whose JSON mirror is unavailable.
-    }
+function briefingPathDayKey(path) {
+  const match = normalizeManifestPath(path).match(/briefings\/(\d{4})\/(\d{2})\/(\d{2})\//);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+}
+
+function availableArticleDays(manifest) {
+  return Array.from(new Set((manifest.articles || []).map(articlePathDayKey).filter(Boolean))).sort().reverse();
+}
+
+function retainedDateRange(availableDays) {
+  if (!availableDays.length) return [];
+  const newest = new Date(`${availableDays[0]}T00:00:00Z`);
+  const oldest = new Date(`${availableDays[availableDays.length - 1]}T00:00:00Z`);
+  const days = [];
+  for (const date = new Date(newest); date >= oldest; date.setUTCDate(date.getUTCDate() - 1)) {
+    days.push(date.toISOString().slice(0, 10));
   }
-  return null;
+  return days;
 }
 
-async function loadEarlierTodayBriefings(manifest, latest, currentBriefing) {
-  const currentDay = localDateKey(currentBriefing.generatedAt);
-  const currentYamlPath = latest.latestBriefingYamlUrl;
+function formatDatePickerLabel(dayKey) {
+  const date = new Date(`${dayKey}T12:00:00Z`);
+  try {
+    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(date);
+  } catch {
+    return dayKey;
+  }
+}
+
+function renderArchivePicker(manifest, selectedDayKey, onSelect) {
+  const availableDays = availableArticleDays(manifest);
+  const availableSet = new Set(availableDays);
+  if (!availableDays.length) {
+    yesterdayEl.hidden = true;
+    yesterdayEl.innerHTML = '';
+    return;
+  }
+  yesterdayEl.hidden = false;
+
+  const days = retainedDateRange(availableDays)
+    .map((dayKey) => {
+      const isAvailable = availableSet.has(dayKey);
+      const isSelected = dayKey === selectedDayKey;
+      return `<button class="date-picker__day${isSelected ? ' date-picker__day--selected' : ''}" type="button" data-briefing-day="${escapeHtml(dayKey)}" aria-pressed="${isSelected ? 'true' : 'false'}" ${isAvailable ? '' : 'disabled'}><span>${escapeHtml(formatDatePickerLabel(dayKey))}</span></button>`;
+    })
+    .join('');
+  yesterdayEl.innerHTML = `
+    <p class="eyebrow">Archive</p>
+    <h2>Browse by date</h2>
+    <div class="date-picker" aria-label="Briefing date picker">${days}</div>
+    <p id="archiveStatus" class="meta">Choose a retained day to load its articles.</p>
+  `;
+  yesterdayEl.querySelectorAll('[data-briefing-day]').forEach((button) => {
+    button.addEventListener('click', () => onSelect(button.dataset.briefingDay));
+  });
+}
+
+function setArchiveStatus(message, isError = false) {
+  const statusEl = yesterdayEl.querySelector('#archiveStatus');
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.classList.toggle('status--bad', isError);
+}
+
+async function loadBriefingSetForDay(manifest, latest, currentBriefing, dayKey) {
+  const latestYamlPath = normalizeManifestPath(latest.latestBriefingYamlUrl);
   const candidates = (manifest.briefings || [])
-    .filter((path) => path !== currentYamlPath && /\/hourly-\d{2}\.yaml$/.test(path))
+    .filter((path) => briefingPathDayKey(path) === dayKey)
     .slice()
     .sort()
     .reverse();
   const briefings = [];
   for (const yamlPath of candidates) {
     try {
-      const briefing = await getJson(resolveDataUrl(yamlPath.replace(/\.yaml$/, '.json')));
-      if (briefing.kind === 'hourly' && localDateKey(briefing.generatedAt) === currentDay) {
-        briefings.push(briefing);
-      }
+      const briefing =
+        normalizeManifestPath(yamlPath) === latestYamlPath
+          ? currentBriefing
+          : await getJson(resolveDataUrl(yamlPath.replace(/\.yaml$/, '.json')));
+      if (briefingPathDayKey(yamlPath) === dayKey) briefings.push(briefing);
     } catch {
       // Ignore retained manifest entries whose JSON mirror is unavailable.
     }
@@ -575,28 +801,33 @@ async function loadEarlierTodayBriefings(manifest, latest, currentBriefing) {
   return briefings.sort((left, right) => new Date(right.generatedAt) - new Date(left.generatedAt));
 }
 
-async function renderYesterday(manifest, latest, currentBriefing) {
-  const briefing = await findYesterdayBriefing(manifest, latest, currentBriefing);
-  if (!briefing) {
-    yesterdayEl.innerHTML = `
-      <p class="eyebrow">Yesterday</p>
-      <h2>No yesterday summary yet</h2>
-      <p class="meta">Once yesterday has retained briefing data, its latest daily roll-up will appear here.</p>
-    `;
-    return;
-  }
+function renderBriefingForDay(appState, briefings, dayKey) {
+  const latestForDay = briefings[0];
+  const earlierBriefings = briefings.slice(1);
+  const seenState = createSeenBriefingState(latestForDay, appState.manifest);
+  const isCurrentDay = dayKey === appState.currentDayKey;
+  const dayBriefing = todayBriefingView(latestForDay, earlierBriefings, seenState, {
+    combinedTitle: isCurrentDay ? 'Today so far' : `${formatDatePickerLabel(dayKey)} updates`,
+    latestTitle: isCurrentDay ? 'Latest update' : 'Latest retained update',
+  });
+  renderBriefing(dayBriefing, seenState);
+  observeBriefingItems(seenState);
+}
 
-  const citations = citationMap(briefing);
-  const topBullet = briefing.sections?.[0]?.bullets?.[0];
-  const normalized = topBullet ? normalizeBullet(topBullet, citations) : null;
-  yesterdayEl.innerHTML = `
-    <p class="eyebrow">Yesterday</p>
-    <h2>${escapeHtml(truncateText(briefing.headline, MAX_HEADLINE_LENGTH))}</h2>
-    <div class="yesterday-summary">
-      <p>${escapeHtml(normalized?.description || 'No summary text was available for yesterday.')}</p>
-      <p class="meta">Generated ${escapeHtml(formatDate(briefing.generatedAt))}</p>
-    </div>
-  `;
+async function selectBriefingDay(appState, dayKey) {
+  if (!availableArticleDays(appState.manifest).includes(dayKey)) return;
+  setArchiveStatus(`Loading ${formatDatePickerLabel(dayKey)}…`);
+  try {
+    const briefings = await loadBriefingSetForDay(appState.manifest, appState.latest, appState.currentBriefing, dayKey);
+    if (!briefings.length) {
+      throw new Error('No briefing was retained for this day.');
+    }
+    activeBriefingFilter = null;
+    renderBriefingForDay(appState, briefings, dayKey);
+    renderArchivePicker(appState.manifest, dayKey, (selectedDayKey) => selectBriefingDay(appState, selectedDayKey));
+  } catch (error) {
+    setArchiveStatus(error.message || 'Could not load that day.', true);
+  }
 }
 
 async function loadBuildInfo() {
@@ -622,6 +853,54 @@ async function renderFooter(buildInfo) {
   } catch {
     starCountText.textContent = 'Star on GitHub';
   }
+}
+
+function serviceWorkerVersion(buildInfo) {
+  return String(buildInfo?.commitSha || buildInfo?.shortSha || buildInfo?.buildId || 'dev');
+}
+
+function serviceWorkerScriptVersion(worker) {
+  try {
+    return new URL(worker.scriptURL).searchParams.get('v') || '';
+  } catch {
+    return '';
+  }
+}
+
+function setupAppUpdateRefresh(registration, buildInfo) {
+  if (!refreshButton) return;
+  const buildId = serviceWorkerVersion(buildInfo);
+  const wasControlled = Boolean(navigator.serviceWorker.controller);
+  let refreshing = false;
+  const isCurrentBuildWorker = (worker) => serviceWorkerScriptVersion(worker) === buildId;
+  const hasRefreshedBuild = () => safeSessionStorageGet(REFRESHED_BUILD_STORAGE_KEY) === buildId;
+  const showRefreshButton = (worker) => {
+    if (!isCurrentBuildWorker(worker) || hasRefreshedBuild()) return;
+    refreshButton.hidden = false;
+    refreshButton.textContent = 'Refresh available';
+  };
+  const refreshPage = () => {
+    if (refreshing) return;
+    refreshing = true;
+    refreshButton.hidden = false;
+    refreshButton.textContent = 'Refreshing…';
+    window.location.reload();
+  };
+  refreshButton.addEventListener('click', refreshPage);
+  if (registration.waiting) showRefreshButton(registration.waiting);
+  registration.addEventListener('updatefound', () => {
+    const newWorker = registration.installing;
+    if (!newWorker) return;
+    newWorker.addEventListener('statechange', () => {
+      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) showRefreshButton(newWorker);
+    });
+  });
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!wasControlled) return;
+    if (!isCurrentBuildWorker(navigator.serviceWorker.controller) || hasRefreshedBuild()) return;
+    safeSessionStorageSet(REFRESHED_BUILD_STORAGE_KEY, buildId);
+    refreshPage();
+  });
 }
 
 async function registerBackgroundNotifications(registration) {
@@ -670,35 +949,79 @@ function supportsBackgroundNotifications(registration) {
 function showUnsupportedNotificationState() {
   notifyButton.hidden = false;
   notifyButton.disabled = true;
-  notifyButton.textContent = 'Background notifications unavailable on this device';
+  notifyButton.textContent = 'Notifications unavailable';
+}
+
+function notificationsDisabledByUser() {
+  return safeLocalStorageGet(NOTIFICATIONS_DISABLED_STORAGE_KEY) === '1';
+}
+
+function setNotificationsDisabled(disabled) {
+  safeLocalStorageSet(NOTIFICATIONS_DISABLED_STORAGE_KEY, disabled ? '1' : '0');
+}
+
+async function unregisterBackgroundNotifications(registration) {
+  if (!registration || !('periodicSync' in registration) || !registration.periodicSync?.unregister) return;
+  try {
+    await registration.periodicSync.unregister(BACKGROUND_SYNC_TAG);
+  } catch {
+    // Ignore browsers that expose periodicSync but do not allow unregistering here.
+  }
+}
+
+function notificationButtonText(permission, hasBackgroundNotifications, isDisabled) {
+  void hasBackgroundNotifications;
+  if (permission === 'granted') {
+    return isDisabled ? 'Enable notifications' : 'Disable notifications';
+  }
+  if (permission === 'denied') return 'Notifications unavailable';
+  return 'Enable notifications';
+}
+
+function updateNotificationButton(permission, hasBackgroundNotifications) {
+  notifyButton.hidden = false;
+  notifyButton.disabled = permission === 'denied';
+  notifyButton.textContent = notificationButtonText(permission, hasBackgroundNotifications, notificationsDisabledByUser());
 }
 
 async function enableNotifications(registration, briefing, latest) {
-  if (!('Notification' in window) || !registration?.showNotification) return;
-  if (!supportsBackgroundNotifications(registration)) {
+  if (!('Notification' in window) || !registration?.showNotification) {
     showUnsupportedNotificationState();
-    syncLatestBriefing(registration, briefing, latest);
     return;
   }
-  notifyButton.hidden = Notification.permission === 'denied';
-  notifyButton.textContent = Notification.permission === 'granted' ? 'Hourly update notifications enabled' : 'Notify me when a new hourly update lands';
-  notifyButton.disabled = Notification.permission === 'granted';
-  if (Notification.permission === 'granted') {
+  const hasBackgroundNotifications = supportsBackgroundNotifications(registration);
+  updateNotificationButton(Notification.permission, hasBackgroundNotifications);
+  if (Notification.permission === 'granted' && !notificationsDisabledByUser() && hasBackgroundNotifications) {
     await registerBackgroundNotifications(registration);
   }
   notifyButton.addEventListener('click', async () => {
+    if (Notification.permission === 'granted') {
+      const disabled = !notificationsDisabledByUser();
+      setNotificationsDisabled(disabled);
+      if (disabled) {
+        await unregisterBackgroundNotifications(registration);
+      } else if (hasBackgroundNotifications) {
+        await registerBackgroundNotifications(registration);
+      }
+      updateNotificationButton(Notification.permission, hasBackgroundNotifications);
+      if (!disabled) syncLatestBriefing(registration, briefing, latest);
+      return;
+    }
+
     const permission = await Notification.requestPermission();
-    notifyButton.textContent = permission === 'granted' ? 'Hourly update notifications enabled' : 'Notifications unavailable';
-    notifyButton.disabled = permission === 'granted';
-    if (permission === 'granted') {
+    if (permission === 'granted') setNotificationsDisabled(false);
+    updateNotificationButton(permission, hasBackgroundNotifications);
+    if (permission === 'granted' && hasBackgroundNotifications) {
       await registerBackgroundNotifications(registration);
+    }
+    if (permission === 'granted') {
       syncLatestBriefing(registration, briefing, latest);
     }
   });
 
   const storageKey = 'wazzup:lastBriefingUrl';
   const previous = localStorage.getItem(storageKey);
-  if (previous && previous !== latest.latestBriefingUrl && Notification.permission === 'granted') {
+  if (previous && previous !== latest.latestBriefingUrl && Notification.permission === 'granted' && !notificationsDisabledByUser()) {
     registration.showNotification('Wazzup hourly update', {
       body: briefing.headline,
       icon: 'icons/icon-192.png',
@@ -707,7 +1030,9 @@ async function enableNotifications(registration, briefing, latest) {
     });
   }
   localStorage.setItem(storageKey, latest.latestBriefingUrl);
-  syncLatestBriefing(registration, briefing, latest);
+  if (Notification.permission === 'granted' && !notificationsDisabledByUser()) {
+    syncLatestBriefing(registration, briefing, latest);
+  }
 }
 
 async function main() {
@@ -718,23 +1043,29 @@ async function main() {
       getJson('data/sources/status.json'),
       getJson('data/manifest.json'),
     ]);
-    const seenState = createSeenBriefingState(briefing, manifest);
-    const earlierBriefings = await loadEarlierTodayBriefings(manifest, latest, briefing);
-    const todayBriefing = todayBriefingView(briefing, earlierBriefings, seenState);
+    const currentDayKey = articlePathDayKey(latest.latestArticlesYamlUrl || latest.latestArticlesUrl) || localDateKey(briefing.generatedAt);
+    const appState = { latest, manifest, currentBriefing: briefing, currentDayKey };
+    const currentDayBriefings = await loadBriefingSetForDay(manifest, latest, briefing, currentDayKey);
     renderHero(briefing);
-    renderBriefing(todayBriefing, seenState);
-    observeBriefingItems(seenState);
+    renderBriefingForDay(appState, currentDayBriefings.length ? currentDayBriefings : [briefing], currentDayKey);
+    renderArchivePicker(manifest, currentDayKey, (selectedDayKey) => selectBriefingDay(appState, selectedDayKey));
+    window.addEventListener('scroll', scheduleSeenPositionCheck, { passive: true });
+    window.addEventListener('resize', scheduleSeenPositionCheck);
+    window.addEventListener('wheel', resumeSeenPositionChecksAfterInput, { passive: true });
+    window.addEventListener('touchmove', resumeSeenPositionChecksAfterInput, { passive: true });
+    window.addEventListener('keydown', resumeSeenPositionChecksAfterInput);
     renderSources(status);
-    await renderYesterday(manifest, latest, briefing);
     await renderFooter(buildInfo);
     if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(buildInfo.buildId || 'dev')}`, { updateViaCache: 'none' });
+      const registration = await navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(serviceWorkerVersion(buildInfo))}`, { updateViaCache: 'none' });
+      setupAppUpdateRefresh(registration, buildInfo);
       await registration.update();
       await enableNotifications(registration, briefing, latest);
     }
   } catch (error) {
     heroHeadlineEl.textContent = 'Briefing unavailable';
     heroSummaryEl.textContent = 'The latest briefing could not be loaded. Try again after the next scheduled run.';
+    if (heroMetaEl) heroMetaEl.textContent = '';
     briefingEl.innerHTML = `<p class="eyebrow">Error</p><h2>Could not load briefing</h2><p class="meta">${escapeHtml(error.message)}</p>`;
     sourcesEl.innerHTML = '<p class="eyebrow">Source health</p><h2>Unavailable</h2>';
     yesterdayEl.innerHTML = '<p class="eyebrow">Yesterday</p><h2>Unavailable</h2>';

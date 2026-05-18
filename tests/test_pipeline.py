@@ -11,6 +11,10 @@ from unittest.mock import patch
 
 from wazzup.models import ContentItem, ScoredItem
 from wazzup.pipeline import (
+    content_window,
+    curated_scored_items,
+    diversification_key,
+    diversify_scored_items,
     exclude_already_featured_hourly_items,
     featured_hourly_item_ids_for_local_day,
     generate,
@@ -49,6 +53,71 @@ def scored_item(item_id: str, published_at: str, score: float) -> ScoredItem:
 
 
 class PipelineTests(unittest.TestCase):
+    def test_morning_content_window_covers_overnight_since_evening(self) -> None:
+        now = datetime(2026, 5, 10, 5, 10, tzinfo=UTC)
+
+        window_start, window_end = content_window("morning", now, "Europe/Amsterdam")
+
+        self.assertEqual("2026-05-09T18:00:00+00:00", window_start.isoformat())
+        self.assertEqual("2026-05-10T05:00:00+00:00", window_end.isoformat())
+
+    def test_diversification_key_prefers_interest_and_falls_back_to_source(self) -> None:
+        interested = replace(scored_item("interested", "2026-05-06T15:35:00Z", 50), matched_interests=["motorsport"])
+        uninterested = scored_item("uninterested", "2026-05-06T15:34:00Z", 49)
+        uninterested = replace(uninterested, item=replace(uninterested.item, source_id="source-b"))
+
+        self.assertEqual("interest:motorsport", diversification_key(interested))
+        self.assertEqual("source:source-b", diversification_key(uninterested))
+
+    def test_diversify_scored_items_limits_interest_streaks(self) -> None:
+        motorsport_1 = replace(scored_item("motorsport-1", "2026-05-06T15:35:00Z", 50), matched_interests=["motorsport"])
+        motorsport_2 = replace(scored_item("motorsport-2", "2026-05-06T15:34:00Z", 49), matched_interests=["motorsport"])
+        motorsport_3 = replace(scored_item("motorsport-3", "2026-05-06T15:33:00Z", 48), matched_interests=["motorsport"])
+        security = replace(scored_item("security-1", "2026-05-06T15:32:00Z", 47), matched_interests=["security"])
+        ai = replace(scored_item("ai-1", "2026-05-06T15:31:00Z", 46), matched_interests=["ai"])
+
+        diversified = diversify_scored_items([motorsport_1, motorsport_2, motorsport_3, security, ai], max_consecutive=2)
+
+        self.assertEqual(["motorsport-1", "motorsport-2", "security-1", "motorsport-3", "ai-1"], [item.item.id for item in diversified])
+
+    def test_diversify_scored_items_uses_source_id_without_interest_matches(self) -> None:
+        source_a_1 = scored_item("source-a-1", "2026-05-06T15:35:00Z", 50)
+        source_a_2 = scored_item("source-a-2", "2026-05-06T15:34:00Z", 49)
+        source_a_3 = scored_item("source-a-3", "2026-05-06T15:33:00Z", 48)
+        source_b_base = scored_item("source-b-1", "2026-05-06T15:32:00Z", 47)
+        source_b = replace(source_b_base, item=replace(source_b_base.item, source_id="source-b"))
+
+        diversified = diversify_scored_items([source_a_1, source_a_2, source_a_3, source_b], max_consecutive=2)
+
+        self.assertEqual(["source-a-1", "source-a-2", "source-b-1", "source-a-3"], [item.item.id for item in diversified])
+
+    def test_diversify_scored_items_returns_input_when_threshold_or_length_short_circuits(self) -> None:
+        first = scored_item("first", "2026-05-06T15:35:00Z", 50)
+        second = scored_item("second", "2026-05-06T15:34:00Z", 49)
+
+        self.assertEqual([], diversify_scored_items([], max_consecutive=2))
+        self.assertEqual([first], diversify_scored_items([first], max_consecutive=0))
+        self.assertEqual([first, second], diversify_scored_items([first, second], max_consecutive=2))
+
+    def test_curated_scored_items_keeps_known_unique_ids_up_to_max(self) -> None:
+        first = scored_item("first", "2026-05-06T15:35:00Z", 50)
+        second = scored_item("second", "2026-05-06T15:34:00Z", 49)
+        third = scored_item("third", "2026-05-06T15:33:00Z", 48)
+
+        curated = curated_scored_items([first, second, third], ["unknown", "second", "second", "third", "first"], 2)
+
+        self.assertEqual(["second", "third"], [item.item.id for item in curated])
+
+    def test_curated_scored_items_falls_back_when_selection_is_empty(self) -> None:
+        first = scored_item("first", "2026-05-06T15:35:00Z", 50)
+        second = scored_item("second", "2026-05-06T15:34:00Z", 49)
+
+        curated = curated_scored_items([first, second], ["unknown"], 1)
+
+        self.assertEqual(["first"], [item.item.id for item in curated])
+        self.assertEqual([], curated_scored_items([], ["unknown"], 1))
+        self.assertEqual([], curated_scored_items([first, second], ["first"], 0))
+
     def test_hourly_selection_prioritizes_new_articles(self) -> None:
         now = datetime(2026, 5, 6, 15, 42, tzinfo=UTC)
         scored = [
@@ -151,19 +220,28 @@ class PipelineTests(unittest.TestCase):
                     )
                 self.assertIn("latestBriefingUrl", latest)
                 self.assertIn("latestArticlesUrl", latest)
+                self.assertIn("latestTransparencyReportUrl", latest)
+                self.assertIn("latestTransparencyReportMarkdownUrl", latest)
+                self.assertIn("latestTransparencyReportYamlUrl", latest)
                 self.assertTrue(latest["latestBriefingUrl"].startswith("data/"))
                 self.assertTrue(latest["latestArticlesUrl"].startswith("data/"))
+                self.assertTrue(latest["latestTransparencyReportUrl"].startswith("data/"))
                 validate_data_dir(public_dir / "data")
                 briefing_path = public_dir / latest["latestBriefingUrl"]
                 articles_path = public_dir / latest["latestArticlesUrl"]
+                transparency_path = public_dir / latest["latestTransparencyReportUrl"]
+                transparency_markdown_path = public_dir / latest["latestTransparencyReportMarkdownUrl"]
                 briefing = briefing_path.read_text(encoding="utf-8")
                 self.assertIn("Top updates", briefing)
                 briefing_json = json.loads(briefing_path.read_text(encoding="utf-8"))
                 articles_text = articles_path.read_text(encoding="utf-8")
                 articles_json = json.loads(articles_text)
+                transparency_json = json.loads(transparency_path.read_text(encoding="utf-8"))
                 self.assertEqual("2026-05-05T22:00:00Z", briefing_json["windowStart"])
                 self.assertEqual("2026-05-06T18:00:00Z", briefing_json["windowEnd"])
                 self.assertIsInstance(articles_json["items"], list)
+                self.assertEqual("transparency-v1", transparency_json["promptVersion"])
+                self.assertTrue(transparency_markdown_path.read_text(encoding="utf-8").startswith("# Transparency report"))
                 self.assertTrue(articles_text.lstrip().startswith("{"))
                 self.assertIn("publishedAt", briefing_json["citations"][0])
                 self.assertIn("sourceTag", briefing_json["citations"][0])

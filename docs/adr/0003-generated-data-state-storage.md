@@ -2,11 +2,11 @@
 
 ## Status
 
-Accepted
+Accepted and implemented
 
 ## Context
 
-The scheduled pipeline generates frequent data: 24 hourly snapshots plus morning and evening briefings means at least 26 generated outputs per day. Committing those outputs would create roughly 9,490 generated-data commits per year before retries, manual runs, or future recap artifacts.
+The scheduled pipeline generates frequent data: 8 scheduled daytime snapshots plus morning and evening briefings means up to 10 generated outputs per day. Committing those outputs would create roughly 3,650 generated-data commits per year before retries, manual runs, or future recap artifacts.
 
 The system still needs durable state between scheduled runs so the next workflow can publish a rolling 35-day Pages window instead of only the latest run.
 
@@ -19,8 +19,8 @@ Use a dedicated GitHub Release named `news-state` as the durable state store for
 1. The scheduled workflow downloads `wazzup-state.zip` from the `news-state` release if it exists.
 2. The workflow extracts the archive into `public/data`.
 3. The pipeline fetches feeds, generates the new briefing, and writes updated YAML plus JSON browser mirrors.
-4. The pipeline enforces the 35-day retention window.
-5. The workflow uploads the updated `wazzup-state.zip` release asset with `--clobber`.
+4. The pipeline writes a transparency report for the run and enforces the 35-day retention window.
+5. The workflow uploads the updated `wazzup-state.zip` release asset with `--clobber` and attaches the latest Markdown transparency report as `wazzup-transparency-report.md` when present.
 6. The separate Pages workflow deploys `public` to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.
 
 Implemented refinement after the first Pages deployment failure:
@@ -29,6 +29,7 @@ Implemented refinement after the first Pages deployment failure:
 - If no token is available, `task state:restore` downloads the public release asset URL directly with `curl`.
 - `task pages:build` sets `STATE_REQUIRED=true`; if state cannot be restored, Pages deployment fails explicitly instead of deploying missing `public/data/latest.json`.
 - The reusable Pages workflow receives `build-command: ~/.local/bin/mise exec -- task pages:build` without trying to inject `GH_TOKEN` into a string input.
+- The Pages reusable workflow later moved to `PYTHONPATH=src python3 scripts/pages_build.py` instead of `mise install`/`task pages:build`, because `github.token` is not reliably available inside reusable workflow string inputs and unauthenticated mise GitHub API calls can hit rate limits before deployment starts.
 
 Do not create one GitHub Release per hour for operational state. That would create up to 8,760 releases per year before retries and manual runs. The mutable `news-state` release remains the hot state store. If human time travel becomes important beyond the 35-day Pages window, add immutable daily or monthly archive/recap releases with concise release bodies and attached snapshots.
 
@@ -49,7 +50,7 @@ The state archive currently contains YAML canonical files and JSON mirrors. YAML
 - The scheduled workflow needs `contents: write` permission to create/update the release asset.
 - Release asset updates are mutable state and need defensive validation before publishing.
 - The `news-state` release is operational state, not a semantic product release.
-- The Pages workflow depends on the state release being public or otherwise downloadable without a token. This matches the current public MVP assumption.
+- The Pages workflow depends on the state release being public or otherwise downloadable without a token. This matches the current public deployment assumption.
 
 ## Alternatives considered
 
@@ -81,7 +82,7 @@ The state archive currently contains YAML canonical files and JSON mirrors. YAML
 ### External database or object storage
 
 - Pros: Better query and state-management capabilities.
-- Cons: Adds infrastructure the MVP is explicitly avoiding.
+- Cons: Adds infrastructure the current architecture intentionally avoids.
 
 ## Follow-up decisions
 

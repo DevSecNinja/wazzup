@@ -2,6 +2,9 @@
 name: Pages
 
 on:
+  push:
+    branches:
+      - main
   workflow_run:
     workflows:
       - News hourly
@@ -36,10 +39,7 @@ jobs:
       wrangler-version: "3"
       artifact-path: public
       install-command: |-
-        curl -fsSL https://mise.run | sh
-        ~/.local/bin/mise trust .
-        ~/.local/bin/mise install
-        ~/.local/bin/mise exec -- task install
-      test-command: ~/.local/bin/mise exec -- task ci
-      build-command: ~/.local/bin/mise exec -- task pages:build
+        python3 -m pip install --break-system-packages -r requirements.txt
+      test-command: PYTHONPATH=src python3 scripts/check_format.py && python3 scripts/lint.py && PYTHONPATH=src python3 -m unittest discover -s tests && python3 -m compileall -q src scripts
+      build-command: PYTHONPATH=src python3 scripts/pages_build.py
       cloudflare-preview: false
