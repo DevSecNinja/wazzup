@@ -766,6 +766,39 @@ class AiTransparencyReportProviderTests(unittest.TestCase):
         self.assertEqual(DEFAULT_COPILOT_TRANSPARENCY_AGENT, response.provider["agent"])
         self.assertEqual("Transparency report", response.title)
 
+    @patch("wazzup.ai.subprocess.run")
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_cli_transparency_falls_back_on_runtime_failure(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
+        os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
+        run_mock.return_value = Mock(returncode=1, stdout="failed", stderr="upstream error")
+        try:
+            response = CopilotCliTransparencyReportProvider().generate_transparency_report(
+                TransparencyReportRequest(
+                    kind="hourly",
+                    window_start="2026-05-06T20:00:00Z",
+                    window_end="2026-05-06T21:00:00Z",
+                    generated_at="2026-05-06T21:00:00Z",
+                    timezone="Europe/Amsterdam",
+                    summary_language="en",
+                    max_items=12,
+                    statuses=[],
+                    ranked_items=[],
+                    selected_items=[],
+                    curation_provider={"type": "fake"},
+                    summary_provider={"type": "fake"},
+                )
+            )
+        finally:
+            if previous_token is None:
+                os.environ.pop("COPILOT_GITHUB_TOKEN", None)
+            else:
+                os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
+
+        self.assertEqual("copilot-cli-fallback", response.provider["type"])
+        self.assertEqual("copilot-cli", response.provider["fallbackFrom"])
+        self.assertIn("exit code 1", response.provider["fallbackReason"])
+
 
 if __name__ == "__main__":
     unittest.main()

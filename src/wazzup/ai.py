@@ -487,46 +487,46 @@ class CopilotCliTransparencyReportProvider:
                     "--no-ask-user",
                 ]
             )
-            result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
-            if result.returncode != 0:
-                details = []
-                if result.stdout.strip():
-                    details.append(f"stdout: {result.stdout.strip()}")
-                if result.stderr.strip():
-                    details.append(f"stderr: {result.stderr.strip()}")
-                detail_text = "\n" + "\n".join(details) if details else ""
-                raise RuntimeError(
-                    f"Copilot CLI transparency report failed with exit code {result.returncode}. "
-                    "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
-                    "or use AI_PROVIDER=fake."
-                    f"{detail_text}"
-                )
-            if not output_path.exists():
-                raise RuntimeError("Copilot CLI did not write transparency-output.json")
-            payload = json.loads(output_path.read_text(encoding="utf-8"))
-        provider = {
-            "type": self.name,
-            "model": payload.get("model", self.model or "copilot-cli"),
-            "agent": self.agent or None,
-            "promptVersion": "transparency-v1",
-            "validated": True,
-        }
-        try:
-            return transparency_response_from_payload(payload, provider=provider)
-        except ValueError as exc:
-            fallback = FakeTransparencyReportProvider().generate_transparency_report(request)
-            return TransparencyReportResponse(
-                title=fallback.title,
-                summary=fallback.summary,
-                sections=fallback.sections,
-                provider={
-                    **fallback.provider,
-                    "type": "copilot-cli-fallback",
-                    "fallbackFrom": self.name,
-                    "fallbackReason": str(exc),
+            try:
+                result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
+                if result.returncode != 0:
+                    details = []
+                    if result.stdout.strip():
+                        details.append(f"stdout: {result.stdout.strip()}")
+                    if result.stderr.strip():
+                        details.append(f"stderr: {result.stderr.strip()}")
+                    detail_text = "\n" + "\n".join(details) if details else ""
+                    raise RuntimeError(
+                        f"Copilot CLI transparency report failed with exit code {result.returncode}. "
+                        "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
+                        "or use AI_PROVIDER=fake."
+                        f"{detail_text}"
+                    )
+                if not output_path.exists():
+                    raise RuntimeError("Copilot CLI did not write transparency-output.json")
+                payload = json.loads(output_path.read_text(encoding="utf-8"))
+                provider = {
+                    "type": self.name,
+                    "model": payload.get("model", self.model or "copilot-cli"),
+                    "agent": self.agent or None,
+                    "promptVersion": "transparency-v1",
                     "validated": True,
-                },
-            )
+                }
+                return transparency_response_from_payload(payload, provider=provider)
+            except (RuntimeError, ValueError, json.JSONDecodeError) as exc:
+                fallback = FakeTransparencyReportProvider().generate_transparency_report(request)
+                return TransparencyReportResponse(
+                    title=fallback.title,
+                    summary=fallback.summary,
+                    sections=fallback.sections,
+                    provider={
+                        **fallback.provider,
+                        "type": "copilot-cli-fallback",
+                        "fallbackFrom": self.name,
+                        "fallbackReason": str(exc),
+                        "validated": True,
+                    },
+                )
 
 
 def _fake_bullet(scored: ScoredItem, kind: BriefingKind = "hourly") -> str:
