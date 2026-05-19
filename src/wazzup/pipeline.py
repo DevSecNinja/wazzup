@@ -17,7 +17,7 @@ from .ai import (
     transparency_provider_from_env,
 )
 from .config import load_app_config, load_sources
-from .feeds import deduplicate, fetch_and_parse, isoformat, parse_feed, utc_now
+from .feeds import cluster_related_stories, deduplicate, fetch_and_parse, isoformat, parse_feed, utc_now
 from .models import BriefingKind, ContentItem, ScoredItem, SourceStatus
 from .publisher import briefing_path, publish_outputs
 from .scoring import parse_iso, score_items
@@ -255,6 +255,7 @@ def generate(argv: Sequence[str] | None = None) -> dict:
     )
     content_window_start, content_window_end = content_window(kind, now, app_config.timezone)
     window_items = filter_items_to_window(items, content_window_start, content_window_end)
+    window_items = cluster_related_stories(window_items)
     scored = score_items(window_items, sources, app_config, now)
     if kind == "hourly":
         scored = prioritize_hourly_new_items(scored, now)
