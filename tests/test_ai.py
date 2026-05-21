@@ -408,6 +408,38 @@ class AiProviderTests(unittest.TestCase):
         self.assertIn("fallbackReason", response.provider)
         self.assertTrue(response.sections[0]["bullets"])
 
+    @patch("wazzup.ai.subprocess.run")
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_summary_falls_back_on_runtime_failure(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
+        os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
+        run_mock.return_value = Mock(returncode=1, stdout="failed", stderr="upstream error")
+        try:
+            response = CopilotCliSummaryProvider().generate_structured_summary(
+                SummaryRequest(
+                    kind="hourly",
+                    window_start="2026-05-06T00:00:00Z",
+                    window_end="2026-05-06T21:00:00Z",
+                    generated_at="2026-05-06T21:00:00Z",
+                    timezone="Europe/Amsterdam",
+                    summary_language="en",
+                    items=scored,
+                )
+            )
+        finally:
+            if previous_token is None:
+                os.environ.pop("COPILOT_GITHUB_TOKEN", None)
+            else:
+                os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
+
+        self.assertEqual("copilot-cli-fallback", response.provider["type"])
+        self.assertEqual("copilot-cli", response.provider["fallbackFrom"])
+        self.assertIn("exit code 1", response.provider["fallbackReason"])
+        self.assertTrue(response.sections[0]["bullets"])
+
 
 class AiCurationProviderTests(unittest.TestCase):
     def test_curation_provider_defaults_to_fake(self) -> None:
@@ -603,6 +635,38 @@ class AiCurationProviderTests(unittest.TestCase):
 
         self.assertEqual("copilot-cli-fallback", response.provider["type"])
         self.assertIn("fallbackReason", response.provider)
+        self.assertTrue(response.selected_ids)
+
+    @patch("wazzup.ai.subprocess.run")
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_cli_curation_falls_back_on_runtime_failure(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
+        os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
+        run_mock.return_value = Mock(returncode=1, stdout="failed", stderr="upstream error")
+        try:
+            response = CopilotCliCurationProvider().curate_items(
+                CurationRequest(
+                    kind="hourly",
+                    window_start="2026-05-06T20:00:00Z",
+                    window_end="2026-05-06T21:00:00Z",
+                    generated_at="2026-05-06T21:00:00Z",
+                    timezone="Europe/Amsterdam",
+                    items=scored,
+                    max_items=12,
+                )
+            )
+        finally:
+            if previous_token is None:
+                os.environ.pop("COPILOT_GITHUB_TOKEN", None)
+            else:
+                os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
+
+        self.assertEqual("copilot-cli-fallback", response.provider["type"])
+        self.assertEqual("copilot-cli", response.provider["fallbackFrom"])
+        self.assertIn("exit code 1", response.provider["fallbackReason"])
         self.assertTrue(response.selected_ids)
 
 
