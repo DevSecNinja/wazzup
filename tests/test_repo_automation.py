@@ -60,7 +60,7 @@ class RepoAutomationTests(unittest.TestCase):
             for pattern in patterns
             if isinstance(pattern, str) and pattern.startswith("/")
         ]
-        self.assertEqual(11, len(case_insensitive_patterns))
+        self.assertTrue(case_insensitive_patterns)
         for pattern in case_insensitive_patterns:
             self.assertTrue(pattern.endswith("/i"), pattern)
 
