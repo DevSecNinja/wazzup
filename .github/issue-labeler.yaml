@@ -2,38 +2,38 @@
 # Conventional Commit-style issue labels.
 feat:
   - '^feat(\(.+\))?:'
-  - '(?i)(feature request|enhancement|add support|would be (nice|great)|request)'
+  - '/(feature request|enhancement|add support|would be (nice|great)|request)/i'
 
 fix:
   - '^fix(\(.+\))?:'
-  - '(?i)(error|crash|fail|broken|not work|doesn.t work|bug)'
+  - '/(error|crash|fail|broken|not work|doesn.t work|bug)/i'
 
 docs:
   - '^docs(\(.+\))?:'
-  - '(?i)(doc|readme|wiki|guide|tutorial|documentation)'
+  - '/(doc|readme|wiki|guide|tutorial|documentation)/i'
 
 ci:
   - '^ci(\(.+\))?:'
-  - '(?i)(github action|workflow|pipeline|\.github)'
+  - '/(github action|workflow|pipeline|\.github)/i'
 
 # Area labels.
 area/backend:
-  - '(?i)(python|pipeline|feed|rss|atom|scoring|copilot|ai provider)'
+  - '/(python|pipeline|feed|rss|atom|scoring|copilot|ai provider)/i'
 
 area/frontend:
-  - '(?i)(pwa|frontend|ui|css|service worker|manifest|notification)'
+  - '/(pwa|frontend|ui|css|service worker|manifest|notification)/i'
 
 area/data:
-  - '(?i)(data|yaml|json|state|release asset|retention|source|fixture)'
+  - '/(data|yaml|json|state|release asset|retention|source|fixture)/i'
 
 area/docs:
-  - '(?i)(doc|readme|adr|architecture|requirement)'
+  - '/(doc|readme|adr|architecture|requirement)/i'
 
 area/github:
-  - '(?i)(github action|workflow|ci|pipeline|label|automation)'
+  - '/(github action|workflow|ci|pipeline|label|automation)/i'
 
 area/renovate:
-  - '(?i)(renovate|dependency|dependenc|update.*package|package.*update)'
+  - '/(renovate|dependency|dependenc|update.*package|package.*update)/i'
 
 question:
-  - '(?i)(how (do|to|can)|question|\?)'
+  - '/(how (do|to|can)|question|\?)/i'

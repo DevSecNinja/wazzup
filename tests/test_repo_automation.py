@@ -49,6 +49,11 @@ class RepoAutomationTests(unittest.TestCase):
         self.assertIn("area/backend", pr_labeler)
         self.assertIn("area/renovate", pr_labeler)
 
+    def test_issue_labeler_uses_javascript_compatible_case_insensitive_regex(self) -> None:
+        issue_labeler = Path(".github/issue-labeler.yaml").read_text(encoding="utf-8")
+        self.assertNotIn("(?i)", issue_labeler)
+        self.assertIn("/(feature request|enhancement|add support|would be (nice|great)|request)/i", issue_labeler)
+
 
 if __name__ == "__main__":
     unittest.main()
