@@ -25,6 +25,7 @@ class ConfigTests(unittest.TestCase):
         self.assertIn("espn-nba", {source.id for source in sources})
         self.assertIn("github-blog", {source.id for source in sources})
         self.assertIn("openai-news", {source.id for source in sources})
+        self.assertIn("omar-knows-ai", {source.id for source in sources})
         self.assertIn("anthropic-news", {source.id for source in sources})
         self.assertIn("hugging-face-blog", {source.id for source in sources})
         self.assertIn("azure-updates", {source.id for source in sources})
@@ -35,7 +36,10 @@ class ConfigTests(unittest.TestCase):
         timeout_by_id = {source.id: source.timeout_seconds for source in sources}
         enabled_by_id = {source.id: source.enabled for source in sources}
         feed_url_by_id = {source.id: source.feed_url for source in sources}
+        weight_by_id = {source.id: source.weight for source in sources}
         self.assertEqual(30, timeout_by_id["microsoft-security-blog"])
+        self.assertEqual("https://www.omarknows.ai/feed", feed_url_by_id["omar-knows-ai"])
+        self.assertGreaterEqual(weight_by_id["omar-knows-ai"], 1.2)
         self.assertEqual("https://fd.nl/?rss", feed_url_by_id["fd-nl"])
         self.assertEqual(8, timeout_by_id["nba-official-news"])
         self.assertFalse(enabled_by_id["nba-official-news"])

@@ -616,6 +616,28 @@ sources:
       - AI safety
     notes: "Official OpenAI News feed for model, API, and policy updates."
 
+  - id: omar-knows-ai
+    name: Omar Knows AI
+    sourceTag: Omar AI
+    enabled: true
+    type: rss
+    homepageUrl: https://www.omarknows.ai/
+    feedUrl: https://www.omarknows.ai/feed
+    language: en
+    region: global
+    weight: 1.3
+    categories:
+      - ai
+      - llm
+      - developer-platforms
+    interestHints:
+      - artificial intelligence
+      - generative AI
+      - large language models
+      - AI tools
+      - developer workflows
+    notes: "Omar's AI-focused site feed, configured as a relatively high-priority source."
+
   - id: anthropic-news
     name: Anthropic News
     sourceTag: Anthropic
