@@ -233,14 +233,14 @@ class FakeTransparencyReportProvider:
 
 
 def run_copilot_cli(command: list[str], run_env: dict[str, str], failure_label: str) -> subprocess.CompletedProcess[str]:
-    result: subprocess.CompletedProcess[str] | None = None
+    failed_results: list[subprocess.CompletedProcess[str]] = []
     for _ in range(COPILOT_CLI_MAX_ATTEMPTS):
         result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
         if result.returncode == 0:
             return result
-    if result is None:
-        raise RuntimeError(f"{failure_label} was not attempted")
+        failed_results.append(result)
 
+    result = failed_results[-1]
     details = []
     if result.stdout.strip():
         details.append(f"stdout: {result.stdout.strip()}")
@@ -318,18 +318,7 @@ class CopilotCliCurationProvider:
             payload = json.loads(output_path.read_text(encoding="utf-8"))
         selected_ids = payload.get("selectedIds")
         if not isinstance(selected_ids, list) or not all(isinstance(item_id, str) for item_id in selected_ids):
-            fallback = FakeCurationProvider()
-            fallback_response = fallback.curate_items(request)
-            return CurationResponse(
-                selected_ids=fallback_response.selected_ids,
-                provider={
-                    **fallback_response.provider,
-                    "type": "copilot-cli-fallback",
-                    "fallbackFrom": self.name,
-                    "fallbackReason": "Curator returned invalid selectedIds",
-                    "validated": True,
-                },
-            )
+            raise ValueError("Copilot CLI curation returned invalid selectedIds")
         provider = {
             "type": self.name,
             "model": payload.get("model", self.model or "copilot-cli"),
@@ -410,21 +399,7 @@ class CopilotCliSummaryProvider:
                 "promptVersion": "summary-v1",
                 "validated": True,
             }
-            try:
-                return response_from_payload(payload, provider=provider)
-            except ValueError as exc:
-                fallback = FakeSummaryProvider().generate_structured_summary(request)
-                return SummaryResponse(
-                    headline=fallback.headline,
-                    sections=fallback.sections,
-                    provider={
-                        **fallback.provider,
-                        "type": "copilot-cli-fallback",
-                        "fallbackFrom": self.name,
-                        "fallbackReason": str(exc),
-                        "validated": True,
-                    },
-                )
+            return response_from_payload(payload, provider=provider)
 
 
 class CopilotCliTransparencyReportProvider:
