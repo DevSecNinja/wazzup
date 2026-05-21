@@ -96,6 +96,7 @@ DEFAULT_COPILOT_MODEL = "claude-sonnet-4.6"
 DEFAULT_COPILOT_AGENT = "wazzup-writer"
 DEFAULT_COPILOT_CURATOR_AGENT = "wazzup-curator"
 DEFAULT_COPILOT_TRANSPARENCY_AGENT = "wazzup-transparency-reporter"
+COPILOT_CLI_MAX_ATTEMPTS = 2
 MAX_SUMMARY_HEADLINE_LENGTH = 80
 MAX_SUMMARY_TITLE_LENGTH = 96
 MAX_SUMMARY_DESCRIPTION_LENGTH = 220
@@ -231,6 +232,28 @@ class FakeTransparencyReportProvider:
         )
 
 
+def run_copilot_cli(command: list[str], run_env: dict[str, str], failure_label: str) -> subprocess.CompletedProcess[str]:
+    result: subprocess.CompletedProcess[str] | None = None
+    for _attempt in range(COPILOT_CLI_MAX_ATTEMPTS):
+        result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
+        if result.returncode == 0:
+            return result
+    if result is None:
+        raise RuntimeError(f"{failure_label} was not attempted")
+
+    details = []
+    if result.stdout.strip():
+        details.append(f"stdout: {result.stdout.strip()}")
+    if result.stderr.strip():
+        details.append(f"stderr: {result.stderr.strip()}")
+    detail_text = "\n" + "\n".join(details) if details else ""
+    raise RuntimeError(
+        f"{failure_label} failed with exit code {result.returncode} after {COPILOT_CLI_MAX_ATTEMPTS} attempts. "
+        "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, or use AI_PROVIDER=fake."
+        f"{detail_text}"
+    )
+
+
 class CopilotCliCurationProvider:
     name = "copilot-cli"
 
@@ -289,36 +312,10 @@ class CopilotCliCurationProvider:
                     "--no-ask-user",
                 ]
             )
-            try:
-                result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
-                if result.returncode != 0:
-                    details = []
-                    if result.stdout.strip():
-                        details.append(f"stdout: {result.stdout.strip()}")
-                    if result.stderr.strip():
-                        details.append(f"stderr: {result.stderr.strip()}")
-                    detail_text = "\n" + "\n".join(details) if details else ""
-                    raise RuntimeError(
-                        f"Copilot CLI curation failed with exit code {result.returncode}. "
-                        "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
-                        "or use AI_PROVIDER=fake."
-                        f"{detail_text}"
-                    )
-                if not output_path.exists():
-                    raise RuntimeError("Copilot CLI did not write curation-output.json")
-                payload = json.loads(output_path.read_text(encoding="utf-8"))
-            except (RuntimeError, json.JSONDecodeError) as exc:
-                fallback = FakeCurationProvider().curate_items(request)
-                return CurationResponse(
-                    selected_ids=fallback.selected_ids,
-                    provider={
-                        **fallback.provider,
-                        "type": "copilot-cli-fallback",
-                        "fallbackFrom": self.name,
-                        "fallbackReason": str(exc),
-                        "validated": True,
-                    },
-                )
+            run_copilot_cli(command, run_env, "Copilot CLI curation")
+            if not output_path.exists():
+                raise RuntimeError("Copilot CLI did not write curation-output.json")
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
         selected_ids = payload.get("selectedIds")
         if not isinstance(selected_ids, list) or not all(isinstance(item_id, str) for item_id in selected_ids):
             fallback = FakeCurationProvider()
@@ -403,20 +400,7 @@ class CopilotCliSummaryProvider:
                 ]
             )
             try:
-                result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
-                if result.returncode != 0:
-                    details = []
-                    if result.stdout.strip():
-                        details.append(f"stdout: {result.stdout.strip()}")
-                    if result.stderr.strip():
-                        details.append(f"stderr: {result.stderr.strip()}")
-                    detail_text = "\n" + "\n".join(details) if details else ""
-                    raise RuntimeError(
-                        f"Copilot CLI failed with exit code {result.returncode}. "
-                        "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
-                        "or use AI_PROVIDER=fake."
-                        f"{detail_text}"
-                    )
+                run_copilot_cli(command, run_env, "Copilot CLI")
                 if not output_path.exists():
                     raise RuntimeError("Copilot CLI did not write summary.json")
                 payload = json.loads(output_path.read_text(encoding="utf-8"))
@@ -428,7 +412,7 @@ class CopilotCliSummaryProvider:
                     "validated": True,
                 }
                 return response_from_payload(payload, provider=provider)
-            except (RuntimeError, ValueError, json.JSONDecodeError) as exc:
+            except ValueError as exc:
                 fallback = FakeSummaryProvider().generate_structured_summary(request)
                 return SummaryResponse(
                     headline=fallback.headline,
