@@ -399,18 +399,18 @@ class CopilotCliSummaryProvider:
                     "--no-ask-user",
                 ]
             )
+            run_copilot_cli(command, run_env, "Copilot CLI")
+            if not output_path.exists():
+                raise RuntimeError("Copilot CLI did not write summary.json")
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            provider = {
+                "type": self.name,
+                "model": payload.get("model", self.model or "copilot-cli"),
+                "agent": self.agent or None,
+                "promptVersion": "summary-v1",
+                "validated": True,
+            }
             try:
-                run_copilot_cli(command, run_env, "Copilot CLI")
-                if not output_path.exists():
-                    raise RuntimeError("Copilot CLI did not write summary.json")
-                payload = json.loads(output_path.read_text(encoding="utf-8"))
-                provider = {
-                    "type": self.name,
-                    "model": payload.get("model", self.model or "copilot-cli"),
-                    "agent": self.agent or None,
-                    "promptVersion": "summary-v1",
-                    "validated": True,
-                }
                 return response_from_payload(payload, provider=provider)
             except ValueError as exc:
                 fallback = FakeSummaryProvider().generate_structured_summary(request)

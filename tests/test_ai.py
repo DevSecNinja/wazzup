@@ -419,7 +419,7 @@ class AiProviderTests(unittest.TestCase):
         scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
         run_mock.return_value = Mock(returncode=1, stdout="failed", stderr="upstream error")
         try:
-            with self.assertRaisesRegex(RuntimeError, f"after {COPILOT_CLI_MAX_ATTEMPTS} attempts"):
+            with self.assertRaisesRegex(RuntimeError, f"after {COPILOT_CLI_MAX_ATTEMPTS} attempts") as context:
                 CopilotCliSummaryProvider().generate_structured_summary(
                     SummaryRequest(
                         kind="hourly",
@@ -438,6 +438,8 @@ class AiProviderTests(unittest.TestCase):
                 os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
         self.assertEqual(COPILOT_CLI_MAX_ATTEMPTS, run_mock.call_count)
+        self.assertIn("stdout: failed", str(context.exception))
+        self.assertIn("stderr: upstream error", str(context.exception))
 
 
 class AiCurationProviderTests(unittest.TestCase):
@@ -646,7 +648,7 @@ class AiCurationProviderTests(unittest.TestCase):
         scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
         run_mock.return_value = Mock(returncode=1, stdout="failed", stderr="upstream error")
         try:
-            with self.assertRaisesRegex(RuntimeError, f"after {COPILOT_CLI_MAX_ATTEMPTS} attempts"):
+            with self.assertRaisesRegex(RuntimeError, f"after {COPILOT_CLI_MAX_ATTEMPTS} attempts") as context:
                 CopilotCliCurationProvider().curate_items(
                     CurationRequest(
                         kind="hourly",
@@ -665,6 +667,8 @@ class AiCurationProviderTests(unittest.TestCase):
                 os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
         self.assertEqual(COPILOT_CLI_MAX_ATTEMPTS, run_mock.call_count)
+        self.assertIn("stdout: failed", str(context.exception))
+        self.assertIn("stderr: upstream error", str(context.exception))
 
 
 class AiTransparencyReportProviderTests(unittest.TestCase):
