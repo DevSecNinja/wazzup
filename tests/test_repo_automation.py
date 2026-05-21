@@ -49,6 +49,21 @@ class RepoAutomationTests(unittest.TestCase):
         self.assertIn("area/backend", pr_labeler)
         self.assertIn("area/renovate", pr_labeler)
 
+    def test_issue_labeler_uses_javascript_compatible_case_insensitive_regex(self) -> None:
+        issue_labeler_text = Path(".github/issue-labeler.yaml").read_text(encoding="utf-8")
+        self.assertNotIn("(?i)", issue_labeler_text)
+
+        issue_labeler = yaml.safe_load(issue_labeler_text)
+        case_insensitive_patterns = [
+            pattern
+            for patterns in issue_labeler.values()
+            for pattern in patterns
+            if isinstance(pattern, str) and pattern.startswith("/")
+        ]
+        self.assertTrue(case_insensitive_patterns)
+        for pattern in case_insensitive_patterns:
+            self.assertTrue(pattern.endswith("/i"), pattern)
+
 
 if __name__ == "__main__":
     unittest.main()
