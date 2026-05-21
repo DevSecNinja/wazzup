@@ -234,7 +234,7 @@ class FakeTransparencyReportProvider:
 
 def run_copilot_cli(command: list[str], run_env: dict[str, str], failure_label: str) -> subprocess.CompletedProcess[str]:
     result: subprocess.CompletedProcess[str] | None = None
-    for _attempt in range(COPILOT_CLI_MAX_ATTEMPTS):
+    for _ in range(COPILOT_CLI_MAX_ATTEMPTS):
         result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
         if result.returncode == 0:
             return result
