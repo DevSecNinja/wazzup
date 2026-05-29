@@ -81,7 +81,7 @@ jobs:
         uses: jdx/mise-action@v4
         with:
           # renovate: datasource=github-releases depName=jdx/mise
-          version: 2026.5.8
+          version: 2026.5.9
 
       - name: Select AI provider
         if: ${{ steps.cadence.outputs.should_run == 'true' }}
