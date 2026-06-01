@@ -16,7 +16,7 @@ concurrency:
 jobs:
   sync:
     # renovate: datasource=github-tags depName=DevSecNinja/.github
-    uses: DevSecNinja/.github/.github/workflows/config-sync.yml@c97b7953619c5028f6da8c3e659db27607f066a0 # v1.6.0
+    uses: DevSecNinja/.github/.github/workflows/config-sync.yml@v1.6.1
     permissions:
       contents: write
       pull-requests: write
