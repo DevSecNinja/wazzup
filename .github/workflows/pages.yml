@@ -8,6 +8,7 @@ on:
   workflow_run:
     workflows:
       - News hourly
+      - News hourly watchdog
     types:
       - completed
   workflow_dispatch:
