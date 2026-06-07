@@ -232,6 +232,27 @@ sources:
       - incident response
     notes: "HIBP latest breaches feed from issue #2 OPML; HTTP URL normalized to HTTPS."
 
+  - id: mick-beer
+    name: Mick Beer
+    sourceTag: Mick Beer
+    enabled: true
+    type: rss
+    homepageUrl: https://mickbeer.com/
+    feedUrl: https://mickbeer.com/feed/
+    language: en
+    region: global
+    weight: 1.2
+    categories:
+      - privacy
+      - security
+      - tech
+    interestHints:
+      - privacy
+      - data protection
+      - digital rights
+      - cybersecurity
+    notes: "Privacy-focused news feed requested in issue #6."
+
   - id: google-online-security-blog
     name: Google Online Security Blog
     sourceTag: GoogleSec
