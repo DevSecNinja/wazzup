@@ -19,6 +19,16 @@ interests:
       - phishing
       - identity
       - threat intelligence
+  - id: privacy
+    name: Privacy
+    weight: 1.2
+    keywords:
+      - privacy
+      - data protection
+      - gdpr
+      - surveillance
+      - encryption
+      - digital rights
   - id: ai
     name: AI and developer platforms
     weight: 1.1
