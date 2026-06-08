@@ -145,7 +145,7 @@ GitHub Actions workflows ([.github/workflows/](.github/workflows)):
 
 - `ci.yml` – PR validation (the one you must keep green).
 - `lint.yml` – reusable lint pipeline (Markdown / YAML / workflows).
-- `news-hourly.yml` – scheduled briefing generation; cadence-gated.
+- `news.yml` – scheduled briefing generation; cadence-gated.
 - `pages.yml` – GitHub Pages deploy via reusable workflow.
 - `autofix.yml`, `labeler.yml`, `label-sync.yml`, `config-sync.yml` –
   repo automation.

@@ -35,7 +35,7 @@ The Copilot CLI provider should:
 
 Implemented safety behavior:
 
-- [../../.github/workflows/news-hourly.yml](../../.github/workflows/news-hourly.yml) selects an effective provider before installing Node or Copilot CLI.
+- [../../.github/workflows/news.yml](../../.github/workflows/news.yml) selects an effective provider before installing Node or Copilot CLI.
 - If `copilot-cli` is requested without either token secret, the workflow logs a warning and uses `AI_PROVIDER=fake`.
 - [../../src/wazzup/ai.py](../../src/wazzup/ai.py) checks for `COPILOT_GITHUB_TOKEN` in GitHub Actions and raises an actionable error if the workflow guard is bypassed.
 - The provider defaults to model `claude-sonnet-4.6` and the repo-local `wazzup-writer` custom agent, both overridable through environment variables.

@@ -45,9 +45,9 @@ The current repository implements the end-to-end app slice with these concrete c
 - Runtime: Python package under [../src/wazzup](../src/wazzup) with `PyYAML` as the only runtime dependency.
 - Frontend: vanilla static PWA under [../public](../public).
 - Automation: [../Taskfile.yml](../Taskfile.yml) as the workflow boundary, with [../.mise.toml](../.mise.toml) pinning Python, Task, and lint tools.
-- Data: YAML is canonical in `public/data`; JSON mirrors are generated for browser consumption.
+- Data: JSON is canonical in `public/data` and consumed directly by the PWA.
 - State: `news-state` GitHub Release asset `wazzup-state.zip`, not generated commits.
-- CI/CD: PR/manual CI, PR/manual reusable lint, scheduled/manual news generation, and Pages deploy after successful News hourly.
+- CI/CD: PR/manual CI, PR/manual reusable lint, scheduled/manual news generation, and Pages deploy after successful News runs.
 
 Implemented deviations from the original target:
 
@@ -64,13 +64,13 @@ Implemented deviations from the original target:
 | FR-001 | Maintain a configurable list of feeds, short source tags, source categories, source weights, and user interests.                              | Must     |
 | FR-002 | Fetch configured RSS/Atom feeds every two hours from 07:00 through 21:59 local time in GitHub Actions. JSON Feed support remains deferred.    | Must     |
 | FR-003 | Deduplicate articles using canonical URL, feed item GUID, title similarity, and publication timestamp.                                        | Must     |
-| FR-004 | Store normalized article metadata in stable, versioned YAML with generated JSON browser mirrors, without committing generated data to `main`. | Must     |
+| FR-004 | Store normalized article metadata in stable, versioned JSON, without committing generated data to `main`. | Must     |
 | FR-005 | Score articles against user interests, recency, source reliability, and duplicate coverage.                                                   | Must     |
 | FR-006 | Generate hourly summaries from the current local day's retained feed items while suppressing items already featured earlier that day.         | Should   |
 | FR-007 | Generate a morning briefing at 07:00 local time covering overnight updates since the previous evening briefing.                               | Must     |
 | FR-008 | Generate an evening briefing at 20:00 local time covering the day since 07:00.                                                                | Must     |
 | FR-009 | Include citations/source links for every summary bullet.                                                                                      | Must     |
-| FR-010 | Expose latest summaries and article indexes as static YAML plus JSON browser mirrors.                                                         | Must     |
+| FR-010 | Expose latest summaries and article indexes as static JSON.                                                         | Must     |
 | FR-011 | Provide a minimal responsive frontend for the latest rolling day view, earlier-today grouping, previous-day summary, and source health.       | Must     |
 | FR-012 | Support installable PWA behavior with offline reading of recently loaded briefings.                                                           | Should   |
 | FR-013 | Support user notification options without requiring a custom always-on server.                                                                | Should   |
@@ -90,7 +90,7 @@ Implemented deviations from the original target:
 | Deduplication    | Canonical URL tracking-parameter stripping, raw ref/GUID key, normalized title plus publication day, transitive duplicate groups, source-priority winner selection. | Semantic title similarity and duplicate-group publication metadata.       |
 | Briefings        | Daytime two-hour scheduled briefing plus automatic local-time morning/evening due detection, and manually forced auto/hourly/morning/evening generation.            | Daily/hourly view routing in the frontend.                                |
 | AI               | `fake` deterministic provider and `copilot-cli` provider. Tokenless scheduled runs fall back to `fake`.                                                             | API providers, Ollama/Foundry providers, strict token/cost accounting.    |
-| Frontend         | Latest briefing, previous-day summary, source/category tags, article temperature, and source-health PWA from JSON mirrors.                                          | Rich saved-item navigation, server-side notifications, Home Assistant UI. |
+| Frontend         | Latest briefing, previous-day summary, source/category tags, article temperature, and source-health PWA from JSON data.                                          | Rich saved-item navigation, server-side notifications, Home Assistant UI. |
 | Data validation  | Runtime validation through `wazzup.validate_data` and tests.                                                                                                        | Published JSON Schema files and schema-version migration tooling.         |
 
 ## Non-functional requirements
@@ -115,7 +115,7 @@ Implemented deviations from the original target:
 
 - Static configuration for feeds and interests.
 - Daytime two-hour RSS collection via GitHub Actions.
-- Normalized article store as YAML files with generated JSON browser mirrors.
+- Normalized article store as JSON files.
 - AI provider abstraction with Copilot CLI and deterministic fake provider implementations.
 - Morning and evening briefing generation when due in `auto` mode or explicitly forced.
 - GitHub Pages-hosted frontend.
@@ -149,16 +149,16 @@ Full Web Push requires subscription storage and a push sender. That introduces b
 
 ### Where to run the backend?
 
-Use GitHub Actions for the current backend. Publish generated static data to GitHub Pages. Avoid a database initially by storing date-partitioned YAML files, generated JSON browser mirrors, and small indexes in a dedicated GitHub Release asset that the scheduled workflow restores before each run.
+Use GitHub Actions for the current backend. Publish generated static data to GitHub Pages. Avoid a database initially by storing date-partitioned JSON files and small indexes in a dedicated GitHub Release asset that the scheduled workflow restores before each run.
 
 ### Can the backend run on GitHub without maintaining a database?
 
 Yes, with trade-offs. Recommended current storage:
 
-- `data/latest.yaml` for the latest briefing pointers, with `latest.json` as browser mirror.
-- `data/briefings/YYYY/MM/DD/*.yaml` for generated summaries, with JSON mirrors.
-- `data/articles/YYYY/MM/DD.yaml` for normalized article records, with JSON mirrors.
-- `data/sources/status.yaml` for feed health, with JSON mirror.
+- `data/latest.json` for the latest briefing pointers.
+- `data/briefings/YYYY/MM/DD/*.json` for generated summaries.
+- `data/articles/YYYY/MM/DD.json` for normalized article records.
+- `data/sources/status.json` for feed health.
 - `news-state` GitHub Release asset for the rolling 35-day state window.
 - Optional monthly GitHub Release archives for cold history or monthly recaps.
 

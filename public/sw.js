@@ -11,7 +11,7 @@ function resolveDataUrl(path) {
 }
 
 function formatNotificationBody(headline, summary = '') {
-  const normalizedHeadline = String(headline || 'A new hourly update is ready').trim();
+  const normalizedHeadline = String(headline || 'A new update is ready').trim();
   const normalizedSummary = String(summary || '').trim();
   return normalizedSummary ? `📰 ${normalizedHeadline}\n${normalizedSummary}` : `📰 ${normalizedHeadline}`;
 }
@@ -56,7 +56,7 @@ async function checkForBriefingUpdate(showNotification) {
   const current = await fetchLatestBriefingState();
   const previous = await readBriefingState();
   if (showNotification && previous !== null && previous.latestBriefingUrl && previous.latestBriefingUrl !== current.latestBriefingUrl) {
-    await self.registration.showNotification('Wazzup hourly update', {
+    await self.registration.showNotification('Wazzup news update', {
       body: current.body,
       icon: 'icons/icon-192.png',
       badge: 'icons/icon-192.png',

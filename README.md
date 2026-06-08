@@ -1,6 +1,6 @@
 # Wazzup
 
-Wazzup is a GitHub-native personal news briefing app. It collects configured RSS/Atom feeds on a schedule, ranks items against configured interests, generates concise English briefings, and publishes a minimal static PWA plus YAML/JSON data to GitHub Pages.
+Wazzup is a GitHub-native personal news briefing app. It collects configured RSS/Atom feeds on a schedule, ranks items against configured interests, generates concise English briefings, and publishes a minimal static PWA plus JSON data to GitHub Pages.
 
 ## Documentation
 
@@ -15,15 +15,15 @@ Wazzup is a GitHub-native personal news briefing app. It collects configured RSS
 ## Configuration
 
 - [config/sources.yml](config/sources.yml) maintains the RSS/Atom source registry with short source tags, broad category tags, source weights, and feed-specific interest hints.
-- [config/interests.yml](config/interests.yml) configures English summaries, 35-day retention, `Europe/Amsterdam`, and weighted interests for security, AI/developer platforms, cloud, and Microsoft.
+- [config/interests.yml](config/interests.yml) configures English summaries, 3-day retention, `Europe/Amsterdam`, and weighted interests for security, AI/developer platforms, cloud, and Microsoft.
 
 ## Implemented app
 
 1. Fetch configured RSS/Atom feeds from GitHub Actions every two hours at 07:00, 09:00, ... 21:00 Europe/Amsterdam.
-2. Normalize articles into stable YAML records with JSON browser mirrors.
+2. Normalize articles into stable JSON records.
 3. Deduplicate by canonical URL, raw feed reference/GUID, and normalized title plus publication day.
 4. Rank articles using deterministic interest, source weight, and freshness scoring.
-5. Generate a rolling English briefing for the current local day; hourly runs start fresh at local midnight and then keep incorporating the day’s retained feed items.
+5. Generate a rolling English briefing for the current local day; scheduled runs start fresh at local midnight and then keep incorporating the day’s retained feed items.
 6. Render each briefing item as a title, short description, temperature indicator, source/category tags, timestamped citations, and source links in the PWA.
 7. Generate English summaries through an AI provider abstraction:
    - `copilot-cli` for scheduled production-style runs when a Copilot token secret exists.
@@ -42,8 +42,8 @@ Important current limitations and deviations from the original target architectu
 - The frontend is vanilla JavaScript in [public/app.js](public/app.js), not TypeScript/Web Components yet.
 - JSON Feed and podcast adapters are modeled but not implemented yet.
 - Automatic morning/evening due-time selection is implemented in the pipeline and exposed through the scheduled workflow's `auto` mode; the workflow runs on an hourly UTC cron with a local two-hour active-window cadence gate.
-- YAML is canonical generated state; JSON is generated only as a browser/PWA mirror.
-- Copilot CLI is optional at runtime. If no `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret exists, News hourly falls back to the deterministic fake provider so the pipeline and Pages deployment continue to work.
+- JSON is the canonical generated state consumed by the PWA.
+- Copilot CLI is optional at runtime. If no `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret exists, the News workflow falls back to the deterministic fake provider so the pipeline and Pages deployment continue to work.
 - The service worker cache is versioned from generated build metadata; the footer shows the short commit and links back to the repository.
 - Notifications are opt-in. The installed PWA now uses service-worker background sync when the browser supports it, but there is still no server-side Web Push subscription store yet.
 - Cost controls are partial: `WAZZUP_MAX_AI_ITEMS` caps prompt size, but token/monthly budget accounting is not enforced yet.
@@ -75,4 +75,4 @@ task pipeline:generate:fixtures # generate deterministic fixture output
 
 `task hooks:install` enables the repo-specific [lefthook](.lefthook.toml) pre-commit checks and Conventional Commit message hook. The manual Auto-fix formatting workflow uses the shared `DevSecNinja/.github` reusable workflow to run dprint and yamlfmt with the local shared config files.
 
-Configure either `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` as a repository secret to enable Copilot CLI in News hourly runs; otherwise the workflow falls back to the fake provider with a warning.
+Configure either `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` as a repository secret to enable Copilot CLI in News workflow runs; otherwise the workflow falls back to the fake provider with a warning.

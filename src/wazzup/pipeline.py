@@ -256,6 +256,7 @@ def generate(argv: Sequence[str] | None = None) -> dict:
     content_window_start, content_window_end = content_window(kind, now, app_config.timezone)
     window_items = filter_items_to_window(items, content_window_start, content_window_end)
     scored = score_items(window_items, sources, app_config, now)
+    all_scored_items = list(scored)
     if kind == "hourly":
         scored = prioritize_hourly_new_items(scored, now)
         featured_item_ids = featured_hourly_item_ids_for_local_day(Path(args.public_dir) / "data", now, app_config.timezone)
@@ -316,6 +317,7 @@ def generate(argv: Sequence[str] | None = None) -> dict:
         summary,
         transparency_report,
         statuses,
+        article_items=all_scored_items,
     )
     return latest
 

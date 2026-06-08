@@ -5,7 +5,7 @@
 - Prefer deterministic tests over live network or live AI provider calls.
 - Test core pipeline logic as pure functions wherever possible.
 - Keep provider integrations behind interfaces with contract tests.
-- Validate every generated YAML artifact and JSON mirror against the runtime data contract; formal JSON Schema files are deferred.
+- Validate every generated JSON artifact against the runtime data contract; formal JSON Schema files are deferred.
 - Treat prompts as versioned production assets with regression tests.
 - Run fast checks on every pull request and slower scheduled checks separately.
 
@@ -17,7 +17,7 @@
 | Contract    | Validate generated data shape and provider interfaces. | `ContentItem`, `Briefing`, `latest.json`, release-state layout.                                | Pull request and manual CI.      |
 | Integration | Validate components together with fixtures.            | Parse saved RSS samples, run pipeline with fake AI provider, publish data to temp dir.         | Pull request and manual CI.      |
 | Frontend    | Validate rendering and accessibility basics.           | Load fixture `latest.json`, render briefing, keyboard navigation, service worker registration. | Planned.                         |
-| End-to-end  | Validate deployed/static behavior.                     | Build app, restore release state, validate Pages artifact.                                     | News hourly and Pages workflows. |
+| End-to-end  | Validate deployed/static behavior.                     | Build app, restore release state, validate Pages artifact.                                     | News and Pages workflows. |
 | Live smoke  | Validate external services safely.                     | Fetch a small allowlisted feed, optional AI provider canary with tiny prompt.                  | Scheduled or manual only.        |
 
 ## Implemented test suite
@@ -30,7 +30,7 @@ Implemented tests:
 - [../tests/test_feeds.py](../tests/test_feeds.py): RSS parsing, URL canonicalization, source/category tag merging, and deduplication priority.
 - [../tests/test_scoring.py](../tests/test_scoring.py): deterministic scoring behavior.
 - [../tests/test_pipeline.py](../tests/test_pipeline.py): end-to-end fixture pipeline generation with the fake AI provider and generated-data validation.
-- [../tests/test_publisher.py](../tests/test_publisher.py): retention by path date, YAML/JSON mirror generation, and manifest updates.
+- [../tests/test_publisher.py](../tests/test_publisher.py): retention by path date, JSON output generation, and manifest updates.
 - [../tests/test_ai.py](../tests/test_ai.py): provider defaulting and Copilot token guard behavior.
 - [../tests/test_build_info.py](../tests/test_build_info.py): generated build metadata used by the footer and service worker versioning.
 - [../tests/test_pwa_assets.py](../tests/test_pwa_assets.py): install icons, 24-hour time formatting hooks, build-versioned service worker registration, footer metadata hooks, simplified header, yesterday-summary hooks, capped headlines, article-temperature hooks, source-tag chips, structured item-card hooks, and service worker cache versioning.

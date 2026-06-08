@@ -8,7 +8,7 @@ Accepted and implemented
 
 The product should collect technology news regularly, generate AI-assisted briefings, and present them to the user without requiring a maintained server or database. The user prefers GitHub-based automation and a minimal frontend. The system should still be designed so a future API, agent integration, or MCP server can reuse the same functionality.
 
-The current deployment may publish generated data publicly through GitHub Pages. The implementation should keep 35 days of detailed static data, generate English briefings, start with a PWA-only delivery surface, and use Copilot CLI as the default AI runner.
+The current deployment may publish generated data publicly through GitHub Pages. The implementation should keep a short rolling window of detailed static data (currently 3 days), generate English briefings, start with a PWA-only delivery surface, and use Copilot CLI as the default AI runner.
 
 ## Decision
 
@@ -23,7 +23,7 @@ The backend pipeline will:
 5. Publish static YAML/JSON and frontend assets to GitHub Pages.
 6. Optionally send delivery webhooks after successful publication.
 
-The frontend will be a small static PWA that consumes generated JSON mirrors of the canonical YAML contracts.
+The frontend will be a small static PWA that consumes generated JSON contracts.
 
 Generated data state is stored outside Git history in a dedicated GitHub Release asset, then restored by the Pages workflow and published to GitHub Pages as a build artifact.
 
@@ -33,7 +33,7 @@ Implemented details:
 - Frontend runtime: static vanilla HTML/CSS/JavaScript under [../../public](../../public).
 - Automation boundary: [../../Taskfile.yml](../../Taskfile.yml) and [../../.mise.toml](../../.mise.toml).
 - State asset: GitHub Release `news-state`, asset `wazzup-state.zip`.
-- Deployment: [../../.github/workflows/news-hourly.yml](../../.github/workflows/news-hourly.yml) mutates release-backed state; [../../.github/workflows/pages.yml](../../.github/workflows/pages.yml) deploys through the reusable `DevSecNinja/.github` Pages workflow.
+- Deployment: [../../.github/workflows/news.yml](../../.github/workflows/news.yml) mutates release-backed state; [../../.github/workflows/pages.yml](../../.github/workflows/pages.yml) deploys through the reusable `DevSecNinja/.github` Pages workflow.
 
 ## Consequences
 
@@ -43,7 +43,7 @@ Implemented details:
 - Low operational cost.
 - Simple deployment and scheduling through GitHub Actions.
 - Generated data can be inspected and archived without committing it to `main`.
-- Static YAML contracts and JSON mirrors can later become an API surface.
+- Static JSON contracts can later become an API surface.
 
 ### Negative
 
