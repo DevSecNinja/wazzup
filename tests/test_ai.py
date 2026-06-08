@@ -16,6 +16,7 @@ from wazzup.ai import (
     DEFAULT_COPILOT_CURATOR_AGENT,
     DEFAULT_COPILOT_MODEL,
     DEFAULT_COPILOT_TRANSPARENCY_AGENT,
+    DEFAULT_COPILOT_WRITER_MODEL,
     FakeCurationProvider,
     FakeSummaryProvider,
     FakeTransparencyReportProvider,
@@ -290,9 +291,11 @@ class AiProviderTests(unittest.TestCase):
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
     def test_copilot_cli_uses_default_model_and_writer_agent(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
         previous_model = os.environ.get("COPILOT_MODEL")
+        previous_writer_model = os.environ.get("COPILOT_WRITER_MODEL")
         previous_agent = os.environ.get("COPILOT_AGENT")
         previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
         os.environ.pop("COPILOT_MODEL", None)
+        os.environ.pop("COPILOT_WRITER_MODEL", None)
         os.environ.pop("COPILOT_AGENT", None)
         os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
 
@@ -304,7 +307,7 @@ class AiProviderTests(unittest.TestCase):
             )
             self.assertEqual(Path.cwd(), Path(cwd))
             self.assertIn("--model", command)
-            self.assertEqual(DEFAULT_COPILOT_MODEL, command[command.index("--model") + 1])
+            self.assertEqual(DEFAULT_COPILOT_WRITER_MODEL, command[command.index("--model") + 1])
             self.assertIn("--agent", command)
             self.assertEqual(DEFAULT_COPILOT_AGENT, command[command.index("--agent") + 1])
             prompt = command[command.index("-p") + 1]
@@ -330,6 +333,10 @@ class AiProviderTests(unittest.TestCase):
                 os.environ.pop("COPILOT_MODEL", None)
             else:
                 os.environ["COPILOT_MODEL"] = previous_model
+            if previous_writer_model is None:
+                os.environ.pop("COPILOT_WRITER_MODEL", None)
+            else:
+                os.environ["COPILOT_WRITER_MODEL"] = previous_writer_model
             if previous_agent is None:
                 os.environ.pop("COPILOT_AGENT", None)
             else:
@@ -339,8 +346,58 @@ class AiProviderTests(unittest.TestCase):
             else:
                 os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
-        self.assertEqual(DEFAULT_COPILOT_MODEL, response.provider["model"])
+        self.assertEqual(DEFAULT_COPILOT_WRITER_MODEL, response.provider["model"])
         self.assertEqual(DEFAULT_COPILOT_AGENT, response.provider["agent"])
+
+    @patch("wazzup.ai.subprocess.run")
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_cli_writer_model_override_takes_precedence(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        previous_model = os.environ.get("COPILOT_MODEL")
+        previous_writer_model = os.environ.get("COPILOT_WRITER_MODEL")
+        previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
+        os.environ["COPILOT_MODEL"] = "claude-sonnet-4.6"
+        os.environ["COPILOT_WRITER_MODEL"] = "claude-opus-4.8"
+        os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
+
+        def fake_run(command, capture_output, cwd, env, text):  # type: ignore[no-untyped-def]
+            del capture_output, cwd, env, text
+            self.assertIn("--model", command)
+            self.assertEqual("claude-opus-4.8", command[command.index("--model") + 1])
+            return Mock(returncode=0, stdout="", stderr="")
+
+        run_mock.side_effect = fake_run
+        try:
+            with patch.object(Path, "exists", return_value=True), patch.object(
+                Path,
+                "read_text",
+                return_value='{"headline":"No updates","sections":[{"title":"Top updates","bullets":[]}]}',
+            ):
+                response = CopilotCliSummaryProvider().generate_structured_summary(
+                    SummaryRequest(
+                        kind="hourly",
+                        window_start="2026-05-06T20:00:00Z",
+                        window_end="2026-05-06T21:00:00Z",
+                        generated_at="2026-05-06T21:00:00Z",
+                        timezone="Europe/Amsterdam",
+                        summary_language="en",
+                        items=[],
+                    )
+                )
+        finally:
+            if previous_model is None:
+                os.environ.pop("COPILOT_MODEL", None)
+            else:
+                os.environ["COPILOT_MODEL"] = previous_model
+            if previous_writer_model is None:
+                os.environ.pop("COPILOT_WRITER_MODEL", None)
+            else:
+                os.environ["COPILOT_WRITER_MODEL"] = previous_writer_model
+            if previous_token is None:
+                os.environ.pop("COPILOT_GITHUB_TOKEN", None)
+            else:
+                os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
+
+        self.assertEqual("claude-opus-4.8", response.provider["model"])
 
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
     def test_copilot_requires_token_in_github_actions(self, _which) -> None:  # type: ignore[no-untyped-def]

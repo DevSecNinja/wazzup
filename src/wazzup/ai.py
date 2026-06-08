@@ -93,6 +93,7 @@ class AiTransparencyReportProvider(Protocol):
 
 
 DEFAULT_COPILOT_MODEL = "claude-sonnet-4.6"
+DEFAULT_COPILOT_WRITER_MODEL = "claude-opus-4.8"
 DEFAULT_COPILOT_AGENT = "wazzup-writer"
 DEFAULT_COPILOT_CURATOR_AGENT = "wazzup-curator"
 DEFAULT_COPILOT_TRANSPARENCY_AGENT = "wazzup-transparency-reporter"
@@ -340,7 +341,12 @@ class CopilotCliSummaryProvider:
         agent: str | None = None,
     ) -> None:
         self.copilot_command = copilot_command
-        self.model = model if model is not None else os.environ.get("COPILOT_MODEL", DEFAULT_COPILOT_MODEL)
+        self.model = (
+            model
+            if model is not None
+            else os.environ.get("COPILOT_WRITER_MODEL")
+            or os.environ.get("COPILOT_MODEL", DEFAULT_COPILOT_WRITER_MODEL)
+        )
         self.agent = agent if agent is not None else os.environ.get("COPILOT_AGENT", DEFAULT_COPILOT_AGENT)
 
     def generate_structured_summary(self, request: SummaryRequest) -> SummaryResponse:

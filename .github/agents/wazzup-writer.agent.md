@@ -1,7 +1,7 @@
 ---
 description: "Use when: generating Wazzup news briefings, article summaries, hourly news, or source-grounded briefing JSON from ranked RSS items."
 name: "wazzup-writer"
-model: "claude-sonnet-4.6"
+model: "claude-opus-4.8"
 tools: [execute, edit]
 user-invocable: true
 argument-hint: "Path to prompt.json and requested output file"

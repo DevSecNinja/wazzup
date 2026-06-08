@@ -163,7 +163,7 @@ Operational learning: the first live News hourly run failed because Copilot CLI 
 
 After enabling the Copilot PAT, one live run failed because Copilot CLI wrote JSON without the required `sections` array. The provider now treats invalid structured Copilot output as an AI-provider failure and falls back to the deterministic summary shape, recording `provider.type: copilot-cli-fallback` and the validation reason instead of failing the whole state/deploy pipeline.
 
-The Copilot CLI provider pins the briefing writer to `COPILOT_MODEL`, defaulting to Claude Sonnet 4.6 via the CLI model ID `claude-sonnet-4.6`, and invokes the repo-local `wazzup-writer` custom agent. This avoids the CLI's higher-cost default model while keeping the model overridable for manual canaries.
+The Copilot CLI provider keeps curator and transparency on `COPILOT_MODEL`, defaulting to Claude Sonnet 4.6 via the CLI model ID `claude-sonnet-4.6`, and pins the briefing writer to `COPILOT_WRITER_MODEL`, defaulting to Claude Opus 4.8 via `claude-opus-4.8`. This isolates the more expensive model to the writing step while keeping the model overridable for manual canaries.
 
 ## Copilot CLI workflow variant
 
@@ -182,6 +182,7 @@ The implementation hides provider-specific commands behind `task news:generate` 
     AI_PROVIDER: copilot-cli
     COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
     COPILOT_MODEL: claude-sonnet-4.6
+    COPILOT_WRITER_MODEL: claude-opus-4.8
     FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
   run: task news:generate
 ```
@@ -189,7 +190,7 @@ The implementation hides provider-specific commands behind `task news:generate` 
 Provider adapter requirements:
 
 - Run Copilot CLI in programmatic mode with `copilot -p`.
-- Pass `--model` from `COPILOT_MODEL`; default to `claude-sonnet-4.6` rather than the CLI's `Auto` default.
+- Pass `--model` from `COPILOT_WRITER_MODEL` for the briefing writer, defaulting to `claude-opus-4.8`; curator and transparency keep using `COPILOT_MODEL`, defaulting to `claude-sonnet-4.6`.
 - Pass `--agent wazzup-writer` so the briefing-writing style and JSON contract live in [../.github/agents/wazzup-writer.agent.md](../.github/agents/wazzup-writer.agent.md).
 - Use `--no-ask-user` so the workflow never blocks for interaction.
 - Use only narrow `--allow-tool` permissions, such as read-only shell access to generated prompt/input files and write access to a temporary output file.
@@ -276,7 +277,8 @@ Expected secrets:
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `COPILOT_REQUESTS_PAT`       | Preferred repository secret containing a fine-grained PAT for Copilot CLI with Copilot Requests permission. |
 | `COPILOT_GITHUB_TOKEN`       | Alternative secret name accepted by the News hourly workflow.                                               |
-| `COPILOT_MODEL`              | Optional Copilot CLI model override; defaults to `claude-sonnet-4.6` for the briefing writer.               |
+| `COPILOT_MODEL`              | Optional Copilot CLI model override for curator and transparency; defaults to `claude-sonnet-4.6`.         |
+| `COPILOT_WRITER_MODEL`       | Optional Copilot CLI model override for the briefing writer; defaults to `claude-opus-4.8`.                |
 | `AZURE_OPENAI_ENDPOINT`      | Azure OpenAI endpoint.                                                                                      |
 | `AZURE_OPENAI_API_KEY`       | Azure OpenAI API key.                                                                                       |
 | `OPENAI_API_KEY`             | Optional alternative provider.                                                                              |

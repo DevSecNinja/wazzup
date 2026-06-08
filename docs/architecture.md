@@ -18,7 +18,7 @@ Implementation deviations from the original target are intentional for the curre
 - Frontend is vanilla HTML/CSS/JavaScript under [../public](../public); there is no frontend build step yet.
 - YAML is the canonical generated state format; JSON files are generated browser mirrors.
 - Pages state restoration supports tokenless public release-asset downloads because reusable workflow string inputs cannot reliably inject `GH_TOKEN` for nested shell commands.
-- News hourly requests Copilot CLI by default, pins the briefing writer to Claude Sonnet 4.6 (`claude-sonnet-4.6`) unless `COPILOT_MODEL` overrides it, and falls back to the deterministic fake provider if Copilot token secrets are missing.
+- News hourly requests Copilot CLI by default, keeps curator and transparency on Claude Sonnet 4.6 (`claude-sonnet-4.6`), pins the briefing writer to Claude Opus 4.8 (`claude-opus-4.8`) unless `COPILOT_WRITER_MODEL` overrides it, and falls back to the deterministic fake provider if Copilot token secrets are missing.
 
 ## Context diagram
 
