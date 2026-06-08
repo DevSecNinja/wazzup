@@ -161,7 +161,7 @@ The workflow triggers hourly because GitHub cron is UTC-only and does not unders
 
 Operational learning: the first live News hourly run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
 
-After enabling the Copilot PAT, one live run failed because Copilot CLI wrote JSON without the required `sections` array. The provider now treats invalid structured Copilot output as an AI-provider failure and falls back to the deterministic summary shape, recording `provider.type: copilot-cli-fallback` and the validation reason instead of failing the whole state/deploy pipeline.
+After enabling the Copilot PAT, live runs showed that Copilot CLI can fail transiently or return malformed structured output. The provider retries Copilot CLI runtime failures and then fails with captured stdout/stderr diagnostics, while invalid structured output fails validation before publication so a later scheduled run can try again without publishing deterministic fake content.
 
 The Copilot CLI provider pins the briefing writer to `COPILOT_MODEL`, defaulting to Claude Sonnet 4.6 via the CLI model ID `claude-sonnet-4.6`, and invokes the repo-local `wazzup-writer` custom agent. This avoids the CLI's higher-cost default model while keeping the model overridable for manual canaries.
 

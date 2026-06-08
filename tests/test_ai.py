@@ -11,6 +11,7 @@ from wazzup.ai import (
     CopilotCliCurationProvider,
     CopilotCliSummaryProvider,
     CopilotCliTransparencyReportProvider,
+    COPILOT_CLI_MAX_ATTEMPTS,
     CurationRequest,
     DEFAULT_COPILOT_AGENT,
     DEFAULT_COPILOT_CURATOR_AGENT,
@@ -372,7 +373,7 @@ class AiProviderTests(unittest.TestCase):
 
     @patch("wazzup.ai.subprocess.run")
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
-    def test_copilot_invalid_payload_falls_back_to_deterministic_summary(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+    def test_copilot_invalid_payload_fails_summary_generation(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
         previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
         os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
         source = load_sources("config/sources.yml")[0]
@@ -387,26 +388,57 @@ class AiProviderTests(unittest.TestCase):
 
         run_mock.side_effect = fake_run
         try:
-            response = CopilotCliSummaryProvider().generate_structured_summary(
-                SummaryRequest(
-                    kind="hourly",
-                    window_start="2026-05-06T00:00:00Z",
-                    window_end="2026-05-06T21:00:00Z",
-                    generated_at="2026-05-06T21:00:00Z",
-                    timezone="Europe/Amsterdam",
-                    summary_language="en",
-                    items=scored,
+            with self.assertRaisesRegex(ValueError, "missing sections"):
+                CopilotCliSummaryProvider().generate_structured_summary(
+                    SummaryRequest(
+                        kind="hourly",
+                        window_start="2026-05-06T00:00:00Z",
+                        window_end="2026-05-06T21:00:00Z",
+                        generated_at="2026-05-06T21:00:00Z",
+                        timezone="Europe/Amsterdam",
+                        summary_language="en",
+                        items=scored,
+                    )
                 )
-            )
         finally:
             if previous_token is None:
                 os.environ.pop("COPILOT_GITHUB_TOKEN", None)
             else:
                 os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
-        self.assertEqual("copilot-cli-fallback", response.provider["type"])
-        self.assertIn("fallbackReason", response.provider)
-        self.assertTrue(response.sections[0]["bullets"])
+        self.assertEqual(1, run_mock.call_count)
+
+    @patch("wazzup.ai.subprocess.run")
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_summary_retries_then_fails_on_runtime_failure(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
+        os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
+        run_mock.return_value = Mock(returncode=1, stdout="failed", stderr="upstream error")
+        try:
+            with self.assertRaisesRegex(RuntimeError, f"after {COPILOT_CLI_MAX_ATTEMPTS} attempts") as context:
+                CopilotCliSummaryProvider().generate_structured_summary(
+                    SummaryRequest(
+                        kind="hourly",
+                        window_start="2026-05-06T00:00:00Z",
+                        window_end="2026-05-06T21:00:00Z",
+                        generated_at="2026-05-06T21:00:00Z",
+                        timezone="Europe/Amsterdam",
+                        summary_language="en",
+                        items=scored,
+                    )
+                )
+        finally:
+            if previous_token is None:
+                os.environ.pop("COPILOT_GITHUB_TOKEN", None)
+            else:
+                os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
+
+        self.assertEqual(COPILOT_CLI_MAX_ATTEMPTS, run_mock.call_count)
+        self.assertIn("stdout: failed", str(context.exception))
+        self.assertIn("stderr: upstream error", str(context.exception))
 
 
 class AiCurationProviderTests(unittest.TestCase):
@@ -569,7 +601,7 @@ class AiCurationProviderTests(unittest.TestCase):
 
     @patch("wazzup.ai.subprocess.run")
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
-    def test_copilot_cli_curation_falls_back_on_invalid_response(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+    def test_copilot_cli_curation_fails_on_invalid_response(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
         previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
         os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
         source = load_sources("config/sources.yml")[0]
@@ -584,26 +616,57 @@ class AiCurationProviderTests(unittest.TestCase):
 
         run_mock.side_effect = fake_run
         try:
-            response = CopilotCliCurationProvider().curate_items(
-                CurationRequest(
-                    kind="hourly",
-                    window_start="2026-05-06T20:00:00Z",
-                    window_end="2026-05-06T21:00:00Z",
-                    generated_at="2026-05-06T21:00:00Z",
-                    timezone="Europe/Amsterdam",
-                    items=scored,
-                    max_items=12,
+            with self.assertRaisesRegex(ValueError, "invalid selectedIds"):
+                CopilotCliCurationProvider().curate_items(
+                    CurationRequest(
+                        kind="hourly",
+                        window_start="2026-05-06T20:00:00Z",
+                        window_end="2026-05-06T21:00:00Z",
+                        generated_at="2026-05-06T21:00:00Z",
+                        timezone="Europe/Amsterdam",
+                        items=scored,
+                        max_items=12,
+                    )
                 )
-            )
         finally:
             if previous_token is None:
                 os.environ.pop("COPILOT_GITHUB_TOKEN", None)
             else:
                 os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
-        self.assertEqual("copilot-cli-fallback", response.provider["type"])
-        self.assertIn("fallbackReason", response.provider)
-        self.assertTrue(response.selected_ids)
+        self.assertEqual(1, run_mock.call_count)
+
+    @patch("wazzup.ai.subprocess.run")
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_cli_curation_retries_then_fails_on_runtime_failure(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
+        os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        scored = score_items([item], [source], load_app_config("config/interests.yml"), datetime(2026, 5, 6, tzinfo=UTC))
+        run_mock.return_value = Mock(returncode=1, stdout="failed", stderr="upstream error")
+        try:
+            with self.assertRaisesRegex(RuntimeError, f"after {COPILOT_CLI_MAX_ATTEMPTS} attempts") as context:
+                CopilotCliCurationProvider().curate_items(
+                    CurationRequest(
+                        kind="hourly",
+                        window_start="2026-05-06T20:00:00Z",
+                        window_end="2026-05-06T21:00:00Z",
+                        generated_at="2026-05-06T21:00:00Z",
+                        timezone="Europe/Amsterdam",
+                        items=scored,
+                        max_items=12,
+                    )
+                )
+        finally:
+            if previous_token is None:
+                os.environ.pop("COPILOT_GITHUB_TOKEN", None)
+            else:
+                os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
+
+        self.assertEqual(COPILOT_CLI_MAX_ATTEMPTS, run_mock.call_count)
+        self.assertIn("stdout: failed", str(context.exception))
+        self.assertIn("stderr: upstream error", str(context.exception))
 
 
 class AiTransparencyReportProviderTests(unittest.TestCase):

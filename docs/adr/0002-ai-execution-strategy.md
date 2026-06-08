@@ -39,7 +39,7 @@ Implemented safety behavior:
 - If `copilot-cli` is requested without either token secret, the workflow logs a warning and uses `AI_PROVIDER=fake`.
 - [../../src/wazzup/ai.py](../../src/wazzup/ai.py) checks for `COPILOT_GITHUB_TOKEN` in GitHub Actions and raises an actionable error if the workflow guard is bypassed.
 - The provider defaults to model `claude-sonnet-4.6` and the repo-local `wazzup-writer` custom agent, both overridable through environment variables.
-- Copilot CLI stdout/stderr is captured and included in sanitized failure diagnostics when the CLI exits non-zero.
+- Copilot CLI runtime failures are retried, and stdout/stderr is captured and included in sanitized failure diagnostics when all attempts exit non-zero.
 
 ## Consequences
 
@@ -57,7 +57,7 @@ Implemented safety behavior:
 - CLI behavior can be less predictable than a direct structured-output API and must be validated defensively.
 - Usage accounting may be less precise than direct API token accounting.
 - Ollama on GitHub-hosted runners can be slow and model downloads can dominate runtime; Foundry or other provider paths will require separate evaluation.
-- Fake-provider fallback keeps automation green but produces deterministic placeholder-style summaries instead of true AI summaries until Copilot token setup is complete.
+- Fake-provider fallback is limited to missing-token setup. Once `copilot-cli` is selected, runtime or structured-output failures fail the scheduled run so a later run can retry without publishing deterministic placeholder summaries.
 
 ## Alternatives considered
 
