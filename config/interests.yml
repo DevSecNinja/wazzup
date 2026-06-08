@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 summaryLanguage: en
-retentionDays: 35
+retentionDays: 3
 timezone: Europe/Amsterdam
 briefings:
   morningLocalTime: "07:00"

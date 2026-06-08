@@ -711,7 +711,7 @@ function normalizeManifestPath(path) {
 }
 
 function articlePathDayKey(path) {
-  const match = normalizeManifestPath(path).match(/articles\/(\d{4})\/(\d{2})\/(\d{2})\.ya?ml$/);
+  const match = normalizeManifestPath(path).match(/articles\/(\d{4})\/(\d{2})\/(\d{2})\.json$/);
   return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
 }
 
@@ -780,22 +780,22 @@ function setArchiveStatus(message, isError = false) {
 }
 
 async function loadBriefingSetForDay(manifest, latest, currentBriefing, dayKey) {
-  const latestYamlPath = normalizeManifestPath(latest.latestBriefingYamlUrl);
+  const latestPath = normalizeManifestPath(latest.latestBriefingUrl);
   const candidates = (manifest.briefings || [])
     .filter((path) => briefingPathDayKey(path) === dayKey)
     .slice()
     .sort()
     .reverse();
   const briefings = [];
-  for (const yamlPath of candidates) {
+  for (const path of candidates) {
     try {
       const briefing =
-        normalizeManifestPath(yamlPath) === latestYamlPath
+        normalizeManifestPath(path) === latestPath
           ? currentBriefing
-          : await getJson(resolveDataUrl(yamlPath.replace(/\.yaml$/, '.json')));
-      if (briefingPathDayKey(yamlPath) === dayKey) briefings.push(briefing);
+          : await getJson(resolveDataUrl(path));
+      if (briefingPathDayKey(path) === dayKey) briefings.push(briefing);
     } catch {
-      // Ignore retained manifest entries whose JSON mirror is unavailable.
+      // Ignore retained manifest entries whose JSON file is unavailable.
     }
   }
   return briefings.sort((left, right) => new Date(right.generatedAt) - new Date(left.generatedAt));
@@ -1022,7 +1022,7 @@ async function enableNotifications(registration, briefing, latest) {
   const storageKey = 'wazzup:lastBriefingUrl';
   const previous = localStorage.getItem(storageKey);
   if (previous && previous !== latest.latestBriefingUrl && Notification.permission === 'granted' && !notificationsDisabledByUser()) {
-    registration.showNotification('Wazzup hourly update', {
+    registration.showNotification('Wazzup news update', {
       body: briefing.headline,
       icon: 'icons/icon-192.png',
       badge: 'icons/icon-192.png',
@@ -1043,7 +1043,7 @@ async function main() {
       getJson('data/sources/status.json'),
       getJson('data/manifest.json'),
     ]);
-    const currentDayKey = articlePathDayKey(latest.latestArticlesYamlUrl || latest.latestArticlesUrl) || localDateKey(briefing.generatedAt);
+    const currentDayKey = articlePathDayKey(latest.latestArticlesUrl) || localDateKey(briefing.generatedAt);
     const appState = { latest, manifest, currentBriefing: briefing, currentDayKey };
     const currentDayBriefings = await loadBriefingSetForDay(manifest, latest, briefing, currentDayKey);
     renderHero(briefing);

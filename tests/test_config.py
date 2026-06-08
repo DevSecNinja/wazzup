@@ -53,7 +53,7 @@ class ConfigTests(unittest.TestCase):
     def test_load_app_config(self) -> None:
         config = load_app_config("config/interests.yml")
         self.assertEqual("en", config.summary_language)
-        self.assertEqual(35, config.retention_days)
+        self.assertEqual(3, config.retention_days)
         self.assertGreaterEqual(len(config.interests), 3)
         negative_interests = {interest.id: interest for interest in config.interests if interest.weight < 0}
         self.assertIn("uk-politics", negative_interests)

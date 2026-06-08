@@ -15,12 +15,12 @@ class PublisherTests(unittest.TestCase):
     def test_retention_uses_data_path_dates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             data_dir = Path(tmp_dir)
-            old_article = data_dir / "articles" / "2026" / "03" / "01.yaml"
-            current_article = data_dir / "articles" / "2026" / "05" / "06.yaml"
-            old_briefing = data_dir / "briefings" / "2026" / "03" / "01" / "hourly-10.yaml"
-            current_briefing = data_dir / "briefings" / "2026" / "05" / "06" / "hourly-10.yaml"
-            old_report = data_dir / "transparency" / "2026" / "03" / "01" / "hourly-10.yaml"
-            current_report = data_dir / "transparency" / "2026" / "05" / "06" / "hourly-10.yaml"
+            old_article = data_dir / "articles" / "2026" / "03" / "01.json"
+            current_article = data_dir / "articles" / "2026" / "05" / "06.json"
+            old_briefing = data_dir / "briefings" / "2026" / "03" / "01" / "hourly-10.json"
+            current_briefing = data_dir / "briefings" / "2026" / "05" / "06" / "hourly-10.json"
+            old_report = data_dir / "transparency" / "2026" / "03" / "01" / "hourly-10.json"
+            current_report = data_dir / "transparency" / "2026" / "05" / "06" / "hourly-10.json"
             for path in [old_article, current_article, old_briefing, current_briefing, old_report, current_report]:
                 write_data(path, {"ok": True})
             old_report.with_suffix(".md").write_text("# Old report\n", encoding="utf-8")
@@ -30,23 +30,17 @@ class PublisherTests(unittest.TestCase):
             write_manifest(data_dir, datetime(2026, 5, 6, tzinfo=UTC), 35)
 
             self.assertFalse(old_article.exists())
-            self.assertFalse(old_article.with_suffix(".json").exists())
             self.assertFalse(old_briefing.exists())
-            self.assertFalse(old_briefing.with_suffix(".json").exists())
             self.assertFalse(old_report.exists())
-            self.assertFalse(old_report.with_suffix(".json").exists())
             self.assertFalse(old_report.with_suffix(".md").exists())
             self.assertTrue(current_article.exists())
-            self.assertTrue(current_article.with_suffix(".json").exists())
             self.assertTrue(current_briefing.exists())
-            self.assertTrue(current_briefing.with_suffix(".json").exists())
             self.assertTrue(current_report.exists())
-            self.assertTrue(current_report.with_suffix(".json").exists())
             self.assertTrue(current_report.with_suffix(".md").exists())
-            manifest = (data_dir / "manifest.yaml").read_text(encoding="utf-8")
-            self.assertIn("articles/2026/05/06.yaml", manifest)
-            self.assertIn("briefings/2026/05/06/hourly-10.yaml", manifest)
-            self.assertIn("transparency/2026/05/06/hourly-10.yaml", manifest)
+            manifest = (data_dir / "manifest.json").read_text(encoding="utf-8")
+            self.assertIn("articles/2026/05/06.json", manifest)
+            self.assertIn("briefings/2026/05/06/hourly-10.json", manifest)
+            self.assertIn("transparency/2026/05/06/hourly-10.json", manifest)
             self.assertNotIn("2026/03", manifest)
 
     def test_markdown_transparency_report_contains_metrics(self) -> None:

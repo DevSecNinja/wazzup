@@ -7,8 +7,8 @@
 | CI                  | Pull request and manual dispatch                                           | Formatting, syntax linting, tests, compile checks, fixture generation, and generated-data validation.                                            |
 | Lint                | Pull request and manual dispatch                                           | Reusable organization lint workflow from `DevSecNinja/.github`.                                                                                  |
 | Auto-fix formatting | Manual dispatch                                                            | Reusable organization formatting workflow that commits dprint/yamlfmt fixes back to the branch.                                                  |
-| News hourly         | Hourly schedule with a local two-hour active-window cadence gate and manual dispatch | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
-| Pages               | Successful `News hourly` workflow run, push to `main`, and manual dispatch | Deploy PWA and static YAML/JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.                                  |
+| News                | Hourly schedule with a local two-hour active-window cadence gate and manual dispatch | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
+| Pages               | Successful `News` workflow run, push to `main`, and manual dispatch | Deploy PWA and static JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.                                  |
 | Config Sync         | Weekly and manual dispatch                                                 | Open PRs when shared repo config from `DevSecNinja/.github` drifts.                                                                              |
 | Label Sync          | Daily, manual dispatch, and label config changes                           | Sync repository labels from the org base labels plus repo-specific labels.                                                                       |
 | Labeler             | Pull requests, issues, and manual dispatch                                 | Apply area/type labels using shared labeler automation.                                                                                          |
@@ -83,10 +83,10 @@ CI intentionally does not run on every push to `main` to avoid duplicate checks 
 
 ## Implemented scheduled news workflow
 
-Key excerpts from [../.github/workflows/news-hourly.yml](../.github/workflows/news-hourly.yml):
+Key excerpts from [../.github/workflows/news.yml](../.github/workflows/news.yml):
 
 ```yaml
-name: News hourly
+name: News
 
 on:
   schedule:
@@ -110,7 +110,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: news-hourly-${{ github.ref }}
+  group: news-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -159,7 +159,7 @@ jobs:
 
 The workflow triggers hourly because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. A first cadence step computes the local hour and continues only on odd local hours from 07:00 to 21:59. This aligns the first run with the configured morning briefing, keeps AI calls to a daytime two-hour cadence, and skips overnight runs entirely. Manual dispatch always runs.
 
-Operational learning: the first live News hourly run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
+Operational learning: the first live News run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
 
 After enabling the Copilot PAT, one live run failed because Copilot CLI wrote JSON without the required `sections` array. The provider now treats invalid structured Copilot output as an AI-provider failure and falls back to the deterministic summary shape, recording `provider.type: copilot-cli-fallback` and the validation reason instead of failing the whole state/deploy pipeline.
 
@@ -245,7 +245,7 @@ Use pinned tags or SHA references for reusable workflows. Avoid using a moving b
 
 ## Implemented Pages workflow
 
-[../.github/workflows/pages.yml](../.github/workflows/pages.yml) runs after successful `News hourly` completion, on pushes to `main`, or by manual dispatch. This means content and PWA shell changes deploy when they merge, while scheduled news runs still deploy freshly generated data after state persistence succeeds. It delegates deployment to the reusable Pages workflow with these important inputs:
+[../.github/workflows/pages.yml](../.github/workflows/pages.yml) runs after successful `News` completion, on pushes to `main`, or by manual dispatch. This means content and PWA shell changes deploy when they merge, while scheduled news runs still deploy freshly generated data after state persistence succeeds. It delegates deployment to the reusable Pages workflow with these important inputs:
 
 - `artifact-path: public`
 - `install-command`: install Python runtime dependencies directly from [../requirements.txt](../requirements.txt)
@@ -276,7 +276,7 @@ Expected secrets:
 | Secret                       | Purpose                                                                                                     |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `COPILOT_REQUESTS_PAT`       | Preferred repository secret containing a fine-grained PAT for Copilot CLI with Copilot Requests permission. |
-| `COPILOT_GITHUB_TOKEN`       | Alternative secret name accepted by the News hourly workflow.                                               |
+| `COPILOT_GITHUB_TOKEN`       | Alternative secret name accepted by the News workflow.                                               |
 | `COPILOT_MODEL`              | Optional Copilot CLI model override for curator and transparency; defaults to `claude-sonnet-4.6`.         |
 | `COPILOT_WRITER_MODEL`       | Optional Copilot CLI model override for the briefing writer; defaults to `claude-opus-4.8`.                |
 | `AZURE_OPENAI_ENDPOINT`      | Azure OpenAI endpoint.                                                                                      |
@@ -288,7 +288,7 @@ Expected secrets:
 Rules:
 
 - Never echo secrets.
-- If Copilot CLI is requested without either Copilot token secret, the News hourly workflow logs a warning and uses the deterministic `fake` provider so release-backed state, validation, and Pages automation can still complete.
+- If Copilot CLI is requested without either Copilot token secret, the News workflow logs a warning and uses the deterministic `fake` provider so release-backed state, validation, and Pages automation can still complete.
 - Redact prompt/debug logs by default.
 - Scope permissions per workflow.
 - Use GitHub Environments for deployment approvals if outputs are public.
@@ -308,13 +308,13 @@ Recommended behavior:
 ## Artifact and retention strategy
 
 - Publish current static output to GitHub Pages.
-- Keep 35 days of detailed article YAML plus JSON mirrors in Pages data.
-- Persist the 35-day Pages data window as a `wazzup-state.zip` asset on the `news-state` GitHub Release.
+- Keep 3 days of detailed article JSON in Pages data.
+- Persist the 3-day Pages data window as a `wazzup-state.zip` asset on the `news-state` GitHub Release.
 - `task state:restore` uses `gh release download` when a token is available and falls back to `https://github.com/DevSecNinja/wazzup/releases/download/news-state/wazzup-state.zip` style download when it is not.
 - `task pages:build` sets `STATE_REQUIRED=true`, so Pages deployment fails clearly if retained state is unavailable instead of deploying a PWA with missing `public/data/latest.json`.
 - Keep compact monthly recap archives in separate GitHub Releases if history matters.
 - Upload debug artifacts only for failed runs and redact sensitive data.
-- Avoid committing generated hourly YAML/JSON to `main` to prevent repository bloat.
+- Avoid committing generated JSON to `main` to prevent repository bloat.
 - Avoid a generated-data branch unless release assets prove insufficient; it still creates thousands of commits per year.
 
 ## Task automation boundary
@@ -325,13 +325,13 @@ Workflow shell logic should live in [Taskfile.yml](../Taskfile.yml) wherever pra
 
 ## Standardized Pages deployment
 
-The scheduled `News hourly` workflow is responsible for mutating release-backed state. It does not deploy Pages directly. After it succeeds, the `Pages` workflow calls the reusable Pages workflow from `DevSecNinja/.github` and restores the `news-state` release asset through `scripts/pages_build.py` before deployment. The Pages restore path supports unauthenticated release-asset downloads so it works inside the reusable workflow without injecting `GH_TOKEN` into a string input.
+The scheduled `News` workflow is responsible for mutating release-backed state. It does not deploy Pages directly. After it succeeds, the `Pages` workflow calls the reusable Pages workflow from `DevSecNinja/.github` and restores the `news-state` release asset through `scripts/pages_build.py` before deployment. The Pages restore path supports unauthenticated release-asset downloads so it works inside the reusable workflow without injecting `GH_TOKEN` into a string input.
 
 Observed failure modes and fixes:
 
 | Failure                                                  | Cause                                                                                              | Fix                                                                                                                   |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| News hourly failed in Copilot CLI                        | `COPILOT_GITHUB_TOKEN` was empty while `AI_PROVIDER=copilot-cli`.                                  | Select effective provider first and fall back to `fake` when no Copilot token secret exists.                          |
+| News run failed in Copilot CLI                           | `COPILOT_GITHUB_TOKEN` was empty while `AI_PROVIDER=copilot-cli`.                                  | Select effective provider first and fall back to `fake` when no Copilot token secret exists.                          |
 | Pages deploy failed validating `public/data/latest.json` | Reusable workflow received empty `GH_TOKEN`, state restore skipped, and `public/data` was missing. | Restore public release asset without a token in Pages builds and make missing retained state fatal for `pages:build`. |
 | Pages deploy failed during mise install                  | Reusable workflow install command could not pass `github.token`, so mise made unauthenticated GitHub API calls and hit rate limits. | Avoid mise in Pages deploy; install Python deps directly and run `scripts/pages_build.py`.                            |
 
@@ -354,7 +354,7 @@ Observed failure modes and fixes:
 
 ## Workflow summary output
 
-The implemented News hourly workflow writes a concise GitHub Actions step summary containing:
+The implemented News workflow writes a concise GitHub Actions step summary containing:
 
 - Forced briefing kind.
 - Requested AI provider.

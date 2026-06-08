@@ -100,7 +100,7 @@ tasks:
         else
           echo "::notice::No retained {{.STATE_RELEASE}} release asset found; starting from an empty data window."
           if [[ "${STATE_REQUIRED:-false}" == "true" ]]; then
-            echo "::error::Pages builds require retained state. Run the News hourly workflow first."
+            echo "::error::Pages builds require retained state. Run the News workflow first."
             exit 1
           fi
         fi

@@ -1,5 +1,5 @@
 ---
-name: News hourly
+name: News
 
 on:
   schedule:
@@ -29,7 +29,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: news-hourly-${{ github.ref }}
+  group: news-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

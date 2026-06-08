@@ -1,32 +1,18 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-
-import yaml
 
 from .ai import SummaryResponse, TransparencyReportResponse
 from .feeds import isoformat, stable_hash
 from .models import AppConfig, BriefingKind, ContentItem, ScoredItem, SourceStatus
 
 
-def write_yaml(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
-
-
-def write_json_mirror(path: Path, payload: dict[str, Any]) -> None:
-    import json
-
-    json_path = path.with_suffix(".json")
-    json_path.parent.mkdir(parents=True, exist_ok=True)
-    json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-
-
 def write_data(path: Path, payload: dict[str, Any]) -> None:
-    write_yaml(path, payload)
-    write_json_mirror(path, payload)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def date_parts(dt: datetime) -> tuple[str, str, str]:
@@ -101,23 +87,23 @@ def article_temperature(scored: ScoredItem) -> dict[str, Any]:
 def briefing_path(data_dir: Path, kind: BriefingKind, window_end: datetime) -> Path:
     year, month, day = date_parts(window_end)
     if kind == "hourly":
-        filename = f"hourly-{window_end:%H}.yaml"
+        filename = f"hourly-{window_end:%H}.json"
     else:
-        filename = f"{kind}.yaml"
+        filename = f"{kind}.json"
     return data_dir / "briefings" / year / month / day / filename
 
 
 def articles_path(data_dir: Path, window_end: datetime) -> Path:
     year, month, day = date_parts(window_end)
-    return data_dir / "articles" / year / month / f"{day}.yaml"
+    return data_dir / "articles" / year / month / f"{day}.json"
 
 
 def transparency_report_path(data_dir: Path, kind: BriefingKind, window_end: datetime) -> Path:
     year, month, day = date_parts(window_end)
     if kind == "hourly":
-        filename = f"hourly-{window_end:%H}.yaml"
+        filename = f"hourly-{window_end:%H}.json"
     else:
-        filename = f"{kind}.yaml"
+        filename = f"{kind}.json"
     return data_dir / "transparency" / year / month / day / filename
 
 
@@ -205,15 +191,15 @@ def publish_outputs(
     summary: SummaryResponse,
     transparency_report: TransparencyReportResponse,
     statuses: list[SourceStatus],
+    article_items: list[ScoredItem] | None = None,
 ) -> dict[str, Any]:
     data_dir = public_dir / "data"
     public_dir.mkdir(parents=True, exist_ok=True)
     previous_latest: dict[str, Any] = {}
     latest_json_path = data_dir / "latest.json"
     if latest_json_path.exists():
-        import json
-
         previous_latest = json.loads(latest_json_path.read_text(encoding="utf-8"))
+    articles = scored_items if article_items is None else article_items
     briefing = build_briefing(kind, window_start, window_end, generated_at, app_config, scored_items, summary)
     transparency = build_transparency_report(kind, window_start, window_end, generated_at, app_config, scored_items, statuses, transparency_report)
     b_path = briefing_path(data_dir, kind, window_end)
@@ -225,14 +211,14 @@ def publish_outputs(
         {
             "schemaVersion": 1,
             "generatedAt": isoformat(generated_at),
-            "items": [scored.to_dict() for scored in scored_items],
+            "items": [scored.to_dict() for scored in articles],
         },
     )
     write_data(t_path, transparency)
     write_markdown(t_path.with_suffix(".md"), transparency)
     write_markdown(data_dir / "transparency" / "latest.md", transparency)
     write_data(
-        data_dir / "sources" / "status.yaml",
+        data_dir / "sources" / "status.json",
         {
             "schemaVersion": 1,
             "generatedAt": isoformat(generated_at),
@@ -241,27 +227,24 @@ def publish_outputs(
     )
     latest = {
         "schemaVersion": 1,
-        "canonicalFormat": "yaml",
+        "canonicalFormat": "json",
         "generatedAt": isoformat(generated_at),
-        "latestBriefingYamlUrl": public_data_url(data_dir, b_path),
-        "latestArticlesYamlUrl": public_data_url(data_dir, a_path),
-        "latestTransparencyReportYamlUrl": public_data_url(data_dir, t_path),
-        "latestBriefingUrl": public_data_url(data_dir, b_path.with_suffix(".json")),
-        "latestArticlesUrl": public_data_url(data_dir, a_path.with_suffix(".json")),
-        "latestTransparencyReportUrl": public_data_url(data_dir, t_path.with_suffix(".json")),
+        "latestBriefingUrl": public_data_url(data_dir, b_path),
+        "latestArticlesUrl": public_data_url(data_dir, a_path),
+        "latestTransparencyReportUrl": public_data_url(data_dir, t_path),
         "latestTransparencyReportMarkdownUrl": public_data_url(data_dir, t_path.with_suffix(".md")),
         "latestHourlyBriefingUrl": (
-            public_data_url(data_dir, b_path.with_suffix(".json"))
+            public_data_url(data_dir, b_path)
             if kind == "hourly"
             else previous_latest.get("latestHourlyBriefingUrl")
         ),
         "latestMorningBriefingUrl": (
-            public_data_url(data_dir, b_path.with_suffix(".json"))
+            public_data_url(data_dir, b_path)
             if kind == "morning"
             else previous_latest.get("latestMorningBriefingUrl")
         ),
         "latestEveningBriefingUrl": (
-            public_data_url(data_dir, b_path.with_suffix(".json"))
+            public_data_url(data_dir, b_path)
             if kind == "evening"
             else previous_latest.get("latestEveningBriefingUrl")
         ),
@@ -271,7 +254,7 @@ def publish_outputs(
             "failedSourceCount": len([status for status in statuses if not status.ok]),
         },
     }
-    write_data(data_dir / "latest.yaml", latest)
+    write_data(data_dir / "latest.json", latest)
     enforce_retention(data_dir, generated_at, app_config.retention_days)
     write_manifest(data_dir, generated_at, app_config.retention_days)
     return latest
@@ -286,14 +269,14 @@ def public_data_url(data_dir: Path, path: Path) -> str:
 
 
 def write_manifest(data_dir: Path, generated_at: datetime, retention_days: int) -> None:
-    briefings = sorted(relative_data_url(data_dir, path) for path in (data_dir / "briefings").rglob("*.yaml"))
-    articles = sorted(relative_data_url(data_dir, path) for path in (data_dir / "articles").rglob("*.yaml"))
-    transparency_reports = sorted(relative_data_url(data_dir, path) for path in (data_dir / "transparency").rglob("*.yaml"))
+    briefings = sorted(relative_data_url(data_dir, path) for path in (data_dir / "briefings").rglob("*.json"))
+    articles = sorted(relative_data_url(data_dir, path) for path in (data_dir / "articles").rglob("*.json"))
+    transparency_reports = sorted(relative_data_url(data_dir, path) for path in (data_dir / "transparency").rglob("*.json"))
     write_data(
-        data_dir / "manifest.yaml",
+        data_dir / "manifest.json",
         {
             "schemaVersion": 1,
-            "canonicalFormat": "yaml",
+            "canonicalFormat": "json",
             "generatedAt": isoformat(generated_at),
             "retentionDays": retention_days,
             "briefings": briefings,
@@ -309,7 +292,7 @@ def enforce_retention(data_dir: Path, now: datetime, retention_days: int) -> Non
         root = data_dir / root_name
         if not root.exists():
             continue
-        for path in [*root.rglob("*.yaml"), *root.rglob("*.json"), *root.rglob("*.md")]:
+        for path in [*root.rglob("*.json"), *root.rglob("*.md")]:
             path_date = date_from_data_path(root_name, path)
             if path_date is not None and path_date < cutoff_date:
                 path.unlink(missing_ok=True)

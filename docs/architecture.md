@@ -5,8 +5,8 @@
 Wazzup currently uses a GitHub-native static architecture:
 
 - GitHub Actions runs the backend pipeline every two hours during the local active window.
-- The Python pipeline fetches sources, normalizes content, deduplicates and ranks items, calls an AI summary provider, and writes versioned YAML outputs with JSON browser mirrors.
-- GitHub Pages hosts both the minimal PWA and the generated YAML/JSON data.
+- The Python pipeline fetches sources, normalizes content, deduplicates and ranks items, calls an AI summary provider, and writes versioned JSON outputs.
+- GitHub Pages hosts both the minimal PWA and the generated JSON data.
 - A dedicated GitHub Release asset stores the rolling generated-data state between scheduled runs.
 - Optional delivery adapters are not implemented yet; services such as Home Assistant, ntfy, email, Teams, or Slack remain future work.
 - The core domain contracts remain independent from GitHub Actions and GitHub Pages so they can later power a REST API, agent tool, or MCP server.
@@ -16,16 +16,16 @@ Implementation deviations from the original target are intentional for the curre
 
 - Backend runtime is Python 3.11+ under [../src/wazzup](../src/wazzup).
 - Frontend is vanilla HTML/CSS/JavaScript under [../public](../public); there is no frontend build step yet.
-- YAML is the canonical generated state format; JSON files are generated browser mirrors.
+- JSON is the canonical generated state format consumed directly by the PWA.
 - Pages state restoration supports tokenless public release-asset downloads because reusable workflow string inputs cannot reliably inject `GH_TOKEN` for nested shell commands.
-- News hourly requests Copilot CLI by default, keeps curator and transparency on Claude Sonnet 4.6 (`claude-sonnet-4.6`), pins the briefing writer to Claude Opus 4.8 (`claude-opus-4.8`) unless `COPILOT_WRITER_MODEL` overrides it, and falls back to the deterministic fake provider if Copilot token secrets are missing.
+- The News workflow requests Copilot CLI by default, keeps curator and transparency on Claude Sonnet 4.6 (`claude-sonnet-4.6`), pins the briefing writer to Claude Opus 4.8 (`claude-opus-4.8`) unless `COPILOT_WRITER_MODEL` overrides it, and falls back to the deterministic fake provider if Copilot token secrets are missing.
 
 ## Context diagram
 
 ```mermaid
 flowchart LR
     User[User] --> PWA[PWA on GitHub Pages]
-    PWA --> StaticData[Static YAML data + JSON mirrors]
+    PWA --> StaticData[Static JSON data]
     Actions[GitHub Actions scheduler] --> Pipeline[News pipeline]
     Pipeline --> Feeds[RSS / Atom now; JSON Feed / Podcast RSS later]
     Pipeline --> AI[AI summary provider]
@@ -47,7 +47,7 @@ flowchart LR
 | Curator              | Selects and orders the most relevant items from the ranked list for the briefing.                  | AI curation provider abstraction; `wazzup-curator` agent for Copilot CLI, deterministic passthrough for fake. |
 | Summarizer           | Generates article and briefing summaries from the curated item selection.                          | AI summary provider abstraction with prompt versioning; `wazzup-writer` agent for Copilot CLI.                |
 | Transparency reporter | Explains run inputs, source health, selection, and AI providers for auditability.                  | AI report provider abstraction; `wazzup-transparency-reporter` agent for Copilot CLI, deterministic fake report for tests. |
-| Publisher            | Writes canonical static YAML, JSON browser mirrors, source health, transparency reports, `latest`, and `manifest` files. | [../src/wazzup/publisher.py](../src/wazzup/publisher.py).                                                     |
+| Publisher            | Writes canonical static JSON, source health, transparency reports, `latest`, and `manifest` files. | [../src/wazzup/publisher.py](../src/wazzup/publisher.py).                                                     |
 | State store          | Persists generated data across scheduled runs without commits.                                     | `news-state` GitHub Release asset `wazzup-state.zip`.                                                         |
 | Delivery adapters    | Pushes selected briefings to external channels.                                                    | Not implemented yet.                                                                                          |
 | Frontend             | Displays latest briefing and source health.                                                        | Static vanilla PWA in [../public](../public).                                                                 |
@@ -77,7 +77,7 @@ sequenceDiagram
     CLI->>Reporter: write transparency report
     Reporter-->>CLI: structured report data
     CLI->>CLI: validate contracts and item caps
-    CLI->>Pages: persist YAML/JSON state to release asset
+    CLI->>Pages: persist JSON state to release asset
     Pages->>Pages: reusable Pages workflow restores state and deploys public artifact
     CLI->>User: optional delivery webhook
 ```
@@ -97,7 +97,7 @@ src/
     feeds.py            # RSS/Atom fetch, parse, canonicalization, dedupe
     models.py           # dataclass domain contracts
     pipeline.py         # CLI orchestration
-    publisher.py        # YAML canonical output and JSON mirrors
+    publisher.py        # JSON canonical output
     scoring.py          # deterministic ranking
     validate_data.py    # generated-data validation
 public/
@@ -111,7 +111,7 @@ tests/
 .github/workflows/
   ci.yml
   lint.yml
-  news-hourly.yml
+  news.yml
   pages.yml
 ```
 
@@ -192,42 +192,29 @@ Required fields:
 
 ```text
 public/data/
-  latest.yaml                 # canonical
-  latest.json                 # browser mirror
-  manifest.yaml               # canonical
-  manifest.json               # browser mirror
-  sources/status.yaml         # canonical
-  sources/status.json         # browser mirror
+  latest.json                 # canonical
+  manifest.json               # canonical
+  sources/status.json         # canonical
   transparency/latest.md      # latest human-readable report copied to the GitHub Release asset
-  transparency/YYYY/MM/DD/hourly-HH.yaml
   transparency/YYYY/MM/DD/hourly-HH.json
   transparency/YYYY/MM/DD/hourly-HH.md
-  articles/YYYY/MM/DD.yaml    # canonical
-  articles/YYYY/MM/DD.json    # browser mirror
-  briefings/YYYY/MM/DD/hourly-HH.yaml
+  articles/YYYY/MM/DD.json    # full ranked candidate set for the day
   briefings/YYYY/MM/DD/hourly-HH.json
-  briefings/YYYY/MM/DD/morning.yaml
   briefings/YYYY/MM/DD/morning.json
-  briefings/YYYY/MM/DD/evening.yaml
   briefings/YYYY/MM/DD/evening.json
-  archives/YYYY-MM.yaml
+  archives/YYYY-MM.json
 public/build-info.json        # generated deployment metadata for footer/SW version
 ```
 
-The scheduled workflow must not commit generated article or briefing YAML/JSON to `main`. It restores the previous `public/data` window from a dedicated `news-state` GitHub Release asset, generates new data, enforces 35-day retention, and uploads the updated release asset. The separate Pages workflow then uses the reusable Pages deployment from `DevSecNinja/.github` to restore that same release asset and deploy the static files to GitHub Pages.
+The scheduled workflow must not commit generated article or briefing JSON to `main`. It restores the previous `public/data` window from a dedicated `news-state` GitHub Release asset, generates new data, enforces the configured retention window (currently 3 days), and uploads the updated release asset. The separate Pages workflow then uses the reusable Pages deployment from `DevSecNinja/.github` to restore that same release asset and deploy the static files to GitHub Pages.
 
-YAML is the canonical persisted state format because it is easier to inspect and edit when debugging release assets. JSON remains a generated transport mirror because browsers can consume it without adding a YAML parser dependency to the PWA.
+JSON is the canonical persisted state format. The PWA consumes it directly without a YAML parser dependency, and the no-build static app, Home Assistant-style consumers, and validation tooling all read the same files.
 
-Why the release contains both YAML and JSON today:
-
-- YAML is the standard human/operator format for generated state.
-- JSON is a generated compatibility mirror for the browser, Home Assistant-style consumers, and simple validation tooling.
-- Keeping both avoids adding a YAML parser dependency to the PWA while preserving human-readable release assets.
-- If the duplicated files become too noisy, the likely simplification is to switch the canonical generated output to JSON-only rather than making the browser parse YAML.
+The daily `articles/YYYY/MM/DD.json` file stores the full ranked candidate set for the day, not just the curated briefing items. This lets a later scheduled run reprioritize against the whole day rather than only the small selected subset.
 
 Release-state restore behavior:
 
-- In `News hourly`, [../Taskfile.yml](../Taskfile.yml) uses `GH_TOKEN` and `gh release download` to restore prior state, then `gh release upload --clobber` or `gh release create` to persist updated state.
+- In the `News` workflow, [../Taskfile.yml](../Taskfile.yml) uses `GH_TOKEN` and `gh release download` to restore prior state, then `gh release upload --clobber` or `gh release create` to persist updated state.
 - In `Pages`, the reusable workflow cannot receive a working token through a string input, so `task pages:build` restores `wazzup-state.zip` through the public release download URL when no `GH_TOKEN`/`GITHUB_TOKEN` is available.
 - `pages:build` sets `STATE_REQUIRED=true`; if retained state cannot be restored, deployment fails explicitly instead of uploading an empty app data directory.
 - The current state release is intentionally one mutable operational release, not one release per hour. Hourly releases would create thousands of releases per year and duplicate the generated-data churn problem in a different GitHub surface. A better future archive is one immutable daily or monthly recap release whose body contains a human-readable digest and links to archived assets.
@@ -250,9 +237,9 @@ The current pipeline deduplicates before scoring using transitive duplicate grou
 
 When multiple items land in the same group, the winner is selected by source priority, summary richness, and publication timestamp. The Microsoft Threat Intelligence topic feed currently has elevated source priority over the broader Microsoft Security Blog feed. Future improvements can add semantic title similarity, source-specific canonicalization rules, and duplicate-group metadata in the published output.
 
-### `latest.yaml` and `latest.json`
+### `latest.json`
 
-Small pointer file consumed by the frontend and Home Assistant. YAML is canonical; JSON is the PWA mirror.
+Small pointer file consumed by the frontend and Home Assistant.
 
 Example fields:
 
@@ -275,7 +262,7 @@ Recommended defaults:
 
 This avoids daylight-saving issues in workflow YAML.
 
-Implementation note: [../.github/workflows/news-hourly.yml](../.github/workflows/news-hourly.yml) defaults `forceBriefing` to `auto`, and [../src/wazzup/pipeline.py](../src/wazzup/pipeline.py) selects due morning/evening briefings in local time when not explicitly forced.
+Implementation note: [../.github/workflows/news.yml](../.github/workflows/news.yml) defaults `forceBriefing` to `auto`, and [../src/wazzup/pipeline.py](../src/wazzup/pipeline.py) selects due morning/evening briefings in local time when not explicitly forced.
 
 ## Implementation sequence
 
@@ -285,7 +272,7 @@ Build the first implementation as an end-to-end thin slice instead of isolated l
 2. Normalize feed entries into versioned `ContentItem` records.
 3. Score and select a small set of articles using deterministic rules.
 4. Generate an English briefing through the Copilot CLI provider when configured, with a fake provider for tests and tokenless fallback.
-5. Write static YAML and JSON mirrors to the Pages data layout.
+5. Write static JSON to the Pages data layout.
 6. Render the latest briefing in a minimal PWA.
 7. Add CI gates and a scheduled workflow skeleton.
 
@@ -350,7 +337,7 @@ Implemented frontend behavior:
 - Each item also receives visible temperature metadata (`hot`, `warm`, or `cool`) derived from the existing relevance score. The PWA uses this for an icon, border, and title color so important items are scannable while scrolling.
 - The hero headline is capped in the PWA and the duplicate briefing headline is replaced with a stable “Today’s rolling briefing” heading.
 - The sidebar shows source health and the latest retained summary from yesterday, rendered inline rather than linking to generated JSON.
-- It consumes JSON mirrors, not canonical YAML, to avoid a browser-side YAML parser dependency.
+- It consumes the canonical JSON data directly, avoiding a browser-side YAML parser dependency.
 - It supports opt-in local notifications when the browser supports background sync. Unsupported browsers, including iOS browsers without Background Sync or Periodic Background Sync, show notifications as unavailable instead of promising delayed catch-up notifications on app open. True background push notifications still require stored subscriptions and are deferred.
 - The service worker cache is versioned by the app commit from `build-info.json`, uses `updateViaCache: 'none'`, and supports offline reading for assets/data that have already been fetched.
 
@@ -408,7 +395,7 @@ Audio transcription should be opt-in due to cost, latency, and copyright conside
 
 ## Future API and MCP readiness
 
-To avoid rework, the current app treats static YAML contracts as canonical, with JSON mirrors as browser/API compatibility output. A later API or MCP server can expose the same operations:
+To avoid rework, the current app treats static JSON contracts as canonical. A later API or MCP server can expose the same operations:
 
 - `list_briefings(window, kind)`
 - `get_briefing(id)`
@@ -433,7 +420,7 @@ The future MCP server should depend on the domain contracts in [../src/wazzup](.
 | Risk                                    | Mitigation                                                                                                                                       |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | GitHub Pages exposes personal interests | Public output is accepted for the current deployment; keep source preferences and prompts minimal and support private/static alternatives later. |
-| Repository bloat from generated data    | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated YAML/JSON.                                 |
+| Repository bloat from generated data    | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated JSON.                                 |
 | AI hallucinations                       | Require citations, validate structured output, keep source links visible.                                                                        |
 | AI provider cost spikes                 | Cap item count today; add summary caching and token/monthly accounting before relying on strict budget guarantees.                               |
 | Scheduled workflows delayed             | Treat schedules as best-effort and compute windows from timestamps.                                                                              |

@@ -46,7 +46,7 @@ def main() -> None:
 
     state_asset = Path(".state") / os.environ.get("STATE_ASSET", "wazzup-state.zip")
     if not download_retained_state(state_asset):
-        raise SystemExit("Pages builds require retained state. Run the News hourly workflow first.")
+        raise SystemExit("Pages builds require retained state. Run the News workflow first.")
     safe_extract_zip(state_asset, public_dir)
     validate_data_dir(public_dir / "data")
     print(f"validated {public_dir / 'data'}")

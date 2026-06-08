@@ -8,7 +8,7 @@ Accepted and implemented
 
 The scheduled pipeline generates frequent data: 8 scheduled daytime snapshots plus morning and evening briefings means up to 10 generated outputs per day. Committing those outputs would create roughly 3,650 generated-data commits per year before retries, manual runs, or future recap artifacts.
 
-The system still needs durable state between scheduled runs so the next workflow can publish a rolling 35-day Pages window instead of only the latest run.
+The system still needs durable state between scheduled runs so the next workflow can publish a rolling Pages window (currently 3 days) instead of only the latest run.
 
 ## Decision
 
@@ -19,7 +19,7 @@ Use a dedicated GitHub Release named `news-state` as the durable state store for
 1. The scheduled workflow downloads `wazzup-state.zip` from the `news-state` release if it exists.
 2. The workflow extracts the archive into `public/data`.
 3. The pipeline fetches feeds, generates the new briefing, and writes updated YAML plus JSON browser mirrors.
-4. The pipeline writes a transparency report for the run and enforces the 35-day retention window.
+4. The pipeline writes a transparency report for the run and enforces the configured retention window (currently 3 days).
 5. The workflow uploads the updated `wazzup-state.zip` release asset with `--clobber` and attaches the latest Markdown transparency report as `wazzup-transparency-report.md` when present.
 6. The separate Pages workflow deploys `public` to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.
 
@@ -31,9 +31,9 @@ Implemented refinement after the first Pages deployment failure:
 - The reusable Pages workflow receives `build-command: ~/.local/bin/mise exec -- task pages:build` without trying to inject `GH_TOKEN` into a string input.
 - The Pages reusable workflow later moved to `PYTHONPATH=src python3 scripts/pages_build.py` instead of `mise install`/`task pages:build`, because `github.token` is not reliably available inside reusable workflow string inputs and unauthenticated mise GitHub API calls can hit rate limits before deployment starts.
 
-Do not create one GitHub Release per hour for operational state. That would create up to 8,760 releases per year before retries and manual runs. The mutable `news-state` release remains the hot state store. If human time travel becomes important beyond the 35-day Pages window, add immutable daily or monthly archive/recap releases with concise release bodies and attached snapshots.
+Do not create one GitHub Release per hour for operational state. That would create up to 8,760 releases per year before retries and manual runs. The mutable `news-state` release remains the hot state store. If human time travel becomes important beyond the configured Pages window, add immutable daily or monthly archive/recap releases with concise release bodies and attached snapshots.
 
-The state archive currently contains YAML canonical files and JSON mirrors. YAML remains the operator-facing source of truth; JSON exists so the no-build PWA and simple consumers can fetch native browser data without a YAML parser.
+The state archive currently contains JSON files consumed directly by the no-build PWA and simple consumers without a YAML parser.
 
 ## Consequences
 

@@ -7,7 +7,7 @@ on:
       - main
   workflow_run:
     workflows:
-      - News hourly
+      - News
     types:
       - completed
   workflow_dispatch:
