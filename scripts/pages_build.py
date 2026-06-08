@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 from wazzup.build_info import write_build_info
-from wazzup.validate_data import validate_data_dir
+from wazzup.validate_data import ValidationError, validate_data_dir
 
 
 def retained_state_url() -> str:
@@ -48,7 +48,13 @@ def main() -> None:
     if not download_retained_state(state_asset):
         raise SystemExit("Pages builds require retained state. Run the News workflow first.")
     safe_extract_zip(state_asset, public_dir)
-    validate_data_dir(public_dir / "data")
+    try:
+        validate_data_dir(public_dir / "data")
+    except ValidationError as exc:
+        raise SystemExit(
+            f"Retained state is incompatible with the current format: {exc}\n"
+            "Run the News workflow to regenerate compatible state."
+        )
     print(f"validated {public_dir / 'data'}")
 
 
