@@ -22,6 +22,13 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotIn("overnight two-hour cadence", workflow)
         self.assertNotIn('cron: "d"', workflow)
 
+    def test_news_workflow_dispatches_pages_deploy_for_every_trigger(self) -> None:
+        workflow = Path(".github/workflows/news.yml").read_text(encoding="utf-8")
+        self.assertIn("actions: write", workflow)
+        self.assertIn("Deploy refreshed state to Pages", workflow)
+        self.assertIn("gh workflow run pages.yml", workflow)
+        self.assertIn("- Pages deployment: dispatched explicitly after persisting state", workflow)
+
     def test_news_watchdog_dispatches_delayed_two_hour_runs(self) -> None:
         workflow = Path(".github/workflows/news-watchdog.yml").read_text(encoding="utf-8")
         self.assertIn('cron: "37 * * * *"', workflow)
@@ -41,8 +48,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("push:", workflow)
         self.assertIn("branches:", workflow)
         self.assertIn("- main", workflow)
-        self.assertIn("workflow_run:", workflow)
         self.assertIn("workflow_dispatch:", workflow)
+        self.assertNotIn("workflow_run:", workflow)
         self.assertIn("python3 -m pip install --break-system-packages -r requirements.txt", workflow)
         self.assertIn("PYTHONPATH=src python3 -m unittest discover -s tests", workflow)
         self.assertIn("build-command: PYTHONPATH=src python3 scripts/pages_build.py", workflow)

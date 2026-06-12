@@ -5,11 +5,6 @@ on:
   push:
     branches:
       - main
-  workflow_run:
-    workflows:
-      - News
-    types:
-      - completed
   workflow_dispatch:
 
 permissions:
@@ -21,7 +16,6 @@ concurrency:
 
 jobs:
   pages:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     # renovate: datasource=github-tags depName=DevSecNinja/.github
     uses: DevSecNinja/.github/.github/workflows/pages.yml@998ff283c3a431bbcb74421180121826cca8fdd7 # v1.4.0
     permissions:
