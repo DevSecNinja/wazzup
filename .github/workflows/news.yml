@@ -38,6 +38,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
+      actions: write
       contents: write
     env:
       WAZZUP_TIMEZONE: Europe/Amsterdam
@@ -142,6 +143,20 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Deploy refreshed state to Pages
+        if: ${{ steps.cadence.outputs.should_run == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |-
+          set -euo pipefail
+          # Dispatch the Pages deploy explicitly. The cross-workflow
+          # workflow_run trigger does not fire for News runs started by
+          # workflow_dispatch (manual or the news-watchdog catch-up), which
+          # left freshly persisted state undeployed. Dispatching here covers
+          # every trigger type.
+          gh workflow run pages.yml --repo "${GITHUB_REPOSITORY}" --ref "${GITHUB_REF_NAME}"
+          echo "Dispatched Pages deployment for refreshed news state."
+
       - name: Write workflow summary
         if: ${{ steps.cadence.outputs.should_run == 'true' }}
         env:
@@ -160,7 +175,7 @@ jobs:
             echo "- Copilot model: ${COPILOT_MODEL}"
             echo "- Copilot writer model: ${COPILOT_WRITER_MODEL}"
             echo "- State release: news-state"
-            echo "- Pages deployment: handled by the Pages workflow after this run succeeds"
+            echo "- Pages deployment: dispatched explicitly after persisting state"
           } >>"${GITHUB_STEP_SUMMARY}"
 
       - name: Write skipped summary
