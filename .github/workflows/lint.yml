@@ -22,6 +22,12 @@ jobs:
     with:
       # renovate: datasource=github-releases depName=jdx/mise
       mise-version: "2026.5.16"
+      # No Go in this repo: skip golangci-lint. The reusable workflow still
+      # declares golangci-lint-version as a required input, so a value must be
+      # provided even though the go job is disabled.
+      lint-go: false
+      # renovate: datasource=github-releases depName=golangci/golangci-lint
+      golangci-lint-version: "v2.12.2"
       lint-config-dir: .
       lint-config-drift: false
       lint-shellcheck: false
