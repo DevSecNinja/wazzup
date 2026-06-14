@@ -1,6 +1,6 @@
 {
   "name": "wazzup",
-  "image": "ghcr.io/devsecninja/dotfiles-devcontainer:latest@sha256:e6728750c22ba9a87cc0a3f43c54da41de46951096f6953581459f3a0d66e7ca",
+  "image": "ghcr.io/devsecninja/dotfiles-devcontainer:latest@sha256:e24ebf98c6ae5e4db5e4d72290cb6ea09bd422c7da740a6ccc08a5bbbb297488",
   "features": {},
   "postCreateCommand": "mise trust && mise install && mise exec -- task install",
   "customizations": {}
