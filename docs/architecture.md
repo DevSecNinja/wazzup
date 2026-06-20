@@ -37,20 +37,20 @@ flowchart LR
 
 ## Runtime components
 
-| Component            | Responsibility                                                                                     | Current implementation                                                                                        |
-| -------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Source configuration | Defines feeds, short source tags, categories, weights, headers, and interest hints.                | [../config/sources.yml](../config/sources.yml) and [../config/interests.yml](../config/interests.yml).        |
-| Fetcher              | Retrieves RSS and Atom XML feeds.                                                                  | `urllib.request` based Python fetcher in [../src/wazzup/feeds.py](../src/wazzup/feeds.py).                    |
-| Normalizer           | Converts source entries into `ContentItem` records.                                                | Pure functions with fixtures.                                                                                 |
-| Deduplicator         | Groups duplicate or near-duplicate articles.                                                       | Canonical URL + raw ref/GUID + normalized title/day transitive groups.                                        |
-| Ranker               | Scores items against interests, source quality, recency, and coverage.                             | Deterministic scoring plus optional AI reranking later.                                                       |
-| Curator              | Selects and orders the most relevant items from the ranked list for the briefing.                  | AI curation provider abstraction; `wazzup-curator` agent for Copilot CLI, deterministic passthrough for fake. |
-| Summarizer           | Generates article and briefing summaries from the curated item selection.                          | AI summary provider abstraction with prompt versioning; `wazzup-writer` agent for Copilot CLI.                |
+| Component             | Responsibility                                                                                     | Current implementation                                                                                                     |
+| --------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Source configuration  | Defines feeds, short source tags, categories, weights, headers, and interest hints.                | [../config/sources.yml](../config/sources.yml) and [../config/interests.yml](../config/interests.yml).                     |
+| Fetcher               | Retrieves RSS and Atom XML feeds.                                                                  | `urllib.request` based Python fetcher in [../src/wazzup/feeds.py](../src/wazzup/feeds.py).                                 |
+| Normalizer            | Converts source entries into `ContentItem` records.                                                | Pure functions with fixtures.                                                                                              |
+| Deduplicator          | Groups duplicate or near-duplicate articles.                                                       | Canonical URL + raw ref/GUID + normalized title/day transitive groups.                                                     |
+| Ranker                | Scores items against interests, source quality, recency, and coverage.                             | Deterministic scoring plus optional AI reranking later.                                                                    |
+| Curator               | Selects and orders the most relevant items from the ranked list for the briefing.                  | AI curation provider abstraction; `wazzup-curator` agent for Copilot CLI, deterministic passthrough for fake.              |
+| Summarizer            | Generates article and briefing summaries from the curated item selection.                          | AI summary provider abstraction with prompt versioning; `wazzup-writer` agent for Copilot CLI.                             |
 | Transparency reporter | Explains run inputs, source health, selection, and AI providers for auditability.                  | AI report provider abstraction; `wazzup-transparency-reporter` agent for Copilot CLI, deterministic fake report for tests. |
-| Publisher            | Writes canonical static JSON, source health, transparency reports, `latest`, and `manifest` files. | [../src/wazzup/publisher.py](../src/wazzup/publisher.py).                                                     |
-| State store          | Persists generated data across scheduled runs without commits.                                     | `news-state` GitHub Release asset `wazzup-state.zip`.                                                         |
-| Delivery adapters    | Pushes selected briefings to external channels.                                                    | Not implemented yet.                                                                                          |
-| Frontend             | Displays latest briefing and source health.                                                        | Static vanilla PWA in [../public](../public).                                                                 |
+| Publisher             | Writes canonical static JSON, source health, transparency reports, `latest`, and `manifest` files. | [../src/wazzup/publisher.py](../src/wazzup/publisher.py).                                                                  |
+| State store           | Persists generated data across scheduled runs without commits.                                     | `news-state` GitHub Release asset `wazzup-state.zip`.                                                                      |
+| Delivery adapters     | Pushes selected briefings to external channels.                                                    | Not implemented yet.                                                                                                       |
+| Frontend              | Displays latest briefing and source health.                                                        | Static vanilla PWA in [../public](../public).                                                                              |
 
 ## Pipeline flow
 
@@ -420,7 +420,7 @@ The future MCP server should depend on the domain contracts in [../src/wazzup](.
 | Risk                                    | Mitigation                                                                                                                                       |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | GitHub Pages exposes personal interests | Public output is accepted for the current deployment; keep source preferences and prompts minimal and support private/static alternatives later. |
-| Repository bloat from generated data    | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated JSON.                                 |
+| Repository bloat from generated data    | Store rolling state in a GitHub Release asset and deploy Pages artifacts without committing generated JSON.                                      |
 | AI hallucinations                       | Require citations, validate structured output, keep source links visible.                                                                        |
 | AI provider cost spikes                 | Cap item count today; add summary caching and token/monthly accounting before relying on strict budget guarantees.                               |
 | Scheduled workflows delayed             | Treat schedules as best-effort and compute windows from timestamps.                                                                              |

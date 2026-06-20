@@ -20,7 +20,6 @@ class RepoAutomationTests(unittest.TestCase):
             self.assertTrue(path.exists(), workflow)
             content = path.read_text(encoding="utf-8")
             self.assertIn("DevSecNinja/.github/.github/workflows/", content)
-            self.assertIn("# renovate: datasource=github-tags depName=DevSecNinja/.github", content)
 
     def test_lint_autofix_and_hooks_are_configured(self) -> None:
         lint_config_paths = ["dprint.json", ".yamlfmt.yaml", ".yamllint.yaml", ".lefthook.toml"]

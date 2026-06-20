@@ -2,19 +2,19 @@
 
 ## Workflow overview
 
-| Workflow            | Trigger                                                                    | Responsibility                                                                                                                                   |
-| ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CI                  | Pull request and manual dispatch                                           | Formatting, syntax linting, tests, compile checks, fixture generation, and generated-data validation.                                            |
-| Lint                | Pull request and manual dispatch                                           | Reusable organization lint workflow from `DevSecNinja/.github`.                                                                                  |
-| Auto-fix formatting | Manual dispatch                                                            | Reusable organization formatting workflow that commits dprint/yamlfmt fixes back to the branch.                                                  |
-| News                | Hourly schedule with a local two-hour active-window cadence gate and manual dispatch | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
-| Pages               | Explicit dispatch from `News` after state persists, push to `main`, and manual dispatch | Deploy PWA and static JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.                                  |
-| Config Sync         | Weekly and manual dispatch                                                 | Open PRs when shared repo config from `DevSecNinja/.github` drifts.                                                                              |
-| Label Sync          | Daily, manual dispatch, and label config changes                           | Sync repository labels from the org base labels plus repo-specific labels.                                                                       |
-| Labeler             | Pull requests, issues, and manual dispatch                                 | Apply area/type labels using shared labeler automation.                                                                                          |
-| Live smoke          | Not implemented yet                                                        | Optional real feed and AI provider canary checks with strict budgets.                                                                            |
-| Archive cleanup     | Not implemented yet                                                        | Keep release-backed rolling state compact and optionally publish monthly recap archives.                                                         |
-| Release automation  | Not implemented yet                                                        | Future release-please workflow driven by Conventional Commits.                                                                                   |
+| Workflow            | Trigger                                                                                 | Responsibility                                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CI                  | Pull request and manual dispatch                                                        | Formatting, syntax linting, tests, compile checks, fixture generation, and generated-data validation.                                            |
+| Lint                | Pull request and manual dispatch                                                        | Reusable organization lint workflow from `DevSecNinja/.github`.                                                                                  |
+| Auto-fix formatting | Manual dispatch                                                                         | Reusable organization formatting workflow that commits dprint/yamlfmt fixes back to the branch.                                                  |
+| News                | Hourly schedule with a local two-hour active-window cadence gate and manual dispatch    | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
+| Pages               | Explicit dispatch from `News` after state persists, push to `main`, and manual dispatch | Deploy PWA and static JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.                                       |
+| Config Sync         | Weekly and manual dispatch                                                              | Open PRs when shared repo config from `DevSecNinja/.github` drifts.                                                                              |
+| Label Sync          | Daily, manual dispatch, and label config changes                                        | Sync repository labels from the org base labels plus repo-specific labels.                                                                       |
+| Labeler             | Pull requests, issues, and manual dispatch                                              | Apply area/type labels using shared labeler automation.                                                                                          |
+| Live smoke          | Not implemented yet                                                                     | Optional real feed and AI provider canary checks with strict budgets.                                                                            |
+| Archive cleanup     | Not implemented yet                                                                     | Keep release-backed rolling state compact and optionally publish monthly recap archives.                                                         |
+| Release automation  | Not implemented yet                                                                     | Future release-please workflow driven by Conventional Commits.                                                                                   |
 
 ## Recommended workflow boundaries
 
@@ -278,9 +278,9 @@ Expected secrets:
 | Secret                       | Purpose                                                                                                     |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `COPILOT_REQUESTS_PAT`       | Preferred repository secret containing a fine-grained PAT for Copilot CLI with Copilot Requests permission. |
-| `COPILOT_GITHUB_TOKEN`       | Alternative secret name accepted by the News workflow.                                               |
-| `COPILOT_MODEL`              | Optional Copilot CLI model override for curator and transparency; defaults to `claude-sonnet-4.6`.         |
-| `COPILOT_WRITER_MODEL`       | Optional Copilot CLI model override for the briefing writer; defaults to `claude-opus-4.8`.                |
+| `COPILOT_GITHUB_TOKEN`       | Alternative secret name accepted by the News workflow.                                                      |
+| `COPILOT_MODEL`              | Optional Copilot CLI model override for curator and transparency; defaults to `claude-sonnet-4.6`.          |
+| `COPILOT_WRITER_MODEL`       | Optional Copilot CLI model override for the briefing writer; defaults to `claude-opus-4.8`.                 |
 | `AZURE_OPENAI_ENDPOINT`      | Azure OpenAI endpoint.                                                                                      |
 | `AZURE_OPENAI_API_KEY`       | Azure OpenAI API key.                                                                                       |
 | `OPENAI_API_KEY`             | Optional alternative provider.                                                                              |
@@ -331,10 +331,10 @@ The scheduled `News` workflow is responsible for mutating release-backed state. 
 
 Observed failure modes and fixes:
 
-| Failure                                                  | Cause                                                                                              | Fix                                                                                                                   |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| News run failed in Copilot CLI                           | `COPILOT_GITHUB_TOKEN` was empty while `AI_PROVIDER=copilot-cli`.                                  | Select effective provider first and fall back to `fake` when no Copilot token secret exists.                          |
-| Pages deploy failed validating `public/data/latest.json` | Reusable workflow received empty `GH_TOKEN`, state restore skipped, and `public/data` was missing. | Restore public release asset without a token in Pages builds and make missing retained state fatal for `pages:build`. |
+| Failure                                                  | Cause                                                                                                                               | Fix                                                                                                                   |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| News run failed in Copilot CLI                           | `COPILOT_GITHUB_TOKEN` was empty while `AI_PROVIDER=copilot-cli`.                                                                   | Select effective provider first and fall back to `fake` when no Copilot token secret exists.                          |
+| Pages deploy failed validating `public/data/latest.json` | Reusable workflow received empty `GH_TOKEN`, state restore skipped, and `public/data` was missing.                                  | Restore public release asset without a token in Pages builds and make missing retained state fatal for `pages:build`. |
 | Pages deploy failed during mise install                  | Reusable workflow install command could not pass `github.token`, so mise made unauthenticated GitHub API calls and hit rate limits. | Avoid mise in Pages deploy; install Python deps directly and run `scripts/pages_build.py`.                            |
 
 ## Security hardening

@@ -11,14 +11,14 @@
 
 ## Test pyramid
 
-| Layer       | Purpose                                                | Examples                                                                                       | CI trigger                       |
-| ----------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | -------------------------------- |
-| Unit        | Validate pure logic.                                   | Date windows, scoring, dedupe, feed normalization, provider selection.                         | Pull request and manual CI.      |
-| Contract    | Validate generated data shape and provider interfaces. | `ContentItem`, `Briefing`, `latest.json`, release-state layout.                                | Pull request and manual CI.      |
-| Integration | Validate components together with fixtures.            | Parse saved RSS samples, run pipeline with fake AI provider, publish data to temp dir.         | Pull request and manual CI.      |
-| Frontend    | Validate rendering and accessibility basics.           | Load fixture `latest.json`, render briefing, keyboard navigation, service worker registration. | Planned.                         |
-| End-to-end  | Validate deployed/static behavior.                     | Build app, restore release state, validate Pages artifact.                                     | News and Pages workflows. |
-| Live smoke  | Validate external services safely.                     | Fetch a small allowlisted feed, optional AI provider canary with tiny prompt.                  | Scheduled or manual only.        |
+| Layer       | Purpose                                                | Examples                                                                                       | CI trigger                  |
+| ----------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | --------------------------- |
+| Unit        | Validate pure logic.                                   | Date windows, scoring, dedupe, feed normalization, provider selection.                         | Pull request and manual CI. |
+| Contract    | Validate generated data shape and provider interfaces. | `ContentItem`, `Briefing`, `latest.json`, release-state layout.                                | Pull request and manual CI. |
+| Integration | Validate components together with fixtures.            | Parse saved RSS samples, run pipeline with fake AI provider, publish data to temp dir.         | Pull request and manual CI. |
+| Frontend    | Validate rendering and accessibility basics.           | Load fixture `latest.json`, render briefing, keyboard navigation, service worker registration. | Planned.                    |
+| End-to-end  | Validate deployed/static behavior.                     | Build app, restore release state, validate Pages artifact.                                     | News and Pages workflows.   |
+| Live smoke  | Validate external services safely.                     | Fetch a small allowlisted feed, optional AI provider canary with tiny prompt.                  | Scheduled or manual only.   |
 
 ## Implemented test suite
 
