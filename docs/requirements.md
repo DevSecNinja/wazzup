@@ -59,28 +59,28 @@ Implemented deviations from the original target:
 
 ## Functional requirements
 
-| ID     | Requirement                                                                                                                                   | Priority |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| FR-001 | Maintain a configurable list of feeds, short source tags, source categories, source weights, and user interests.                              | Must     |
-| FR-002 | Fetch configured RSS/Atom feeds every two hours from 07:00 through 21:59 local time in GitHub Actions. JSON Feed support remains deferred.    | Must     |
-| FR-003 | Deduplicate articles using canonical URL, feed item GUID, title similarity, and publication timestamp.                                        | Must     |
-| FR-004 | Store normalized article metadata in stable, versioned JSON, without committing generated data to `main`. | Must     |
-| FR-005 | Score articles against user interests, recency, source reliability, and duplicate coverage.                                                   | Must     |
-| FR-006 | Generate hourly summaries from the current local day's retained feed items while suppressing items already featured earlier that day.         | Should   |
-| FR-007 | Generate a morning briefing at 07:00 local time covering overnight updates since the previous evening briefing.                               | Must     |
-| FR-008 | Generate an evening briefing at 20:00 local time covering the day since 07:00.                                                                | Must     |
-| FR-009 | Include citations/source links for every summary bullet.                                                                                      | Must     |
-| FR-010 | Expose latest summaries and article indexes as static JSON.                                                         | Must     |
-| FR-011 | Provide a minimal responsive frontend for the latest rolling day view, earlier-today grouping, previous-day summary, and source health.       | Must     |
-| FR-012 | Support installable PWA behavior with offline reading of recently loaded briefings.                                                           | Should   |
-| FR-013 | Support user notification options without requiring a custom always-on server.                                                                | Should   |
-| FR-014 | Provide a Home Assistant-friendly integration surface for briefings.                                                                          | Could    |
-| FR-015 | Ingest podcast releases and transcript metadata.                                                                                              | Could    |
-| FR-016 | Recommend podcast episodes worth listening to based on interests and transcript/description relevance.                                        | Could    |
-| FR-017 | Define contracts that can later back a REST API, agent tool, or MCP server.                                                                   | Must     |
-| FR-018 | Provide observability outputs for workflow runs, source failures, AI provider cost, and item counts.                                          | Should   |
-| FR-019 | Support interchangeable AI runners without changing ranking, storage, or frontend contracts.                                                  | Must     |
-| FR-020 | Generate a monthly recap from retained daily and evening briefings.                                                                           | Could    |
+| ID     | Requirement                                                                                                                                | Priority |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| FR-001 | Maintain a configurable list of feeds, short source tags, source categories, source weights, and user interests.                           | Must     |
+| FR-002 | Fetch configured RSS/Atom feeds every two hours from 07:00 through 21:59 local time in GitHub Actions. JSON Feed support remains deferred. | Must     |
+| FR-003 | Deduplicate articles using canonical URL, feed item GUID, title similarity, and publication timestamp.                                     | Must     |
+| FR-004 | Store normalized article metadata in stable, versioned JSON, without committing generated data to `main`.                                  | Must     |
+| FR-005 | Score articles against user interests, recency, source reliability, and duplicate coverage.                                                | Must     |
+| FR-006 | Generate hourly summaries from the current local day's retained feed items while suppressing items already featured earlier that day.      | Should   |
+| FR-007 | Generate a morning briefing at 07:00 local time covering overnight updates since the previous evening briefing.                            | Must     |
+| FR-008 | Generate an evening briefing at 20:00 local time covering the day since 07:00.                                                             | Must     |
+| FR-009 | Include citations/source links for every summary bullet.                                                                                   | Must     |
+| FR-010 | Expose latest summaries and article indexes as static JSON.                                                                                | Must     |
+| FR-011 | Provide a minimal responsive frontend for the latest rolling day view, earlier-today grouping, previous-day summary, and source health.    | Must     |
+| FR-012 | Support installable PWA behavior with offline reading of recently loaded briefings.                                                        | Should   |
+| FR-013 | Support user notification options without requiring a custom always-on server.                                                             | Should   |
+| FR-014 | Provide a Home Assistant-friendly integration surface for briefings.                                                                       | Could    |
+| FR-015 | Ingest podcast releases and transcript metadata.                                                                                           | Could    |
+| FR-016 | Recommend podcast episodes worth listening to based on interests and transcript/description relevance.                                     | Could    |
+| FR-017 | Define contracts that can later back a REST API, agent tool, or MCP server.                                                                | Must     |
+| FR-018 | Provide observability outputs for workflow runs, source failures, AI provider cost, and item counts.                                       | Should   |
+| FR-019 | Support interchangeable AI runners without changing ranking, storage, or frontend contracts.                                               | Must     |
+| FR-020 | Generate a monthly recap from retained daily and evening briefings.                                                                        | Could    |
 
 ### Functional requirement implementation notes
 
@@ -90,7 +90,7 @@ Implemented deviations from the original target:
 | Deduplication    | Canonical URL tracking-parameter stripping, raw ref/GUID key, normalized title plus publication day, transitive duplicate groups, source-priority winner selection. | Semantic title similarity and duplicate-group publication metadata.       |
 | Briefings        | Daytime two-hour scheduled briefing plus automatic local-time morning/evening due detection, and manually forced auto/hourly/morning/evening generation.            | Daily/hourly view routing in the frontend.                                |
 | AI               | `fake` deterministic provider and `copilot-cli` provider. Tokenless scheduled runs fall back to `fake`.                                                             | API providers, Ollama/Foundry providers, strict token/cost accounting.    |
-| Frontend         | Latest briefing, previous-day summary, source/category tags, article temperature, and source-health PWA from JSON data.                                          | Rich saved-item navigation, server-side notifications, Home Assistant UI. |
+| Frontend         | Latest briefing, previous-day summary, source/category tags, article temperature, and source-health PWA from JSON data.                                             | Rich saved-item navigation, server-side notifications, Home Assistant UI. |
 | Data validation  | Runtime validation through `wazzup.validate_data` and tests.                                                                                                        | Published JSON Schema files and schema-version migration tooling.         |
 
 ## Non-functional requirements

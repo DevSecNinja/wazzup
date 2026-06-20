@@ -34,6 +34,7 @@ jobs:
       artifact-path: public
       install-command: |-
         python3 -m pip install --break-system-packages -r requirements.txt
-      test-command: PYTHONPATH=src python3 scripts/check_format.py && python3 scripts/lint.py && PYTHONPATH=src python3 -m unittest discover -s tests && python3 -m compileall -q src scripts
+      test-command: |-
+        PYTHONPATH=src python3 scripts/check_format.py && python3 scripts/lint.py && PYTHONPATH=src python3 -m unittest discover -s tests && python3 -m compileall -q src scripts
       build-command: PYTHONPATH=src python3 scripts/pages_build.py
       cloudflare-preview: false
