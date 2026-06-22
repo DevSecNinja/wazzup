@@ -21,7 +21,7 @@ jobs:
       security-events: write
     with:
       # renovate: datasource=github-releases depName=jdx/mise
-      mise-version: "2026.5.16"
+      mise-version: "2026.6.1"
       # No Go in this repo: skip golangci-lint. The reusable workflow still
       # declares golangci-lint-version as a required input, so a value must be
       # provided even though the go job is disabled.
