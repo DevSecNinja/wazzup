@@ -22,8 +22,16 @@ jobs:
     env:
       WAZZUP_TIMEZONE: Europe/Amsterdam
       TARGET_WORKFLOW: news.yml
+      # Briefings are generated on a two-hour daytime cadence. Allow a little
+      # slack below 120 minutes so jittered scheduled runs still trigger a
+      # catch-up instead of drifting an extra hour.
+      CADENCE_INTERVAL_MINUTES: "115"
+      # Name of the News step that actually generates and persists state. A
+      # cadence skip leaves this step "skipped", so its success is the signal
+      # that a run did real work.
+      GENERATE_STEP_NAME: Generate and persist retained news state
     steps:
-      - name: Check scheduled cadence
+      - name: Check active window
         id: cadence
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -39,12 +47,18 @@ jobs:
           local_hour="$(TZ="${WAZZUP_TIMEZONE}" date +%H)"
           hour=$((10#${local_hour}))
 
-          if (( hour >= 6 && hour < 22 && hour % 2 == 1 )); then
+          # Run the watchdog every hour inside the active window instead of only
+          # on odd local hours. GitHub schedule jitter routinely shifts runs
+          # across hour boundaries, so an hour-parity gate disables the watchdog
+          # exactly when it is needed. The two-hour cadence is enforced below by
+          # the elapsed time since the last effective generation, not by the
+          # wall-clock hour of this run.
+          if (( hour >= 7 && hour < 22 )); then
             echo "should_run=true" >>"${GITHUB_OUTPUT}"
-            echo "reason=active two-hour local cadence" >>"${GITHUB_OUTPUT}"
+            echo "reason=within active local window" >>"${GITHUB_OUTPUT}"
           else
             echo "should_run=false" >>"${GITHUB_OUTPUT}"
-            echo "reason=outside active two-hour local cadence" >>"${GITHUB_OUTPUT}"
+            echo "reason=outside active local window" >>"${GITHUB_OUTPUT}"
           fi
 
       - name: Dispatch catch-up if needed
@@ -55,25 +69,58 @@ jobs:
         run: |-
           set -euo pipefail
 
-          current_hour_start="$(date -u +%Y-%m-%dT%H:00:00Z)"
-          run_count="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/workflows/${TARGET_WORKFLOW}/runs?branch=${GITHUB_REF_NAME}&per_page=20" \
-            | jq --arg cutoff "${current_hour_start}" '[.workflow_runs[] | select(.created_at >= $cutoff and (.event == "schedule" or .event == "workflow_dispatch"))] | length')"
+          now_epoch="$(date -u +%s)"
+          threshold_epoch=$(( now_epoch - 10#${CADENCE_INTERVAL_MINUTES} * 60 ))
+
+          runs_json="$(gh api -X GET \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/${TARGET_WORKFLOW}/runs?branch=${GITHUB_REF_NAME}&per_page=30")"
+
+          # A News run that is still queued or in progress already covers this
+          # cadence slot, so avoid stacking duplicate catch-up dispatches.
+          active_runs="$(echo "${runs_json}" \
+            | jq '[.workflow_runs[] | select(.status != "completed")] | length')"
+
+          # Find the newest News run that actually generated state. A cadence
+          # skip completes in seconds with the generate step skipped, so the mere
+          # existence of a run this hour is not enough -- inspect the generate
+          # step result of recent completed runs.
+          last_effective_epoch=0
+          while read -r run_id created_at; do
+            [[ -z "${run_id}" ]] && continue
+            generated="$(gh api \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs" \
+              | jq --arg step "${GENERATE_STEP_NAME}" \
+                '[.jobs[].steps[]? | select(.name == $step and .conclusion == "success")] | length')"
+            if (( generated > 0 )); then
+              last_effective_epoch="$(date -u -d "${created_at}" +%s)"
+              break
+            fi
+          done < <(echo "${runs_json}" \
+            | jq -r '[.workflow_runs[] | select(.status == "completed")][:15][] | "\(.id) \(.created_at)"')
 
           {
             echo "## Wazzup news watchdog"
             echo ""
             echo "- Cadence: ${CADENCE_REASON}"
-            echo "- Current UTC hour start: ${current_hour_start}"
-            echo "- Existing News runs this scheduled UTC hour: ${run_count}"
+            echo "- Cadence interval: ${CADENCE_INTERVAL_MINUTES} minutes"
+            echo "- In-progress News runs: ${active_runs}"
+            echo "- Last effective generation (epoch): ${last_effective_epoch}"
           } >>"${GITHUB_STEP_SUMMARY}"
 
-          if (( run_count > 0 )); then
-            echo "News has already run or been dispatched this scheduled UTC hour."
+          if (( active_runs > 0 )); then
+            echo "A News run is already queued or in progress; skipping catch-up dispatch."
+            echo "- Action: skipped (News run already active)" >>"${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          if (( last_effective_epoch >= threshold_epoch )); then
+            echo "A News run generated fresh state within the cadence interval; no catch-up needed."
+            echo "- Action: skipped (recent generation within cadence interval)" >>"${GITHUB_STEP_SUMMARY}"
             exit 0
           fi
 
           gh workflow run "${TARGET_WORKFLOW}" --repo "${GITHUB_REPOSITORY}" --ref "${GITHUB_REF_NAME}" -f forceBriefing=auto -f aiProvider=copilot-cli
-          echo "- Action: dispatched News catch-up" >>"${GITHUB_STEP_SUMMARY}"
+          echo "- Action: dispatched News catch-up (stale generation)" >>"${GITHUB_STEP_SUMMARY}"
 
       - name: Write skipped summary
         if: ${{ steps.cadence.outputs.should_run != 'true' }}

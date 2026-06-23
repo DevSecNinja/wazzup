@@ -29,15 +29,26 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("gh workflow run pages.yml", workflow)
         self.assertIn("- Pages deployment: dispatched explicitly after persisting state", workflow)
 
-    def test_news_watchdog_dispatches_delayed_two_hour_runs(self) -> None:
+    def test_news_watchdog_dispatches_when_effective_generation_is_stale(self) -> None:
         workflow = Path(".github/workflows/news-watchdog.yml").read_text(encoding="utf-8")
         self.assertIn('cron: "37 * * * *"', workflow)
         self.assertIn("actions: write", workflow)
         self.assertIn("TARGET_WORKFLOW: news.yml", workflow)
-        self.assertIn("hour >= 6 && hour < 22 && hour % 2 == 1", workflow)
-        self.assertIn("current_hour_start=", workflow)
-        self.assertIn("| jq --arg cutoff", workflow)
-        self.assertIn("Existing News runs this scheduled UTC hour", workflow)
+        # The watchdog runs every hour inside the active window. Gating on
+        # odd-hour parity would disable it under GitHub schedule jitter, which
+        # is exactly when catch-up dispatches are needed.
+        self.assertIn("hour >= 7 && hour < 22", workflow)
+        self.assertNotIn("hour % 2 == 1", workflow)
+        # Two-hour cadence is enforced by elapsed time since the last effective
+        # generation, not by the wall-clock hour of this run.
+        self.assertIn("CADENCE_INTERVAL_MINUTES:", workflow)
+        self.assertIn("GENERATE_STEP_NAME: Generate and persist retained news state", workflow)
+        self.assertIn("last_effective_epoch", workflow)
+        self.assertIn("threshold_epoch", workflow)
+        # A cadence skip still produces a News run, so existence alone must not
+        # suppress catch-up; the generate step result is inspected instead.
+        self.assertIn("/jobs", workflow)
+        self.assertNotIn("Existing News runs this scheduled UTC hour", workflow)
         self.assertIn("gh workflow run \"${TARGET_WORKFLOW}\"", workflow)
         self.assertIn("--repo \"${GITHUB_REPOSITORY}\"", workflow)
         self.assertIn("forceBriefing=auto", workflow)
