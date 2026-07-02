@@ -30,7 +30,7 @@ jobs:
       node-version: "24"
       node-cache: ""
       # renovate: datasource=npm depName=wrangler
-      wrangler-version: "4.102.0"
+      wrangler-version: "4.105.0"
       artifact-path: public
       install-command: |-
         python3 -m pip install --break-system-packages -r requirements.txt
