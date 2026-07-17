@@ -63,6 +63,16 @@ class RepoAutomationTests(unittest.TestCase):
         for pattern in case_insensitive_patterns:
             self.assertTrue(pattern.endswith("/i"), pattern)
 
+    def test_add_news_source_issue_template_is_valid(self) -> None:
+        path = Path(".github/ISSUE_TEMPLATE/add-news-source.yml")
+        self.assertTrue(path.exists(), path)
+        template = yaml.safe_load(path.read_text(encoding="utf-8"))
+        self.assertIn("name", template)
+        self.assertIn("description", template)
+        self.assertIsInstance(template.get("body"), list)
+        field_ids = {field.get("id") for field in template["body"] if isinstance(field, dict)}
+        self.assertTrue({"name", "homepage-url", "feed-url", "type"}.issubset(field_ids))
+
 
 if __name__ == "__main__":
     unittest.main()

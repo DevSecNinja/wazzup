@@ -724,3 +724,25 @@ sources:
       - service updates
       - platform changes
     notes: "Official Microsoft Azure release communications RSS feed for service announcements and platform changes."
+
+  - id: autoriteit-persoonsgegevens
+    name: Autoriteit Persoonsgegevens
+    sourceTag: AP
+    enabled: true
+    type: rss
+    homepageUrl: https://www.autoriteitpersoonsgegevens.nl/actueel
+    feedUrl: https://autoriteitpersoonsgegevens.nl/nl/rss.xml
+    language: nl
+    region: nl
+    weight: 1.2
+    categories:
+      - privacy
+      - netherlands
+      - data-protection
+    interestHints:
+      - privacy
+      - data protection
+      - gdpr
+      - dutch data protection authority
+      - enforcement
+    notes: "Dutch Data Protection Authority (Autoriteit Persoonsgegevens) news feed for the /actueel page from issue #200."

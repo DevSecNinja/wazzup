@@ -1,0 +1,96 @@
+---
+name: Add a news source
+description: Propose a new RSS/Atom feed to add to the Wazzup source registry.
+title: "feat(sources): add <source name>"
+labels:
+  - feat
+  - area/data
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new source! Each field maps to an entry in
+        [`config/sources.yml`](../../config/sources.yml). Fill in what you know;
+        the maintainer can refine weights and hints when wiring it up.
+  - type: input
+    id: name
+    attributes:
+      label: Source name
+      description: Human-readable name (maps to `name`).
+      placeholder: Autoriteit Persoonsgegevens
+    validations:
+      required: true
+  - type: input
+    id: homepage-url
+    attributes:
+      label: Homepage URL
+      description: Link to the site or section (maps to `homepageUrl`).
+      placeholder: https://www.autoriteitpersoonsgegevens.nl/actueel
+    validations:
+      required: true
+  - type: input
+    id: feed-url
+    attributes:
+      label: Feed URL
+      description: Direct RSS/Atom feed URL (maps to `feedUrl`). Leave blank if unknown.
+      placeholder: https://autoriteitpersoonsgegevens.nl/nl/rss.xml
+    validations:
+      required: false
+  - type: dropdown
+    id: type
+    attributes:
+      label: Feed type
+      description: Feed format (maps to `type`).
+      options:
+        - rss
+        - atom
+        - json-feed
+        - podcast
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: ISO language code such as `en` or `nl` (maps to `language`).
+      placeholder: nl
+    validations:
+      required: true
+  - type: input
+    id: region
+    attributes:
+      label: Region
+      description: Region such as `global`, `nl`, `us`, or `uk` (maps to `region`).
+      placeholder: nl
+    validations:
+      required: true
+  - type: textarea
+    id: categories
+    attributes:
+      label: Categories
+      description: One category per line (maps to `categories`).
+      placeholder: |
+        privacy
+        netherlands
+        data-protection
+    validations:
+      required: false
+  - type: textarea
+    id: interest-hints
+    attributes:
+      label: Interest hints
+      description: One hint per line to help scoring (maps to `interestHints`).
+      placeholder: |
+        privacy
+        data protection
+        gdpr
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything else worth knowing (rate limits, overlap, why it matters).
+    validations:
+      required: false
