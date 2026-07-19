@@ -746,3 +746,25 @@ sources:
       - dutch data protection authority
       - enforcement
     notes: "Dutch Data Protection Authority (Autoriteit Persoonsgegevens) news feed for the /actueel page from issue #200."
+
+  - id: arnoud-engelfriet
+    name: Arnoud Engelfriet
+    sourceTag: Iusmentis
+    enabled: true
+    type: rss
+    homepageUrl: https://blog.iusmentis.com/
+    feedUrl: https://blog.iusmentis.com/feed/
+    language: nl
+    region: nl
+    weight: 1.1
+    categories:
+      - privacy
+      - netherlands
+      - technology-law
+    interestHints:
+      - privacy
+      - data protection
+      - gdpr
+      - technology law
+      - dutch it law
+    notes: "Blog of Arnoud Engelfriet (Iusmentis) covering Dutch IT and technology law from issue #206."
