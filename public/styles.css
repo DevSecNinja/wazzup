@@ -438,6 +438,12 @@ main {
   text-underline-offset: 0.18em;
 }
 
+.citation--button {
+  cursor: pointer;
+  background: transparent;
+  font: inherit;
+}
+
 .status { color: var(--success); }
 .status--bad { color: var(--warning); }
 
