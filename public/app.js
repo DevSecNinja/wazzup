@@ -467,6 +467,30 @@ function isInteractiveTarget(target) {
   return Boolean(target?.closest('a, button'));
 }
 
+function supportsNativeShare() {
+  return typeof navigator.share === 'function';
+}
+
+async function shareBriefingBullet(event) {
+  const button = event?.currentTarget;
+  if (!(button instanceof HTMLElement)) return;
+  const url = button.dataset.shareUrl || '';
+  if (!url || !supportsNativeShare()) return;
+  const title = button.dataset.shareTitle || 'Article';
+  const description = button.dataset.shareDescription || '';
+  try {
+    await navigator.share({
+      title,
+      text: description,
+      url,
+    });
+  } catch (error) {
+    if (error?.name !== 'AbortError') {
+      console.error('Failed to share article', error);
+    }
+  }
+}
+
 function openPrimaryBulletUrl(bulletEl) {
   const url = bulletEl?.dataset?.primaryUrl;
   if (!url) return;
@@ -487,6 +511,10 @@ function bindBriefingBulletLinks() {
       event.preventDefault();
       openPrimaryBulletUrl(bulletEl);
     });
+  });
+  const shareButtons = Array.from(briefingEl.querySelectorAll('.citation--button[data-share-url]'));
+  shareButtons.forEach((button) => {
+    button.addEventListener('click', shareBriefingBullet);
   });
 }
 
@@ -600,10 +628,14 @@ function renderBriefing(briefing, seenState) {
                 `<a class="citation" href="${escapeHtml(citation.url)}" target="_blank" rel="noopener noreferrer">${citation.publishedAt ? `${escapeHtml(formatDate(citation.publishedAt))} · ` : ''}${escapeHtml(citation.sourceName)}</a>`,
             )
             .join('');
+          const shareButton =
+            supportsNativeShare() && normalized.primaryUrl
+              ? `<button class="citation citation--button" type="button" data-share-title="${escapeHtml(normalized.title)}" data-share-description="${escapeHtml(normalized.description)}" data-share-url="${escapeHtml(normalized.primaryUrl)}" aria-label="Share ${escapeHtml(normalized.title)}">Share</button>`
+              : '';
           const tags = normalized.tags
             .map((tag) => `<button class="tag tag--button" type="button" data-filter-type="category" data-filter-value="${escapeHtml(tag)}" data-filter-label="${escapeHtml(tag)}" aria-pressed="false">${escapeHtml(tag)}</button>`)
             .join('');
-          return `<li class="bullet bullet--${temperatureLevel}${seen ? ' bullet--seen' : ''}" data-seen-item-ids="${escapeHtml(itemIds.join(','))}" data-seen-state="${seen ? 'seen' : 'new'}" data-filter-categories="${filterCategories}" data-filter-source-ids="${filterSourceIds}"${primaryUrlAttrs}><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '📄')}</span><h4>${escapeHtml(normalized.title)}</h4><span class="bullet__status bullet__status--${seen ? 'seen' : 'new'}">${seen ? 'Seen' : 'New'}</span></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${links}</div></li>`;
+          return `<li class="bullet bullet--${temperatureLevel}${seen ? ' bullet--seen' : ''}" data-seen-item-ids="${escapeHtml(itemIds.join(','))}" data-seen-state="${seen ? 'seen' : 'new'}" data-filter-categories="${filterCategories}" data-filter-source-ids="${filterSourceIds}"${primaryUrlAttrs}><div class="bullet__heading"><span class="temperature temperature--${temperatureLevel}" title="${escapeHtml(temperature.label || 'Importance')}">${escapeHtml(temperature.icon || '📄')}</span><h4>${escapeHtml(normalized.title)}</h4><span class="bullet__status bullet__status--${seen ? 'seen' : 'new'}">${seen ? 'Seen' : 'New'}</span></div><p>${escapeHtml(normalized.description)}</p>${tags ? `<div class="tag-list">${tags}</div>` : ''}<div class="citations">${shareButton}${links}</div></li>`;
         })
         .join('');
       return `<section class="section">${hasMultipleSections ? `<h3>${escapeHtml(section.title)}</h3>` : ''}<ul class="bullet-list">${bullets}</ul></section>`;
