@@ -376,6 +376,8 @@ class CopilotCliSummaryProvider:
                 "Every bullet must include citations containing source item IDs from the input. "
                 "Merge input items into one bullet when they describe the same story, campaign, incident, vendor, "
                 "product, or affected organization; cite every source item ID that supports the merged bullet. "
+                "Do not infer winners, outcomes, timelines, or cause-and-effect details that are not explicitly stated "
+                "in the cited input items. "
                 "Otherwise preserve the input order so newly published hourly articles stay at the top. "
                 "Do not include Markdown fences or commentary."
             )
@@ -634,6 +636,7 @@ def build_prompt_payload(request: SummaryRequest) -> dict[str, Any]:
             "Keep bullets concise and source-grounded.",
             "Preserve the input item order so newly published hourly articles stay at the top, except when merging related items into one synthesized bullet.",
             "Merge closely related input items into one synthesized bullet when they describe the same story, campaign, incident, vendor, product, or affected organization; cite every source item ID that supports the merged bullet.",
+            "Do not infer winners, outcomes, timelines, or cause-and-effect details unless the cited item titles or summaries explicitly say so.",
             "When an input item includes relatedItems, treat the item and relatedItems as one correlated story and cite every source item ID that supports the bullet.",
         ],
     }
