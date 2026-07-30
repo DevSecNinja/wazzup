@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Story clustering fixtures</title>
+    <link>https://example.com</link>
+    <description>Fixture feed for clustering tests</description>
+    <item>
+      <title>Acme VPN CVE-2026-4242 exploited in active campaign</title>
+      <link>https://example.com/security/acme-vpn-cve-2026-4242</link>
+      <guid>story-1</guid>
+      <pubDate>Tue, 06 May 2026 09:00:00 GMT</pubDate>
+      <description>Researchers report active exploitation of Acme VPN CVE-2026-4242 with emergency guidance.</description>
+      <category>security</category>
+    </item>
+    <item>
+      <title>Emergency patch for Acme VPN after CVE-2026-4242 exploitation</title>
+      <link>https://example.net/alerts/acme-vpn-cve-2026-4242-patch</link>
+      <guid>story-2</guid>
+      <pubDate>Tue, 06 May 2026 10:00:00 GMT</pubDate>
+      <description>Vendors ship fixes while defenders track the same Acme VPN CVE-2026-4242 campaign.</description>
+      <category>vulnerability</category>
+    </item>
+    <item>
+      <title>Acme VPN releases regional maintenance update for managed gateways</title>
+      <link>https://example.org/releases/acme-vpn-maintenance-update</link>
+      <guid>story-3</guid>
+      <pubDate>Tue, 06 May 2026 11:00:00 GMT</pubDate>
+      <description>Acme VPN announced a maintenance rollout for gateway stability in Europe.</description>
+      <category>security</category>
+    </item>
+  </channel>
+</rss>
