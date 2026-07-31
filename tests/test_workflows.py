@@ -8,7 +8,7 @@ class WorkflowTests(unittest.TestCase):
     def test_news_workflow_uses_active_two_hour_local_cadence_gate(self) -> None:
         workflow = Path(".github/workflows/news.yml").read_text(encoding="utf-8")
         self.assertIn("name: News\n", workflow)
-        self.assertIn('cron: "7 * * * *"', workflow)
+        self.assertIn('cron: "7 5-20 * * *"', workflow)
         self.assertIn("default: auto", workflow)
         self.assertIn("- auto", workflow)
         self.assertIn("Check scheduled cadence", workflow)
@@ -31,7 +31,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_news_watchdog_dispatches_when_effective_generation_is_stale(self) -> None:
         workflow = Path(".github/workflows/news-watchdog.yml").read_text(encoding="utf-8")
-        self.assertIn('cron: "37 * * * *"', workflow)
+        self.assertIn('cron: "37 5-20 * * *"', workflow)
         self.assertIn("actions: write", workflow)
         self.assertIn("TARGET_WORKFLOW: news.yml", workflow)
         # The watchdog runs every hour inside the active window. Gating on
