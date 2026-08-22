@@ -4,7 +4,7 @@ min_version = "2026.8.3"
 [tools]
 python = "3.14.7"
 # renovate: datasource=node-version depName=node
-node = "24.18.1"
+node = "24.19.0"
 # renovate: datasource=github-releases depName=go-task/task
 "github:go-task/task" = "3.52.0"
 # renovate: datasource=npm depName=@github/copilot
