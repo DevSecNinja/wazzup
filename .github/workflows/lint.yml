@@ -27,7 +27,7 @@ jobs:
       # provided even though the go job is disabled.
       lint-go: false
       # renovate: datasource=github-releases depName=golangci/golangci-lint
-      golangci-lint-version: "v2.12.2"
+      golangci-lint-version: "v2.13.1"
       lint-config-dir: .
       lint-config-drift: false
       lint-shellcheck: false
