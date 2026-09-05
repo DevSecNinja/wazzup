@@ -10,7 +10,7 @@ node = "24.19.0"
 # renovate: datasource=npm depName=@github/copilot
 "npm:@github/copilot" = "1.0.80"
 cocogitto = "7.0.0"
-dprint = "0.55.2"
+dprint = "0.56.1"
 yamlfmt = "0.21.0"
 # renovate: datasource=pypi depName=pipx
 pipx = "1.16.7"
