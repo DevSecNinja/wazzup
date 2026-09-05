@@ -6,7 +6,7 @@ python = "3.14.7"
 # renovate: datasource=node-version depName=node
 node = "24.19.0"
 # renovate: datasource=github-releases depName=go-task/task
-"github:go-task/task" = "3.52.0"
+"github:go-task/task" = "3.53.1"
 # renovate: datasource=npm depName=@github/copilot
 "npm:@github/copilot" = "1.0.80"
 cocogitto = "7.0.0"
