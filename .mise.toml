@@ -8,7 +8,7 @@ node = "24.19.0"
 # renovate: datasource=github-releases depName=go-task/task
 "github:go-task/task" = "3.53.1"
 # renovate: datasource=npm depName=@github/copilot
-"npm:@github/copilot" = "1.0.80"
+"npm:@github/copilot" = "1.0.81"
 cocogitto = "7.0.0"
 dprint = "0.56.1"
 yamlfmt = "0.21.0"
