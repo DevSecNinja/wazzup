@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -232,6 +233,13 @@ class FakeTransparencyReportProvider:
         )
 
 
+def warn_copilot_fallback(stage: str, exc: Exception) -> None:
+    # Keep the job green but visible: a Copilot CLI outage degrades the run to
+    # deterministic output instead of failing the whole briefing pipeline.
+    message = " ".join(str(exc).split())
+    print(f"::warning::Copilot CLI {stage} fell back to deterministic output: {message}", file=sys.stderr)
+
+
 class CopilotCliCurationProvider:
     name = "copilot-cli"
 
@@ -290,37 +298,40 @@ class CopilotCliCurationProvider:
                     "--no-ask-user",
                 ]
             )
-            result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
-            if result.returncode != 0:
-                details = []
-                if result.stdout.strip():
-                    details.append(f"stdout: {result.stdout.strip()}")
-                if result.stderr.strip():
-                    details.append(f"stderr: {result.stderr.strip()}")
-                detail_text = "\n" + "\n".join(details) if details else ""
-                raise RuntimeError(
-                    f"Copilot CLI curation failed with exit code {result.returncode}. "
-                    "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
-                    "or use AI_PROVIDER=fake."
-                    f"{detail_text}"
+            try:
+                result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
+                if result.returncode != 0:
+                    details = []
+                    if result.stdout.strip():
+                        details.append(f"stdout: {result.stdout.strip()}")
+                    if result.stderr.strip():
+                        details.append(f"stderr: {result.stderr.strip()}")
+                    detail_text = "\n" + "\n".join(details) if details else ""
+                    raise RuntimeError(
+                        f"Copilot CLI curation failed with exit code {result.returncode}. "
+                        "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
+                        "or use AI_PROVIDER=fake."
+                        f"{detail_text}"
+                    )
+                if not output_path.exists():
+                    raise RuntimeError("Copilot CLI did not write curation-output.json")
+                payload = json.loads(output_path.read_text(encoding="utf-8"))
+                selected_ids = payload.get("selectedIds")
+                if not isinstance(selected_ids, list) or not all(isinstance(item_id, str) for item_id in selected_ids):
+                    raise ValueError("Curator returned invalid selectedIds")
+            except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+                warn_copilot_fallback("curation", exc)
+                fallback_response = FakeCurationProvider().curate_items(request)
+                return CurationResponse(
+                    selected_ids=fallback_response.selected_ids,
+                    provider={
+                        **fallback_response.provider,
+                        "type": "copilot-cli-fallback",
+                        "fallbackFrom": self.name,
+                        "fallbackReason": str(exc),
+                        "validated": True,
+                    },
                 )
-            if not output_path.exists():
-                raise RuntimeError("Copilot CLI did not write curation-output.json")
-            payload = json.loads(output_path.read_text(encoding="utf-8"))
-        selected_ids = payload.get("selectedIds")
-        if not isinstance(selected_ids, list) or not all(isinstance(item_id, str) for item_id in selected_ids):
-            fallback = FakeCurationProvider()
-            fallback_response = fallback.curate_items(request)
-            return CurationResponse(
-                selected_ids=fallback_response.selected_ids,
-                provider={
-                    **fallback_response.provider,
-                    "type": "copilot-cli-fallback",
-                    "fallbackFrom": self.name,
-                    "fallbackReason": "Curator returned invalid selectedIds",
-                    "validated": True,
-                },
-            )
         provider = {
             "type": self.name,
             "model": payload.get("model", self.model or "copilot-cli"),
@@ -395,45 +406,46 @@ class CopilotCliSummaryProvider:
                     "--no-ask-user",
                 ]
             )
-            result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
-            if result.returncode != 0:
-                details = []
-                if result.stdout.strip():
-                    details.append(f"stdout: {result.stdout.strip()}")
-                if result.stderr.strip():
-                    details.append(f"stderr: {result.stderr.strip()}")
-                detail_text = "\n" + "\n".join(details) if details else ""
-                raise RuntimeError(
-                    f"Copilot CLI failed with exit code {result.returncode}. "
-                    "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
-                    "or use AI_PROVIDER=fake."
-                    f"{detail_text}"
-                )
-            if not output_path.exists():
-                raise RuntimeError("Copilot CLI did not write summary.json")
-            payload = json.loads(output_path.read_text(encoding="utf-8"))
-        provider = {
-            "type": self.name,
-            "model": payload.get("model", self.model or "copilot-cli"),
-            "agent": self.agent or None,
-            "promptVersion": "summary-v1",
-            "validated": True,
-        }
-        try:
-            return response_from_payload(payload, provider=provider)
-        except ValueError as exc:
-            fallback = FakeSummaryProvider().generate_structured_summary(request)
-            return SummaryResponse(
-                headline=fallback.headline,
-                sections=fallback.sections,
-                provider={
-                    **fallback.provider,
-                    "type": "copilot-cli-fallback",
-                    "fallbackFrom": self.name,
-                    "fallbackReason": str(exc),
+            try:
+                result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
+                if result.returncode != 0:
+                    details = []
+                    if result.stdout.strip():
+                        details.append(f"stdout: {result.stdout.strip()}")
+                    if result.stderr.strip():
+                        details.append(f"stderr: {result.stderr.strip()}")
+                    detail_text = "\n" + "\n".join(details) if details else ""
+                    raise RuntimeError(
+                        f"Copilot CLI failed with exit code {result.returncode}. "
+                        "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
+                        "or use AI_PROVIDER=fake."
+                        f"{detail_text}"
+                    )
+                if not output_path.exists():
+                    raise RuntimeError("Copilot CLI did not write summary.json")
+                payload = json.loads(output_path.read_text(encoding="utf-8"))
+                provider = {
+                    "type": self.name,
+                    "model": payload.get("model", self.model or "copilot-cli"),
+                    "agent": self.agent or None,
+                    "promptVersion": "summary-v1",
                     "validated": True,
-                },
-            )
+                }
+                return response_from_payload(payload, provider=provider)
+            except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+                warn_copilot_fallback("summary", exc)
+                fallback = FakeSummaryProvider().generate_structured_summary(request)
+                return SummaryResponse(
+                    headline=fallback.headline,
+                    sections=fallback.sections,
+                    provider={
+                        **fallback.provider,
+                        "type": "copilot-cli-fallback",
+                        "fallbackFrom": self.name,
+                        "fallbackReason": str(exc),
+                        "validated": True,
+                    },
+                )
 
 
 class CopilotCliTransparencyReportProvider:
@@ -520,6 +532,7 @@ class CopilotCliTransparencyReportProvider:
                 }
                 return transparency_response_from_payload(payload, provider=provider)
             except (RuntimeError, ValueError, json.JSONDecodeError) as exc:
+                warn_copilot_fallback("transparency report", exc)
                 fallback = FakeTransparencyReportProvider().generate_transparency_report(request)
                 return TransparencyReportResponse(
                     title=fallback.title,
