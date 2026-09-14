@@ -531,7 +531,7 @@ class CopilotCliTransparencyReportProvider:
                     "validated": True,
                 }
                 return transparency_response_from_payload(payload, provider=provider)
-            except (RuntimeError, ValueError, json.JSONDecodeError) as exc:
+            except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
                 warn_copilot_fallback("transparency report", exc)
                 fallback = FakeTransparencyReportProvider().generate_transparency_report(request)
                 return TransparencyReportResponse(
