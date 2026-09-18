@@ -7,7 +7,7 @@
 | CI                  | Pull request and manual dispatch                                                        | Formatting, syntax linting, tests, compile checks, fixture generation, and generated-data validation.                                            |
 | Lint                | Pull request and manual dispatch                                                        | Reusable organization lint workflow from `DevSecNinja/.github`.                                                                                  |
 | Auto-fix formatting | Manual dispatch                                                                         | Reusable organization formatting workflow that commits dprint/yamlfmt fixes back to the branch.                                                  |
-| News                | Hourly schedule with a local two-hour active-window cadence gate and manual dispatch    | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
+| News                | Daytime windowed schedule (`5-20` UTC) with a local two-hour active-window cadence gate and manual dispatch | Fetch feeds, generate a rolling briefing, validate data, persist release-backed state, and upload a short-lived `public` artifact for debugging. |
 | Pages               | Explicit dispatch from `News` after state persists, push to `main`, and manual dispatch | Deploy PWA and static JSON data to GitHub Pages through the reusable `DevSecNinja/.github` Pages workflow.                                       |
 | Config Sync         | Weekly and manual dispatch                                                              | Open PRs when shared repo config from `DevSecNinja/.github` drifts.                                                                              |
 | Label Sync          | Daily, manual dispatch, and label config changes                                        | Sync repository labels from the org base labels plus repo-specific labels.                                                                       |
@@ -90,7 +90,7 @@ name: News
 
 on:
   schedule:
-    - cron: "7 * * * *"
+    - cron: "7 5-20 * * *"
   workflow_dispatch:
     inputs:
       forceBriefing:
@@ -157,7 +157,7 @@ jobs:
           COPILOT_MODEL: ${{ env.COPILOT_MODEL }}
 ```
 
-The workflow triggers hourly because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. A first cadence step computes the local hour and continues only on odd local hours from 07:00 to 21:59. This aligns the first run with the configured morning briefing, keeps AI calls to a daytime two-hour cadence, and skips overnight runs entirely. Manual dispatch always runs.
+The workflow schedules only inside the UTC hours that can map to the local active window (`5-20` UTC), because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. Summer (UTC+2) maps local 07:00 to 05:00 UTC and winter (UTC+1) maps local 21:00 to 20:00 UTC, so `5-20` UTC covers every real-work slot across both regimes while avoiding overnight runs that would only spin up a runner to gate-skip (wasted Actions minutes). A first cadence step still computes the local hour and continues only on odd local hours from 07:00 to 21:59. This aligns the first run with the configured morning briefing, keeps AI calls to a daytime two-hour cadence, and skips overnight runs entirely. Manual dispatch always runs.
 
 Operational learning: the first live News run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
 
@@ -165,7 +165,7 @@ After enabling the Copilot PAT, one live run failed because Copilot CLI wrote JS
 
 Operational learning: the site served stale data after manual and watchdog-triggered runs because the Pages workflow relied on the cross-workflow `workflow_run` trigger, which GitHub does not fire for upstream `News` runs started by `workflow_dispatch`. The `News` workflow now dispatches the Pages deploy explicitly (`gh workflow run pages.yml`) once it has persisted fresh state, so every trigger type (scheduled cadence, manual dispatch, and the `news-watchdog` catch-up) redeploys the site. The Pages workflow keeps only the `push` and `workflow_dispatch` triggers.
 
-Operational learning: the site went stale for most of a day because GitHub schedule jitter routinely shifts the hourly `News` cron across hour boundaries. The cadence gate evaluates the local hour at execution time, so a run intended for an odd local hour (07:00, 09:00, …) frequently lands on an even or overnight hour and skips all real work. The original `news-watchdog` could not recover from this: it only checked whether _any_ `News` run existed in the current UTC hour, and since the hourly cron always fires (even when it gate-skips in seconds), it always saw a run and never dispatched a catch-up. The watchdog now runs every hour inside the active local window (07:00–21:59, no odd-hour parity gate so jitter cannot disable it) and decides purely on freshness: it inspects recent `News` runs, treats only a successful `Generate and persist retained news state` step as an effective generation, and dispatches a `workflow_dispatch` catch-up when the newest effective generation is older than the two-hour cadence interval and no `News` run is currently queued or in progress. This keeps the two-hour spacing while making missed scheduled runs self-healing.
+Operational learning: the site went stale for most of a day because GitHub schedule jitter routinely shifts the hourly `News` cron across hour boundaries. The cadence gate evaluates the local hour at execution time, so a run intended for an odd local hour (07:00, 09:00, …) frequently lands on an even or overnight hour and skips all real work. The original `news-watchdog` could not recover from this: it only checked whether _any_ `News` run existed in the current UTC hour, and since the hourly cron always fires (even when it gate-skips in seconds), it always saw a run and never dispatched a catch-up. The watchdog now runs every hour inside the active UTC window (`5-20` UTC, which covers local 07:00–21:59 across daylight-saving transitions; no odd-hour parity gate so jitter cannot disable it) and decides purely on freshness: it inspects recent `News` runs, treats only a successful `Generate and persist retained news state` step as an effective generation, and dispatches a `workflow_dispatch` catch-up when the newest effective generation is older than the two-hour cadence interval and no `News` run is currently queued or in progress. This keeps the two-hour spacing while making missed scheduled runs self-healing.
 
 The Copilot CLI provider keeps curator and transparency on `COPILOT_MODEL`, defaulting to Claude Sonnet 4.6 via the CLI model ID `claude-sonnet-4.6`, and pins the briefing writer to `COPILOT_WRITER_MODEL`, defaulting to Claude Opus 4.8 via `claude-opus-4.8`. This isolates the more expensive model to the writing step while keeping the model overridable for manual canaries.
 
@@ -299,7 +299,7 @@ Rules:
 
 ## Scheduling details
 
-Use a single hourly cron and calculate the active cadence plus briefing windows in application code or workflow shell using the configured IANA time zone. This handles daylight-saving transitions better than maintaining separate UTC cron expressions. The implemented cadence is every two local hours from 07:00 through 21:59, which is a better fit for the rolling daily briefing and avoids unnecessary AI calls overnight or when feeds are quiet.
+Use a single windowed cron (`5-20` UTC) and calculate the active cadence plus briefing windows in application code or workflow shell using the configured IANA time zone. Restricting the cron to the UTC hours that can map to the local active window (accounting for daylight-saving transitions) avoids spinning up runners overnight only to gate-skip, which wastes Actions minutes, while keeping a single cron expression that handles daylight-saving transitions better than maintaining separate UTC crons. The implemented cadence is every two local hours from 07:00 through 21:59, which is a better fit for the rolling daily briefing and avoids unnecessary AI calls overnight or when feeds are quiet.
 
 Recommended behavior:
 
