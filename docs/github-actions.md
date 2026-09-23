@@ -123,7 +123,8 @@ jobs:
       WAZZUP_TIMEZONE: Europe/Amsterdam
       WAZZUP_MAX_AI_ITEMS: 30
       WAZZUP_MAX_AI_COST_USD: 1.00
-      COPILOT_MODEL: claude-sonnet-4.6
+      COPILOT_MODEL: claude-sonnet-5
+      COPILOT_WRITER_MODEL: claude-opus-4.8
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
@@ -155,6 +156,7 @@ jobs:
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
           COPILOT_MODEL: ${{ env.COPILOT_MODEL }}
+          COPILOT_WRITER_MODEL: ${{ env.COPILOT_WRITER_MODEL }}
 ```
 
 The workflow triggers hourly because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. A first cadence step computes the local hour and continues only on odd local hours from 07:00 to 21:59. This aligns the first run with the configured morning briefing, keeps AI calls to a daytime two-hour cadence, and skips overnight runs entirely. Manual dispatch always runs.
@@ -167,7 +169,9 @@ Operational learning: the site served stale data after manual and watchdog-trigg
 
 Operational learning: the site went stale for most of a day because GitHub schedule jitter routinely shifts the hourly `News` cron across hour boundaries. The cadence gate evaluates the local hour at execution time, so a run intended for an odd local hour (07:00, 09:00, …) frequently lands on an even or overnight hour and skips all real work. The original `news-watchdog` could not recover from this: it only checked whether _any_ `News` run existed in the current UTC hour, and since the hourly cron always fires (even when it gate-skips in seconds), it always saw a run and never dispatched a catch-up. The watchdog now runs every hour inside the active local window (07:00–21:59, no odd-hour parity gate so jitter cannot disable it) and decides purely on freshness: it inspects recent `News` runs, treats only a successful `Generate and persist retained news state` step as an effective generation, and dispatches a `workflow_dispatch` catch-up when the newest effective generation is older than the two-hour cadence interval and no `News` run is currently queued or in progress. This keeps the two-hour spacing while making missed scheduled runs self-healing.
 
-The Copilot CLI provider keeps curator and transparency on `COPILOT_MODEL`, defaulting to Claude Sonnet 4.6 via the CLI model ID `claude-sonnet-4.6`, and pins the briefing writer to `COPILOT_WRITER_MODEL`, defaulting to Claude Opus 4.8 via `claude-opus-4.8`. This isolates the more expensive model to the writing step while keeping the model overridable for manual canaries.
+The Copilot CLI provider keeps curator and transparency on `COPILOT_MODEL`, defaulting to Claude Sonnet 5 via the CLI model ID `claude-sonnet-5`, and pins the briefing writer to `COPILOT_WRITER_MODEL`, defaulting to Claude Opus 4.8 via `claude-opus-4.8`. This isolates the more expensive model to the writing step while keeping the model overridable for manual canaries. Explicit constructor model overrides take precedence; outside the workflow, the writer uses `COPILOT_WRITER_MODEL`, then `COPILOT_MODEL`, then its Opus default.
+
+Model pins are intentional: if Copilot CLI reports that the model passed with `--model` is unavailable, the provider surfaces the CLI diagnostics and blocks the run, including transparency reporting. It does not retry with a different model, omit `--model`, or substitute a deterministic provider for this error. Existing missing-token and malformed-output fallback behavior is unchanged.
 
 ## Copilot CLI workflow variant
 
@@ -185,7 +189,7 @@ The implementation hides provider-specific commands behind `task news:generate` 
   env:
     AI_PROVIDER: copilot-cli
     COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
-    COPILOT_MODEL: claude-sonnet-4.6
+    COPILOT_MODEL: claude-sonnet-5
     COPILOT_WRITER_MODEL: claude-opus-4.8
     FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
   run: task news:generate
@@ -194,7 +198,7 @@ The implementation hides provider-specific commands behind `task news:generate` 
 Provider adapter requirements:
 
 - Run Copilot CLI in programmatic mode with `copilot -p`.
-- Pass `--model` from `COPILOT_WRITER_MODEL` for the briefing writer, defaulting to `claude-opus-4.8`; curator and transparency keep using `COPILOT_MODEL`, defaulting to `claude-sonnet-4.6`.
+- Pass `--model` from `COPILOT_WRITER_MODEL` for the briefing writer, defaulting to `claude-opus-4.8`; curator and transparency keep using `COPILOT_MODEL`, defaulting to `claude-sonnet-5`.
 - Pass `--agent wazzup-writer` so the briefing-writing style and JSON contract live in [../.github/agents/wazzup-writer.agent.md](../.github/agents/wazzup-writer.agent.md).
 - Use `--no-ask-user` so the workflow never blocks for interaction.
 - Use only narrow `--allow-tool` permissions, such as read-only shell access to generated prompt/input files and write access to a temporary output file.
@@ -281,7 +285,7 @@ Expected secrets:
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `COPILOT_REQUESTS_PAT`       | Preferred repository secret containing a fine-grained PAT for Copilot CLI with Copilot Requests permission. |
 | `COPILOT_GITHUB_TOKEN`       | Alternative secret name accepted by the News workflow.                                                      |
-| `COPILOT_MODEL`              | Optional Copilot CLI model override for curator and transparency; defaults to `claude-sonnet-4.6`.          |
+| `COPILOT_MODEL`              | Optional Copilot CLI model override for curator and transparency; defaults to `claude-sonnet-5`.            |
 | `COPILOT_WRITER_MODEL`       | Optional Copilot CLI model override for the briefing writer; defaults to `claude-opus-4.8`.                 |
 | `AZURE_OPENAI_ENDPOINT`      | Azure OpenAI endpoint.                                                                                      |
 | `AZURE_OPENAI_API_KEY`       | Azure OpenAI API key.                                                                                       |

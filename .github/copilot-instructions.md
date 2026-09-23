@@ -119,8 +119,10 @@ Python package [src/wazzup/](src/wazzup):
   freshness scoring.
 - [`ai.py`](src/wazzup/ai.py) – AI provider abstraction. Selected by env
   `AI_PROVIDER` (`copilot-cli` or `fake`). `fake` is the default in tests
-  and CI. The Copilot CLI provider defaults to `COPILOT_MODEL=claude-sonnet-4.6`
-  and `COPILOT_AGENT=wazzup-writer`; the agent prompt lives in
+  and CI. Curator and transparency default to `COPILOT_MODEL=claude-sonnet-5`.
+  The writer defaults to `claude-opus-4.8`, with override precedence
+  `COPILOT_WRITER_MODEL` then `COPILOT_MODEL`, and uses
+  `COPILOT_AGENT=wazzup-writer`; the agent prompt lives in
   [`.github/agents/wazzup-writer.agent.md`](.github/agents/wazzup-writer.agent.md).
 - [`publisher.py`](src/wazzup/publisher.py) – writes YAML state and JSON
   mirrors under `public/data/`.

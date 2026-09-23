@@ -92,7 +92,7 @@ class AiTransparencyReportProvider(Protocol):
         """Generate a structured transparency report for the pipeline run."""
 
 
-DEFAULT_COPILOT_MODEL = "claude-sonnet-4.6"
+DEFAULT_COPILOT_MODEL = "claude-sonnet-5"
 DEFAULT_COPILOT_WRITER_MODEL = "claude-opus-4.8"
 DEFAULT_COPILOT_AGENT = "wazzup-writer"
 DEFAULT_COPILOT_CURATOR_AGENT = "wazzup-curator"
@@ -520,6 +520,8 @@ class CopilotCliTransparencyReportProvider:
                 }
                 return transparency_response_from_payload(payload, provider=provider)
             except (RuntimeError, ValueError, json.JSONDecodeError) as exc:
+                if f'Model "{self.model}" from --model flag is not available' in str(exc):
+                    raise
                 fallback = FakeTransparencyReportProvider().generate_transparency_report(request)
                 return TransparencyReportResponse(
                     title=fallback.title,

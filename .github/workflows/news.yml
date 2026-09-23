@@ -44,7 +44,7 @@ jobs:
       WAZZUP_TIMEZONE: Europe/Amsterdam
       WAZZUP_MAX_AI_ITEMS: 30
       WAZZUP_MAX_AI_COST_USD: "1.00"
-      COPILOT_MODEL: claude-sonnet-4.6
+      COPILOT_MODEL: claude-sonnet-5
       COPILOT_WRITER_MODEL: claude-opus-4.8
       REQUESTED_AI_PROVIDER: ${{ inputs.aiProvider || 'copilot-cli' }}
     steps:

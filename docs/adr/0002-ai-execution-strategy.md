@@ -38,7 +38,8 @@ Implemented safety behavior:
 - [../../.github/workflows/news.yml](../../.github/workflows/news.yml) selects an effective provider before installing Node or Copilot CLI.
 - If `copilot-cli` is requested without either token secret, the workflow logs a warning and uses `AI_PROVIDER=fake`.
 - [../../src/wazzup/ai.py](../../src/wazzup/ai.py) checks for `COPILOT_GITHUB_TOKEN` in GitHub Actions and raises an actionable error if the workflow guard is bypassed.
-- The provider defaults to model `claude-sonnet-4.6` and the repo-local `wazzup-writer` custom agent, both overridable through environment variables.
+- Curator and transparency default to `claude-sonnet-5` via `COPILOT_MODEL`. The writer uses the repo-local `wazzup-writer` custom agent and selects `COPILOT_WRITER_MODEL`, then `COPILOT_MODEL`, then `claude-opus-4.8`; the News workflow explicitly pins both models.
+- Pass explicit model IDs with `--model`. An unavailable pinned model is a blocking failure, not a reason to retry with another model or the CLI default.
 - Copilot CLI stdout/stderr is captured and included in sanitized failure diagnostics when the CLI exits non-zero.
 
 ## Consequences

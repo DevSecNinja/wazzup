@@ -1,7 +1,7 @@
 ---
 description: "Use when: writing Wazzup transparency reports that explain scoring, missed news, curation cutoffs, and tuning options from briefing metadata."
 name: "wazzup-transparency-reporter"
-model: "claude-sonnet-4.6"
+model: "claude-sonnet-5"
 tools: [execute, edit]
 user-invocable: false
 argument-hint: "Path to transparency-input.json and requested output file"
