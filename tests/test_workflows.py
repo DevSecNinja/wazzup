@@ -12,7 +12,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("default: auto", workflow)
         self.assertIn("- auto", workflow)
         self.assertIn("Check scheduled cadence", workflow)
-        self.assertIn("COPILOT_MODEL: claude-sonnet-4.6", workflow)
+        self.assertIn("COPILOT_MODEL: claude-sonnet-5", workflow)
         self.assertIn("COPILOT_WRITER_MODEL: claude-opus-4.8", workflow)
         self.assertIn("- Copilot model: ${COPILOT_MODEL}", workflow)
         self.assertIn("- Copilot writer model: ${COPILOT_WRITER_MODEL}", workflow)
@@ -21,6 +21,16 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("outside active two-hour local cadence", workflow)
         self.assertNotIn("overnight two-hour cadence", workflow)
         self.assertNotIn('cron: "d"', workflow)
+
+    def test_copilot_agents_keep_explicit_model_pins(self) -> None:
+        for agent, model in (
+            ("wazzup-curator", "claude-sonnet-5"),
+            ("wazzup-transparency-reporter", "claude-sonnet-5"),
+            ("wazzup-writer", "claude-opus-4.8"),
+        ):
+            with self.subTest(agent=agent):
+                definition = Path(f".github/agents/{agent}.agent.md").read_text(encoding="utf-8")
+                self.assertIn(f'\nmodel: "{model}"\n', definition)
 
     def test_news_workflow_dispatches_pages_deploy_for_every_trigger(self) -> None:
         workflow = Path(".github/workflows/news.yml").read_text(encoding="utf-8")

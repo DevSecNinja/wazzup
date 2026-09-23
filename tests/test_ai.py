@@ -355,7 +355,7 @@ class AiProviderTests(unittest.TestCase):
         previous_model = os.environ.get("COPILOT_MODEL")
         previous_writer_model = os.environ.get("COPILOT_WRITER_MODEL")
         previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
-        os.environ["COPILOT_MODEL"] = "claude-sonnet-4.6"
+        os.environ["COPILOT_MODEL"] = "claude-sonnet-5"
         os.environ["COPILOT_WRITER_MODEL"] = "claude-opus-4.8"
         os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
 
@@ -398,6 +398,94 @@ class AiProviderTests(unittest.TestCase):
                 os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
         self.assertEqual("claude-opus-4.8", response.provider["model"])
+
+    @patch("wazzup.ai.subprocess.run")
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_cli_pinned_models_and_overrides_block_when_unavailable(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        cases = [
+            (
+                CopilotCliCurationProvider,
+                "curate_items",
+                CurationRequest(
+                    kind="hourly",
+                    window_start="2026-05-06T20:00:00Z",
+                    window_end="2026-05-06T21:00:00Z",
+                    generated_at="2026-05-06T21:00:00Z",
+                    timezone="Europe/Amsterdam",
+                    items=[],
+                    max_items=12,
+                ),
+                "claude-sonnet-5",
+            ),
+            (
+                CopilotCliSummaryProvider,
+                "generate_structured_summary",
+                SummaryRequest(
+                    kind="hourly",
+                    window_start="2026-05-06T20:00:00Z",
+                    window_end="2026-05-06T21:00:00Z",
+                    generated_at="2026-05-06T21:00:00Z",
+                    timezone="Europe/Amsterdam",
+                    summary_language="en",
+                    items=[],
+                ),
+                "claude-opus-4.8",
+            ),
+            (
+                CopilotCliTransparencyReportProvider,
+                "generate_transparency_report",
+                TransparencyReportRequest(
+                    kind="hourly",
+                    window_start="2026-05-06T20:00:00Z",
+                    window_end="2026-05-06T21:00:00Z",
+                    generated_at="2026-05-06T21:00:00Z",
+                    timezone="Europe/Amsterdam",
+                    summary_language="en",
+                    max_items=12,
+                    statuses=[],
+                    ranked_items=[],
+                    selected_items=[],
+                    curation_provider={"type": "fake"},
+                    summary_provider={"type": "fake"},
+                ),
+                "claude-sonnet-5",
+            ),
+        ]
+        for provider_type, method_name, request, default_model in cases:
+            overrides = [
+                ({}, None, default_model),
+                ({"COPILOT_MODEL": "shared-model"}, None, "shared-model"),
+                (
+                    {"COPILOT_MODEL": "shared-model", "COPILOT_WRITER_MODEL": "writer-model"},
+                    None,
+                    "writer-model" if provider_type is CopilotCliSummaryProvider else "shared-model",
+                ),
+                (
+                    {"COPILOT_MODEL": "shared-model", "COPILOT_WRITER_MODEL": "writer-model"},
+                    "explicit-model",
+                    "explicit-model",
+                ),
+            ]
+            for environment, model, expected_model in overrides:
+                for diagnostic_stream in ("stdout", "stderr"):
+                    with self.subTest(provider=provider_type.__name__, environment=environment, model=model, stream=diagnostic_stream):
+                        error = f'Model "{expected_model}" from --model flag is not available.'
+                        run_mock.reset_mock()
+                        run_mock.return_value = Mock(
+                            returncode=1,
+                            stdout=error if diagnostic_stream == "stdout" else "",
+                            stderr=error if diagnostic_stream == "stderr" else "",
+                        )
+                        with patch.dict(os.environ, {"COPILOT_GITHUB_TOKEN": "test-token", **environment}, clear=True):
+                            provider = provider_type(model=model)
+                            with self.assertRaises(RuntimeError) as raised:
+                                getattr(provider, method_name)(request)
+                        self.assertIn(error, str(raised.exception))
+                        self.assertIn("exit code 1", str(raised.exception))
+                        run_mock.assert_called_once()
+                        command = run_mock.call_args.args[0]
+                        self.assertEqual(1, command.count("--model"))
+                        self.assertEqual(expected_model, command[command.index("--model") + 1])
 
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
     def test_copilot_requires_token_in_github_actions(self, _which) -> None:  # type: ignore[no-untyped-def]
@@ -573,8 +661,10 @@ class AiCurationProviderTests(unittest.TestCase):
     @patch("wazzup.ai.subprocess.run")
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
     def test_copilot_cli_curation_uses_curator_agent(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        previous_model = os.environ.get("COPILOT_MODEL")
         previous_agent = os.environ.get("COPILOT_CURATOR_AGENT")
         previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
+        os.environ.pop("COPILOT_MODEL", None)
         os.environ.pop("COPILOT_CURATOR_AGENT", None)
         os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
 
@@ -612,6 +702,10 @@ class AiCurationProviderTests(unittest.TestCase):
                 )
             )
         finally:
+            if previous_model is None:
+                os.environ.pop("COPILOT_MODEL", None)
+            else:
+                os.environ["COPILOT_MODEL"] = previous_model
             if previous_agent is None:
                 os.environ.pop("COPILOT_CURATOR_AGENT", None)
             else:
@@ -772,8 +866,10 @@ class AiTransparencyReportProviderTests(unittest.TestCase):
     @patch("wazzup.ai.subprocess.run")
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
     def test_copilot_cli_transparency_uses_reporter_agent(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
+        previous_model = os.environ.get("COPILOT_MODEL")
         previous_agent = os.environ.get("COPILOT_TRANSPARENCY_AGENT")
         previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
+        os.environ.pop("COPILOT_MODEL", None)
         os.environ.pop("COPILOT_TRANSPARENCY_AGENT", None)
         os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
 
@@ -811,6 +907,10 @@ class AiTransparencyReportProviderTests(unittest.TestCase):
                 )
             )
         finally:
+            if previous_model is None:
+                os.environ.pop("COPILOT_MODEL", None)
+            else:
+                os.environ["COPILOT_MODEL"] = previous_model
             if previous_agent is None:
                 os.environ.pop("COPILOT_TRANSPARENCY_AGENT", None)
             else:

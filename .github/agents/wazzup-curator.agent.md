@@ -1,7 +1,7 @@
 ---
 description: "Use when: curating news items for the Wazzup briefing, selecting the most relevant and newsworthy articles from a scored and ranked list."
 name: "wazzup-curator"
-model: "claude-sonnet-4.6"
+model: "claude-sonnet-5"
 tools: [execute, edit]
 user-invocable: false
 argument-hint: "Path to curation-input.json and requested output file"

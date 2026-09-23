@@ -18,7 +18,7 @@ Implementation deviations from the original target are intentional for the curre
 - Frontend is vanilla HTML/CSS/JavaScript under [../public](../public); there is no frontend build step yet.
 - JSON is the canonical generated state format consumed directly by the PWA.
 - Pages state restoration supports tokenless public release-asset downloads because reusable workflow string inputs cannot reliably inject `GH_TOKEN` for nested shell commands.
-- The News workflow requests Copilot CLI by default, keeps curator and transparency on Claude Sonnet 4.6 (`claude-sonnet-4.6`), pins the briefing writer to Claude Opus 4.8 (`claude-opus-4.8`) unless `COPILOT_WRITER_MODEL` overrides it, and falls back to the deterministic fake provider if Copilot token secrets are missing.
+- The News workflow requests Copilot CLI by default, keeps curator and transparency on Claude Sonnet 5 (`claude-sonnet-5`), pins the briefing writer to Claude Opus 4.8 (`claude-opus-4.8`) unless `COPILOT_WRITER_MODEL` overrides it, and falls back to the deterministic fake provider if Copilot token secrets are missing. Unavailable pinned models block the run rather than triggering model or provider substitution.
 
 ## Context diagram
 
