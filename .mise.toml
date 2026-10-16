@@ -2,7 +2,7 @@
 min_version = "2026.8.10"
 
 [tools]
-python = "3.14.7"
+python = "3.14.8"
 # renovate: datasource=node-version depName=node
 node = "24.21.0"
 # renovate: datasource=github-releases depName=go-task/task
