@@ -3,7 +3,14 @@ name: News
 
 on:
   schedule:
-    - cron: "7 * * * *"
+    # Only schedule inside the UTC hours that can map to the local active
+    # window (odd hours 07:00-21:00 Europe/Amsterdam). Summer (UTC+2) maps
+    # local 07:00->05:00 UTC, winter (UTC+1) maps local 21:00->20:00 UTC, so
+    # 05:00-20:00 UTC covers every real-work slot across daylight-saving
+    # transitions. This avoids spinning up runners overnight only to gate-skip,
+    # which wastes Actions minutes. The in-job cadence gate still filters the
+    # exact odd local hours within this window.
+    - cron: "7 5-20 * * *"
   workflow_dispatch:
     inputs:
       forceBriefing:
