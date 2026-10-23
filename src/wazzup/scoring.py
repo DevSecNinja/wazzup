@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from .feeds import canonicalize_url, stable_hash
+from .feeds import stable_hash
 from .models import AppConfig, ContentItem, ScoredItem, SourceConfig
 
 
@@ -64,7 +64,8 @@ def score_items(
             score += 6.0
             reasons.append("priority threat intelligence source")
 
-        duplicate_group_id = f"dup-{stable_hash(canonicalize_url(item.canonical_url))}"
+        grouped_item_ids = sorted([item.id, *(related.id for related in item.related_items)])
+        duplicate_group_id = f"dup-{stable_hash(*grouped_item_ids)}"
         scored.append(
             ScoredItem(
                 item=item,

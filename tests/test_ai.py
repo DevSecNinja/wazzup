@@ -219,6 +219,30 @@ class AiProviderTests(unittest.TestCase):
         self.assertIn("same story", style_guide)
         self.assertIn("cite every source item ID", style_guide)
 
+    def test_prompt_payload_includes_related_items_for_grouped_story_context(self) -> None:
+        source = load_sources("config/sources.yml")[0]
+        item = parse_feed(source, Path("tests/fixtures/microsoft-security-blog.xml").read_bytes())[0]
+        related = replace(item, id="item-related")
+        scored = score_items(
+            [replace(item, related_items=(related,))],
+            [source],
+            load_app_config("config/interests.yml"),
+            datetime(2026, 5, 6, tzinfo=UTC),
+        )
+        payload = build_prompt_payload(
+            SummaryRequest(
+                kind="hourly",
+                window_start="2026-05-06T20:00:00Z",
+                window_end="2026-05-06T21:00:00Z",
+                generated_at="2026-05-06T21:00:00Z",
+                timezone="Europe/Amsterdam",
+                summary_language="en",
+                items=scored,
+            )
+        )
+
+        self.assertEqual("item-related", payload["items"][0]["relatedItems"][0]["id"])
+
     def test_prompt_style_guide_requires_english_translation(self) -> None:
         payload = build_prompt_payload(
             SummaryRequest(
