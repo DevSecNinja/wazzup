@@ -15,7 +15,7 @@ concurrency:
 jobs:
   test:
     name: Test app slice
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - name: Checkout code
