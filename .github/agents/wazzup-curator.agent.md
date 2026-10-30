@@ -1,13 +1,14 @@
 ---
 description: "Use when: curating news items for the Wazzup briefing, selecting the most relevant and newsworthy articles from a scored and ranked list."
 name: "wazzup-curator"
-model: "claude-sonnet-5"
 tools: [execute, edit]
 user-invocable: false
 argument-hint: "Path to curation-input.json and requested output file"
 ---
 
 You are the Wazzup news curator. Your job is to select and order the most relevant and newsworthy articles from a ranked list for inclusion in a briefing.
+
+The Wazzup adapter supplies an explicit model from the shared policy. Standalone callers must resolve the `default` role and explicitly select that model; selecting this agent alone does not apply the policy. See [model selection](../../docs/github-actions.md#shared-model-policy).
 
 ## Your role
 

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from .model_policy import resolve_model
 from .models import AppConfig, BriefingKind, ScoredItem, SourceStatus
 
 
@@ -92,8 +93,6 @@ class AiTransparencyReportProvider(Protocol):
         """Generate a structured transparency report for the pipeline run."""
 
 
-DEFAULT_COPILOT_MODEL = "claude-sonnet-5"
-DEFAULT_COPILOT_WRITER_MODEL = "claude-opus-4.8"
 DEFAULT_COPILOT_AGENT = "wazzup-writer"
 DEFAULT_COPILOT_CURATOR_AGENT = "wazzup-curator"
 DEFAULT_COPILOT_TRANSPARENCY_AGENT = "wazzup-transparency-reporter"
@@ -242,7 +241,8 @@ class CopilotCliCurationProvider:
         agent: str | None = None,
     ) -> None:
         self.copilot_command = copilot_command
-        self.model = model if model is not None else os.environ.get("COPILOT_MODEL", DEFAULT_COPILOT_MODEL)
+        self.model_selection = resolve_model("default", model)
+        self.model = self.model_selection.model
         self.agent = agent if agent is not None else os.environ.get("COPILOT_CURATOR_AGENT", DEFAULT_COPILOT_CURATOR_AGENT)
 
     def curate_items(self, request: CurationRequest) -> CurationResponse:
@@ -279,8 +279,7 @@ class CopilotCliCurationProvider:
                 "-p",
                 prompt,
             ]
-            if self.model:
-                command.extend(["--model", self.model])
+            command.extend(["--model", self.model])
             if self.agent:
                 command.extend(["--agent", self.agent])
             command.extend(
@@ -300,6 +299,7 @@ class CopilotCliCurationProvider:
                 detail_text = "\n" + "\n".join(details) if details else ""
                 raise RuntimeError(
                     f"Copilot CLI curation failed with exit code {result.returncode}. "
+                    f"{self.model_selection.failure_hint()}"
                     "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
                     "or use AI_PROVIDER=fake."
                     f"{detail_text}"
@@ -323,7 +323,7 @@ class CopilotCliCurationProvider:
             )
         provider = {
             "type": self.name,
-            "model": payload.get("model", self.model or "copilot-cli"),
+            **self.model_selection.metadata(),
             "agent": self.agent or None,
             "promptVersion": "curation-v1",
             "validated": True,
@@ -341,12 +341,8 @@ class CopilotCliSummaryProvider:
         agent: str | None = None,
     ) -> None:
         self.copilot_command = copilot_command
-        self.model = (
-            model
-            if model is not None
-            else os.environ.get("COPILOT_WRITER_MODEL")
-            or os.environ.get("COPILOT_MODEL", DEFAULT_COPILOT_WRITER_MODEL)
-        )
+        self.model_selection = resolve_model("writer", model)
+        self.model = self.model_selection.model
         self.agent = agent if agent is not None else os.environ.get("COPILOT_AGENT", DEFAULT_COPILOT_AGENT)
 
     def generate_structured_summary(self, request: SummaryRequest) -> SummaryResponse:
@@ -384,8 +380,7 @@ class CopilotCliSummaryProvider:
                 "-p",
                 prompt,
             ]
-            if self.model:
-                command.extend(["--model", self.model])
+            command.extend(["--model", self.model])
             if self.agent:
                 command.extend(["--agent", self.agent])
             command.extend(
@@ -405,6 +400,7 @@ class CopilotCliSummaryProvider:
                 detail_text = "\n" + "\n".join(details) if details else ""
                 raise RuntimeError(
                     f"Copilot CLI failed with exit code {result.returncode}. "
+                    f"{self.model_selection.failure_hint()}"
                     "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
                     "or use AI_PROVIDER=fake."
                     f"{detail_text}"
@@ -414,7 +410,7 @@ class CopilotCliSummaryProvider:
             payload = json.loads(output_path.read_text(encoding="utf-8"))
         provider = {
             "type": self.name,
-            "model": payload.get("model", self.model or "copilot-cli"),
+            **self.model_selection.metadata(),
             "agent": self.agent or None,
             "promptVersion": "summary-v1",
             "validated": True,
@@ -446,7 +442,8 @@ class CopilotCliTransparencyReportProvider:
         agent: str | None = None,
     ) -> None:
         self.copilot_command = copilot_command
-        self.model = model if model is not None else os.environ.get("COPILOT_MODEL", DEFAULT_COPILOT_MODEL)
+        self.model_selection = resolve_model("default", model)
+        self.model = self.model_selection.model
         self.agent = agent if agent is not None else os.environ.get("COPILOT_TRANSPARENCY_AGENT", DEFAULT_COPILOT_TRANSPARENCY_AGENT)
 
     def generate_transparency_report(self, request: TransparencyReportRequest) -> TransparencyReportResponse:
@@ -482,8 +479,7 @@ class CopilotCliTransparencyReportProvider:
                 "-p",
                 prompt,
             ]
-            if self.model:
-                command.extend(["--model", self.model])
+            command.extend(["--model", self.model])
             if self.agent:
                 command.extend(["--agent", self.agent])
             command.extend(
@@ -504,6 +500,7 @@ class CopilotCliTransparencyReportProvider:
                     detail_text = "\n" + "\n".join(details) if details else ""
                     raise RuntimeError(
                         f"Copilot CLI transparency report failed with exit code {result.returncode}. "
+                        f"{self.model_selection.failure_hint()}"
                         "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
                         "or use AI_PROVIDER=fake."
                         f"{detail_text}"
@@ -513,7 +510,7 @@ class CopilotCliTransparencyReportProvider:
                 payload = json.loads(output_path.read_text(encoding="utf-8"))
                 provider = {
                     "type": self.name,
-                    "model": payload.get("model", self.model or "copilot-cli"),
+                    **self.model_selection.metadata(),
                     "agent": self.agent or None,
                     "promptVersion": "transparency-v1",
                     "validated": True,

@@ -44,8 +44,6 @@ jobs:
       WAZZUP_TIMEZONE: Europe/Amsterdam
       WAZZUP_MAX_AI_ITEMS: 30
       WAZZUP_MAX_AI_COST_USD: "1.00"
-      COPILOT_MODEL: claude-sonnet-5
-      COPILOT_WRITER_MODEL: claude-opus-4.8
       REQUESTED_AI_PROVIDER: ${{ inputs.aiProvider || 'copilot-cli' }}
     steps:
       - name: Check scheduled cadence
@@ -125,12 +123,11 @@ jobs:
 
       - name: Generate and persist retained news state
         if: ${{ steps.cadence.outputs.should_run == 'true' }}
+        id: generation
         env:
           GH_TOKEN: ${{ github.token }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
-          COPILOT_MODEL: ${{ env.COPILOT_MODEL }}
-          COPILOT_WRITER_MODEL: ${{ env.COPILOT_WRITER_MODEL }}
           FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
         run: task news:generate
 
@@ -145,6 +142,7 @@ jobs:
 
       - name: Deploy refreshed state to Pages
         if: ${{ steps.cadence.outputs.should_run == 'true' }}
+        id: pages
         env:
           GH_TOKEN: ${{ github.token }}
         run: |-
@@ -158,12 +156,12 @@ jobs:
           echo "Dispatched Pages deployment for refreshed news state."
 
       - name: Write workflow summary
-        if: ${{ steps.cadence.outputs.should_run == 'true' }}
+        if: ${{ always() && steps.cadence.outputs.should_run == 'true' }}
         env:
           FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
-          COPILOT_MODEL: ${{ env.COPILOT_MODEL }}
-          COPILOT_WRITER_MODEL: ${{ env.COPILOT_WRITER_MODEL }}
+          GENERATION_OUTCOME: ${{ steps.generation.outcome }}
+          PAGES_OUTCOME: ${{ steps.pages.outcome }}
         run: |-
           set -euo pipefail
           {
@@ -172,10 +170,10 @@ jobs:
             echo "- Force briefing: ${FORCE_BRIEFING}"
             echo "- Requested AI provider: ${REQUESTED_AI_PROVIDER}"
             echo "- Effective AI provider: ${AI_PROVIDER}"
-            echo "- Copilot model: ${COPILOT_MODEL}"
-            echo "- Copilot writer model: ${COPILOT_WRITER_MODEL}"
+            echo "- Copilot model selections and policy errors: recorded by Python before feed collection, when reached."
+            echo "- Generation and persistence: ${GENERATION_OUTCOME}"
             echo "- State release: news-state"
-            echo "- Pages deployment: dispatched explicitly after persisting state"
+            echo "- Pages deployment dispatch: ${PAGES_OUTCOME}"
           } >>"${GITHUB_STEP_SUMMARY}"
 
       - name: Write skipped summary

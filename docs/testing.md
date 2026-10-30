@@ -32,6 +32,7 @@ Implemented tests:
 - [../tests/test_pipeline.py](../tests/test_pipeline.py): end-to-end fixture pipeline generation with the fake AI provider and generated-data validation.
 - [../tests/test_publisher.py](../tests/test_publisher.py): retention by path date, JSON output generation, and manifest updates.
 - [../tests/test_ai.py](../tests/test_ai.py): provider defaulting and Copilot token guard behavior.
+- [../tests/test_model_policy.py](../tests/test_model_policy.py): shared-policy schema/ID validation, bounded fetch failures, override precedence, single-snapshot reuse, fake/import no-network behavior, and early failure summaries. All policy responses are controlled fixtures; no real inference or production credentials are used.
 - [../tests/test_build_info.py](../tests/test_build_info.py): generated build metadata used by the footer and service worker versioning.
 - [../tests/test_pwa_assets.py](../tests/test_pwa_assets.py): install icons, 24-hour time formatting hooks, build-versioned service worker registration, footer metadata hooks, simplified header, yesterday-summary hooks, capped headlines, article-temperature hooks, source-tag chips, structured item-card hooks, and service worker cache versioning.
 - [../tests/test_workflows.py](../tests/test_workflows.py): important workflow cadence guardrails such as the News schedule.
@@ -90,6 +91,9 @@ task pages:build               # restore retained state and validate Pages data
 - Item budgets stop oversized requests; token/monthly budget enforcement remains deferred.
 - Cached article summaries are reused when `contentHash` and prompt version match.
 - Copilot CLI provider fails with actionable diagnostics when a GitHub Actions token is missing or the CLI exits non-zero.
+- All three CLI providers retain an explicit `--model` and make exactly one attempt when that model is unavailable, including environment/constructor overrides and stdout/stderr diagnostics.
+- Invalid/missing policy and blank/auto overrides stop before any feed or AI call. Successful role/model/source/revision selections and policy failures are visible in Actions summaries even when later generation fails.
+- Agent frontmatter and workflow environment must not compete with the shared policy. Workflow summaries must run on failure and report actual step outcomes.
 
 ### Publisher tests
 
