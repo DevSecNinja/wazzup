@@ -123,8 +123,6 @@ jobs:
       WAZZUP_TIMEZONE: Europe/Amsterdam
       WAZZUP_MAX_AI_ITEMS: 30
       WAZZUP_MAX_AI_COST_USD: 1.00
-      COPILOT_MODEL: claude-sonnet-5
-      COPILOT_WRITER_MODEL: claude-opus-4.8
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
@@ -155,8 +153,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
-          COPILOT_MODEL: ${{ env.COPILOT_MODEL }}
-          COPILOT_WRITER_MODEL: ${{ env.COPILOT_WRITER_MODEL }}
 ```
 
 The workflow triggers hourly because GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions. A first cadence step computes the local hour and continues only on odd local hours from 07:00 to 21:59. This aligns the first run with the configured morning briefing, keeps AI calls to a daytime two-hour cadence, and skips overnight runs entirely. Manual dispatch always runs.
@@ -169,9 +165,43 @@ Operational learning: the site served stale data after manual and watchdog-trigg
 
 Operational learning: the site went stale for most of a day because GitHub schedule jitter routinely shifts the hourly `News` cron across hour boundaries. The cadence gate evaluates the local hour at execution time, so a run intended for an odd local hour (07:00, 09:00, …) frequently lands on an even or overnight hour and skips all real work. The original `news-watchdog` could not recover from this: it only checked whether _any_ `News` run existed in the current UTC hour, and since the hourly cron always fires (even when it gate-skips in seconds), it always saw a run and never dispatched a catch-up. The watchdog now runs every hour inside the active local window (07:00–21:59, no odd-hour parity gate so jitter cannot disable it) and decides purely on freshness: it inspects recent `News` runs, treats only a successful `Generate and persist retained news state` step as an effective generation, and dispatches a `workflow_dispatch` catch-up when the newest effective generation is older than the two-hour cadence interval and no `News` run is currently queued or in progress. This keeps the two-hour spacing while making missed scheduled runs self-healing.
 
-The Copilot CLI provider keeps curator and transparency on `COPILOT_MODEL`, defaulting to Claude Sonnet 5 via the CLI model ID `claude-sonnet-5`, and pins the briefing writer to `COPILOT_WRITER_MODEL`, defaulting to Claude Opus 4.8 via `claude-opus-4.8`. This isolates the more expensive model to the writing step while keeping the model overridable for manual canaries. Explicit constructor model overrides take precedence; outside the workflow, the writer uses `COPILOT_WRITER_MODEL`, then `COPILOT_MODEL`, then its Opus default.
+### Shared model policy
 
-Model pins are intentional: if Copilot CLI reports that the model passed with `--model` is unavailable, the provider surfaces the CLI diagnostics and blocks the run, including transparency reporting. It does not retry with a different model, omit `--model`, or substitute a deterministic provider for this error. Existing missing-token and malformed-output fallback behavior is unchanged.
+Both local Python providers and Actions fetch **data only** from [DevSecNinja/.github/copilot-models.json](https://raw.githubusercontent.com/DevSecNinja/.github/refs/heads/main/copilot-models.json). There are no production model defaults in Wazzup's Python, workflow environment, or agent frontmatter.
+
+The initial reviewed policy uses this contract (an example, not a local fallback):
+
+```json
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "models": {
+    "default": "claude-sonnet-5",
+    "writer": "claude-opus-5.5"
+  }
+}
+```
+
+Curator and transparency share the `default` role; briefing writing uses `writer`. To change a model, review a change in `DevSecNinja/.github` and increment the positive integer `revision`. This centralizes maintenance, not availability: a retired or unauthorized model still blocks until an explicit reviewed choice is made.
+
+The [resolver](../src/wazzup/model_policy.py) requires exactly the root keys `schemaVersion`, `revision`, and `models`, schema version 1, a positive safe-integer revision (at most `2^53 - 1`), exactly the two model roles, and exact nonempty safe model IDs. Blank strings, whitespace, `auto`, malformed/duplicate-key JSON, unsupported versions, missing/extra keys, and network failures are errors. Downloads use a 10-second network timeout and a 64 KiB size limit. One immutable policy snapshot is cached in memory per Python process, shared by all three providers. Each new pipeline process fetches afresh; there is no disk/stale fallback. Importing the module and using `AI_PROVIDER=fake` perform no policy requests.
+
+Override precedence is **constructor `model`**, then **`COPILOT_WRITER_MODEL` for the writer**, then **`COPILOT_MODEL`**, then the **policy role**. An explicitly set blank/auto override fails instead of falling through. Higher-precedence valid overrides remain authoritative. Even when overriding a model, the shared policy must load and validate; an override does not bypass a broken policy.
+
+All three providers are constructed before feed collection or any AI work, validating and logging selections up front. Logs and `GITHUB_STEP_SUMMARY` include each role, selected model, source (policy/environment/constructor), policy URL and revision. Successful provider metadata includes this provenance rather than trusting a model name generated in response JSON. The workflow summary runs even after generation fails, reporting actual generation and Pages-dispatch outcomes rather than claiming deployment succeeded.
+
+Every Copilot CLI invocation passes `--model`. If the CLI reports the selected model is unavailable, the provider preserves the observed diagnostics and blocks the run, including transparency reporting, with no retry, model change, omitted flag, or deterministic substitution. Existing missing-token and malformed-output fallbacks are separate and unchanged. Policy fetch/validation failures never enter those fallbacks.
+
+**Standalone agents:** selecting a Wazzup agent in a CLI/editor does not run the Python resolver. The agent files intentionally contain no competing `model` key. Prefer the Wazzup pipeline, or resolve the appropriate policy role and explicitly pass/select that model in the standalone runtime before invoking the agent; do not rely on auto or an implicit runtime default. For example, from the repository root in PowerShell:
+
+```powershell
+$env:PYTHONPATH = 'src'
+$model = python -c "from wazzup.model_policy import resolve_model; print(resolve_model('writer').model)"
+if ($LASTEXITCODE -ne 0) { throw 'Model policy resolution failed' }
+copilot --model "$model" --agent wazzup-writer
+```
+
+**Rollout order:** publish the shared policy first, then deploy this consumer. An unpublished policy URL (404) correctly blocks Copilot generation. Verify a real generation step with the Actions secret identity; a green cadence-skipped run is not recovery evidence. Local account catalog availability and offline fixture tests do not establish production availability.
 
 ## Copilot CLI workflow variant
 
@@ -189,8 +219,6 @@ The implementation hides provider-specific commands behind `task news:generate` 
   env:
     AI_PROVIDER: copilot-cli
     COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
-    COPILOT_MODEL: claude-sonnet-5
-    COPILOT_WRITER_MODEL: claude-opus-4.8
     FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
   run: task news:generate
 ```
@@ -198,7 +226,7 @@ The implementation hides provider-specific commands behind `task news:generate` 
 Provider adapter requirements:
 
 - Run Copilot CLI in programmatic mode with `copilot -p`.
-- Pass `--model` from `COPILOT_WRITER_MODEL` for the briefing writer, defaulting to `claude-opus-4.8`; curator and transparency keep using `COPILOT_MODEL`, defaulting to `claude-sonnet-5`.
+- Always pass the explicitly resolved policy/override selection with `--model`; see [shared model policy](#shared-model-policy) for role mapping and precedence.
 - Pass `--agent wazzup-writer` so the briefing-writing style and JSON contract live in [../.github/agents/wazzup-writer.agent.md](../.github/agents/wazzup-writer.agent.md).
 - Use `--no-ask-user` so the workflow never blocks for interaction.
 - Use only narrow `--allow-tool` permissions, such as read-only shell access to generated prompt/input files and write access to a temporary output file.
@@ -285,13 +313,13 @@ Expected secrets:
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `COPILOT_REQUESTS_PAT`       | Preferred repository secret containing a fine-grained PAT for Copilot CLI with Copilot Requests permission. |
 | `COPILOT_GITHUB_TOKEN`       | Alternative secret name accepted by the News workflow.                                                      |
-| `COPILOT_MODEL`              | Optional Copilot CLI model override for curator and transparency; defaults to `claude-sonnet-5`.            |
-| `COPILOT_WRITER_MODEL`       | Optional Copilot CLI model override for the briefing writer; defaults to `claude-opus-4.8`.                 |
 | `AZURE_OPENAI_ENDPOINT`      | Azure OpenAI endpoint.                                                                                      |
 | `AZURE_OPENAI_API_KEY`       | Azure OpenAI API key.                                                                                       |
 | `OPENAI_API_KEY`             | Optional alternative provider.                                                                              |
 | `NOTIFY_WEBHOOK_URL`         | Optional delivery webhook.                                                                                  |
 | `HOME_ASSISTANT_WEBHOOK_URL` | Optional Home Assistant webhook.                                                                            |
+
+`COPILOT_MODEL` and `COPILOT_WRITER_MODEL` are optional **environment overrides, not secrets**. They override the shared policy with an explicit validated ID; the workflow deliberately does not set them by default. See [shared model policy](#shared-model-policy).
 
 Rules:
 

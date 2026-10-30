@@ -14,9 +14,7 @@ from wazzup.ai import (
     CurationRequest,
     DEFAULT_COPILOT_AGENT,
     DEFAULT_COPILOT_CURATOR_AGENT,
-    DEFAULT_COPILOT_MODEL,
     DEFAULT_COPILOT_TRANSPARENCY_AGENT,
-    DEFAULT_COPILOT_WRITER_MODEL,
     FakeCurationProvider,
     FakeSummaryProvider,
     FakeTransparencyReportProvider,
@@ -36,11 +34,28 @@ from wazzup.ai import (
 )
 from wazzup.config import load_app_config, load_sources
 from wazzup.feeds import parse_feed
+from wazzup.model_policy import load_model_policy, parse_model_policy
 from wazzup.models import SourceStatus
 from wazzup.scoring import score_items
 
 
-class AiProviderTests(unittest.TestCase):
+POLICY_BYTES = Path("tests/fixtures/copilot-models.json").read_bytes()
+POLICY = parse_model_policy(POLICY_BYTES)
+
+
+class PolicyProviderTestCase(unittest.TestCase):
+    def setUp(self) -> None:
+        environment = patch.dict(os.environ, {}, clear=True)
+        environment.start()
+        self.addCleanup(environment.stop)
+        policy_fetch = patch("wazzup.model_policy.urlopen")
+        policy_fetch.start().return_value.__enter__.return_value.read.return_value = POLICY_BYTES
+        self.addCleanup(policy_fetch.stop)
+        load_model_policy.cache_clear()
+        self.addCleanup(load_model_policy.cache_clear)
+
+
+class AiProviderTests(PolicyProviderTestCase):
     def test_provider_defaults_to_fake(self) -> None:
         previous_provider = os.environ.get("AI_PROVIDER")
         os.environ.pop("AI_PROVIDER", None)
@@ -302,12 +317,12 @@ class AiProviderTests(unittest.TestCase):
         def fake_run(command, capture_output, cwd, env, text):  # type: ignore[no-untyped-def]
             del capture_output, text
             Path(env["WAZZUP_COPILOT_OUTPUT_PATH"]).write_text(
-                '{"headline":"No updates","sections":[{"title":"Top updates","bullets":[]}]}',
+                '{"model":"untrusted-response-model","headline":"No updates","sections":[{"title":"Top updates","bullets":[]}]}',
                 encoding="utf-8",
             )
             self.assertEqual(Path.cwd(), Path(cwd))
             self.assertIn("--model", command)
-            self.assertEqual(DEFAULT_COPILOT_WRITER_MODEL, command[command.index("--model") + 1])
+            self.assertEqual(POLICY.writer, command[command.index("--model") + 1])
             self.assertIn("--agent", command)
             self.assertEqual(DEFAULT_COPILOT_AGENT, command[command.index("--agent") + 1])
             prompt = command[command.index("-p") + 1]
@@ -346,7 +361,9 @@ class AiProviderTests(unittest.TestCase):
             else:
                 os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
-        self.assertEqual(DEFAULT_COPILOT_WRITER_MODEL, response.provider["model"])
+        self.assertEqual(POLICY.writer, response.provider["model"])
+        self.assertEqual(POLICY.revision, response.provider["modelPolicyRevision"])
+        self.assertEqual("policy.models.writer", response.provider["modelSource"])
         self.assertEqual(DEFAULT_COPILOT_AGENT, response.provider["agent"])
 
     @patch("wazzup.ai.subprocess.run")
@@ -355,14 +372,14 @@ class AiProviderTests(unittest.TestCase):
         previous_model = os.environ.get("COPILOT_MODEL")
         previous_writer_model = os.environ.get("COPILOT_WRITER_MODEL")
         previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
-        os.environ["COPILOT_MODEL"] = "claude-sonnet-5"
-        os.environ["COPILOT_WRITER_MODEL"] = "claude-opus-4.8"
+        os.environ["COPILOT_MODEL"] = "general-override"
+        os.environ["COPILOT_WRITER_MODEL"] = "writer-override"
         os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
 
         def fake_run(command, capture_output, cwd, env, text):  # type: ignore[no-untyped-def]
             del capture_output, cwd, env, text
             self.assertIn("--model", command)
-            self.assertEqual("claude-opus-4.8", command[command.index("--model") + 1])
+            self.assertEqual("writer-override", command[command.index("--model") + 1])
             return Mock(returncode=0, stdout="", stderr="")
 
         run_mock.side_effect = fake_run
@@ -397,7 +414,7 @@ class AiProviderTests(unittest.TestCase):
             else:
                 os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
-        self.assertEqual("claude-opus-4.8", response.provider["model"])
+        self.assertEqual("writer-override", response.provider["model"])
 
     @patch("wazzup.ai.subprocess.run")
     @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
@@ -415,7 +432,7 @@ class AiProviderTests(unittest.TestCase):
                     items=[],
                     max_items=12,
                 ),
-                "claude-sonnet-5",
+                POLICY.default,
             ),
             (
                 CopilotCliSummaryProvider,
@@ -429,7 +446,7 @@ class AiProviderTests(unittest.TestCase):
                     summary_language="en",
                     items=[],
                 ),
-                "claude-opus-4.8",
+                POLICY.writer,
             ),
             (
                 CopilotCliTransparencyReportProvider,
@@ -448,7 +465,7 @@ class AiProviderTests(unittest.TestCase):
                     curation_provider={"type": "fake"},
                     summary_provider={"type": "fake"},
                 ),
-                "claude-sonnet-5",
+                POLICY.default,
             ),
         ]
         for provider_type, method_name, request, default_model in cases:
@@ -554,7 +571,7 @@ class AiProviderTests(unittest.TestCase):
         self.assertTrue(response.sections[0]["bullets"])
 
 
-class AiCurationProviderTests(unittest.TestCase):
+class AiCurationProviderTests(PolicyProviderTestCase):
     def test_curation_provider_defaults_to_fake(self) -> None:
         previous_provider = os.environ.get("AI_PROVIDER")
         os.environ.pop("AI_PROVIDER", None)
@@ -676,14 +693,14 @@ class AiCurationProviderTests(unittest.TestCase):
             del capture_output, text
             selected_id = scored[0].item.id
             Path(env["WAZZUP_COPILOT_OUTPUT_PATH"]).write_text(
-                f'{{"selectedIds":["{selected_id}"]}}',
+                f'{{"model":"untrusted-response-model","selectedIds":["{selected_id}"]}}',
                 encoding="utf-8",
             )
             self.assertEqual(Path.cwd(), Path(cwd))
             self.assertIn("--agent", command)
             self.assertEqual(DEFAULT_COPILOT_CURATOR_AGENT, command[command.index("--agent") + 1])
             self.assertIn("--model", command)
-            self.assertEqual(DEFAULT_COPILOT_MODEL, command[command.index("--model") + 1])
+            self.assertEqual(POLICY.default, command[command.index("--model") + 1])
             prompt = command[command.index("-p") + 1]
             self.assertIn("curating items", prompt)
             return Mock(returncode=0, stdout="", stderr="")
@@ -716,6 +733,8 @@ class AiCurationProviderTests(unittest.TestCase):
                 os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
         self.assertEqual(DEFAULT_COPILOT_CURATOR_AGENT, response.provider["agent"])
+        self.assertEqual(POLICY.default, response.provider["model"])
+        self.assertEqual(POLICY.revision, response.provider["modelPolicyRevision"])
         self.assertEqual([scored[0].item.id], response.selected_ids)
 
     @patch("wazzup.ai.subprocess.run")
@@ -757,7 +776,7 @@ class AiCurationProviderTests(unittest.TestCase):
         self.assertTrue(response.selected_ids)
 
 
-class AiTransparencyReportProviderTests(unittest.TestCase):
+class AiTransparencyReportProviderTests(PolicyProviderTestCase):
     def test_transparency_provider_defaults_to_fake(self) -> None:
         previous_provider = os.environ.get("AI_PROVIDER")
         os.environ.pop("AI_PROVIDER", None)
@@ -876,14 +895,14 @@ class AiTransparencyReportProviderTests(unittest.TestCase):
         def fake_run(command, capture_output, cwd, env, text):  # type: ignore[no-untyped-def]
             del capture_output, text
             Path(env["WAZZUP_COPILOT_OUTPUT_PATH"]).write_text(
-                '{"title":"Transparency report","summary":"A concise summary.","sections":[{"title":"Inputs","bullets":["Used one source."]}]}',
+                '{"model":"untrusted-response-model","title":"Transparency report","summary":"A concise summary.","sections":[{"title":"Inputs","bullets":["Used one source."]}]}',
                 encoding="utf-8",
             )
             self.assertEqual(Path.cwd(), Path(cwd))
             self.assertIn("--agent", command)
             self.assertEqual(DEFAULT_COPILOT_TRANSPARENCY_AGENT, command[command.index("--agent") + 1])
             self.assertIn("--model", command)
-            self.assertEqual(DEFAULT_COPILOT_MODEL, command[command.index("--model") + 1])
+            self.assertEqual(POLICY.default, command[command.index("--model") + 1])
             prompt = command[command.index("-p") + 1]
             self.assertIn("transparency report", prompt)
             return Mock(returncode=0, stdout="", stderr="")
@@ -921,6 +940,8 @@ class AiTransparencyReportProviderTests(unittest.TestCase):
                 os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
 
         self.assertEqual(DEFAULT_COPILOT_TRANSPARENCY_AGENT, response.provider["agent"])
+        self.assertEqual(POLICY.default, response.provider["model"])
+        self.assertEqual(POLICY.revision, response.provider["modelPolicyRevision"])
         self.assertEqual("Transparency report", response.title)
 
     @patch("wazzup.ai.subprocess.run")

@@ -38,7 +38,9 @@ Implemented safety behavior:
 - [../../.github/workflows/news.yml](../../.github/workflows/news.yml) selects an effective provider before installing Node or Copilot CLI.
 - If `copilot-cli` is requested without either token secret, the workflow logs a warning and uses `AI_PROVIDER=fake`.
 - [../../src/wazzup/ai.py](../../src/wazzup/ai.py) checks for `COPILOT_GITHUB_TOKEN` in GitHub Actions and raises an actionable error if the workflow guard is bypassed.
-- Curator and transparency default to `claude-sonnet-5` via `COPILOT_MODEL`. The writer uses the repo-local `wazzup-writer` custom agent and selects `COPILOT_WRITER_MODEL`, then `COPILOT_MODEL`, then `claude-opus-4.8`; the News workflow explicitly pins both models.
+- Local and Actions providers resolve one immutable, process-local snapshot of the shared `DevSecNinja/.github/copilot-models.json` data policy. Curator/transparency use `models.default`; the writer uses `models.writer`. Explicit constructor overrides win; environment precedence is `COPILOT_WRITER_MODEL` (writer only), then `COPILOT_MODEL`, then the policy role. Blank/auto/unsafe selections fail. Even explicit overrides require a valid policy.
+- Policy downloads are bounded and strictly validated; missing/invalid policy blocks before feed collection or inference. No remote code, stale-file cache, import-time network access, or fake-mode policy requests are used. Workflow/agent definitions do not duplicate model pins.
+- Selected roles/models, selection source and policy revision are logged to stderr and Actions summaries before generation; provider metadata records the same provenance. Model changes are reviewed centrally with a revision increment, rather than silently following CLI defaults. See [shared model policy](../github-actions.md#shared-model-policy).
 - Pass explicit model IDs with `--model`. An unavailable pinned model is a blocking failure, not a reason to retry with another model or the CLI default.
 - Copilot CLI stdout/stderr is captured and included in sanitized failure diagnostics when the CLI exits non-zero.
 
@@ -59,6 +61,7 @@ Implemented safety behavior:
 - Usage accounting may be less precise than direct API token accounting.
 - Ollama on GitHub-hosted runners can be slow and model downloads can dominate runtime; Foundry or other provider paths will require separate evaluation.
 - Fake-provider fallback keeps automation green but produces deterministic placeholder-style summaries instead of true AI summaries until Copilot token setup is complete.
+- Copilot runs depend on the shared policy URL being reachable. Publish the producer before deploying this consumer; policy validation and local account catalog checks do not prove availability for the Actions secret identity.
 
 ## Alternatives considered
 

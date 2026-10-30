@@ -3,6 +3,8 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+import yaml
+
 
 class WorkflowTests(unittest.TestCase):
     def test_news_workflow_uses_active_two_hour_local_cadence_gate(self) -> None:
@@ -12,32 +14,43 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("default: auto", workflow)
         self.assertIn("- auto", workflow)
         self.assertIn("Check scheduled cadence", workflow)
-        self.assertIn("COPILOT_MODEL: claude-sonnet-5", workflow)
-        self.assertIn("COPILOT_WRITER_MODEL: claude-opus-4.8", workflow)
-        self.assertIn("- Copilot model: ${COPILOT_MODEL}", workflow)
-        self.assertIn("- Copilot writer model: ${COPILOT_WRITER_MODEL}", workflow)
         self.assertIn("hour >= 6 && hour < 22 && hour % 2 == 1", workflow)
         self.assertIn("active two-hour local cadence", workflow)
         self.assertIn("outside active two-hour local cadence", workflow)
         self.assertNotIn("overnight two-hour cadence", workflow)
         self.assertNotIn('cron: "d"', workflow)
 
-    def test_copilot_agents_keep_explicit_model_pins(self) -> None:
-        for agent, model in (
-            ("wazzup-curator", "claude-sonnet-5"),
-            ("wazzup-transparency-reporter", "claude-sonnet-5"),
-            ("wazzup-writer", "claude-opus-4.8"),
-        ):
+    def test_copilot_agents_do_not_override_runtime_model_policy(self) -> None:
+        for agent in ("wazzup-curator", "wazzup-transparency-reporter", "wazzup-writer"):
             with self.subTest(agent=agent):
                 definition = Path(f".github/agents/{agent}.agent.md").read_text(encoding="utf-8")
-                self.assertIn(f'\nmodel: "{model}"\n', definition)
+                frontmatter = yaml.safe_load(definition.split("---", 2)[1])
+                self.assertNotIn("model", frontmatter)
+
+    def test_news_workflow_uses_python_policy_and_summarizes_failures(self) -> None:
+        workflow = Path(".github/workflows/news.yml").read_text(encoding="utf-8")
+        self.assertNotIn("COPILOT_MODEL:", workflow)
+        self.assertNotIn("COPILOT_WRITER_MODEL:", workflow)
+        self.assertNotIn("claude-", workflow)
+        steps = yaml.safe_load(workflow)["jobs"]["generate"]["steps"]
+        summary = next(step for step in steps if step["name"] == "Write workflow summary")
+        generation = next(step for step in steps if step["name"] == "Generate and persist retained news state")
+        pages = next(step for step in steps if step["name"] == "Deploy refreshed state to Pages")
+        self.assertEqual("${{ always() && steps.cadence.outputs.should_run == 'true' }}", summary["if"])
+        self.assertEqual("${{ steps.generation.outcome }}", summary["env"]["GENERATION_OUTCOME"])
+        self.assertEqual("${{ steps.pages.outcome }}", summary["env"]["PAGES_OUTCOME"])
+        self.assertEqual("generation", generation["id"])
+        self.assertEqual("pages", pages["id"])
+        self.assertIn("task news:generate", generation["run"])
+        self.assertIn("Copilot model selections and policy errors", summary["run"])
+        self.assertIn("Falling back to AI_PROVIDER=fake for this run", workflow)
 
     def test_news_workflow_dispatches_pages_deploy_for_every_trigger(self) -> None:
         workflow = Path(".github/workflows/news.yml").read_text(encoding="utf-8")
         self.assertIn("actions: write", workflow)
         self.assertIn("Deploy refreshed state to Pages", workflow)
         self.assertIn("gh workflow run pages.yml", workflow)
-        self.assertIn("- Pages deployment: dispatched explicitly after persisting state", workflow)
+        self.assertIn("- Pages deployment dispatch: ${PAGES_OUTCOME}", workflow)
 
     def test_news_watchdog_dispatches_when_effective_generation_is_stale(self) -> None:
         workflow = Path(".github/workflows/news-watchdog.yml").read_text(encoding="utf-8")
