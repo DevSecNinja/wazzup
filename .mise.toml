@@ -4,21 +4,21 @@ min_version = "2026.8.10"
 [tools]
 python = "3.15.0"
 # renovate: datasource=node-version depName=node
-node = "24.21.0"
+node = "24.22.0"
 # renovate: datasource=github-releases depName=go-task/task
 "github:go-task/task" = "3.54.0"
 # renovate: datasource=npm depName=@github/copilot
 "npm:@github/copilot" = "1.0.98"
 cocogitto = "7.0.0"
-dprint = "0.62.0"
+dprint = "0.64.0"
 yamlfmt = "0.21.0"
 # renovate: datasource=pypi depName=pipx
-pipx = "1.17.13"
+pipx = "1.18.4"
 "pipx:yamllint" = "1.38.0"
 actionlint = "1.7.12"
 gitleaks = "8.30.1"
 lefthook = "2.2.2"
-zizmor = "1.30.1"
+zizmor = "1.31.1"
 
 [settings]
 npm.package_manager = "npm"
