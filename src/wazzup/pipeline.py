@@ -243,6 +243,9 @@ def collect_items(sources_path: str, fixture_dir: str = "") -> tuple[list[Conten
 def generate(argv: Sequence[str] | None = None) -> dict:
     args = parse_args(argv)
     app_config = load_app_config(args.interests)
+    curator = curation_provider_from_env(app_config)
+    provider = provider_from_env(app_config)
+    transparency_provider = transparency_provider_from_env(app_config)
     items, statuses, sources = collect_items(args.sources, args.fixture_dir)
     now = utc_now()
     kind = choose_kind(
@@ -264,7 +267,6 @@ def generate(argv: Sequence[str] | None = None) -> dict:
     scored = diversify_scored_items(scored)
     ranked_candidates = scored
     curation_candidates = ranked_candidates[: args.max_items]
-    curator = curation_provider_from_env(app_config)
     curation = curator.curate_items(
         CurationRequest(
             kind=kind,
@@ -277,7 +279,6 @@ def generate(argv: Sequence[str] | None = None) -> dict:
         )
     )
     curated = curated_scored_items(curation_candidates, curation.selected_ids, args.max_items)
-    provider = provider_from_env(app_config)
     summary = provider.generate_structured_summary(
         SummaryRequest(
             kind=kind,
@@ -289,7 +290,6 @@ def generate(argv: Sequence[str] | None = None) -> dict:
             items=curated,
         )
     )
-    transparency_provider = transparency_provider_from_env(app_config)
     transparency_report = transparency_provider.generate_transparency_report(
         TransparencyReportRequest(
             kind=kind,

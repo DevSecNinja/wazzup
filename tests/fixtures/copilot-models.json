@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "models": {
+    "default": "claude-sonnet-5",
+    "writer": "claude-opus-5.5"
+  }
+}

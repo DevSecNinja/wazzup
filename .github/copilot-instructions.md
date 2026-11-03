@@ -119,11 +119,17 @@ Python package [src/wazzup/](src/wazzup):
   freshness scoring.
 - [`ai.py`](src/wazzup/ai.py) – AI provider abstraction. Selected by env
   `AI_PROVIDER` (`copilot-cli` or `fake`). `fake` is the default in tests
-  and CI. Curator and transparency default to `COPILOT_MODEL=claude-sonnet-5`.
-  The writer defaults to `claude-opus-4.8`, with override precedence
-  `COPILOT_WRITER_MODEL` then `COPILOT_MODEL`, and uses
+  and CI. Copilot models come from the shared `DevSecNinja/.github`
+  `copilot-models.json` data policy via [`model_policy.py`](src/wazzup/model_policy.py).
+  Curator/transparency use the `default` role; the writer uses `writer`.
+  Explicit constructor models override environment values; the writer's env
+  precedence is `COPILOT_WRITER_MODEL` then `COPILOT_MODEL`. The writer uses
   `COPILOT_AGENT=wazzup-writer`; the agent prompt lives in
   [`.github/agents/wazzup-writer.agent.md`](.github/agents/wazzup-writer.agent.md).
+  Never add local production model defaults or agent frontmatter model pins.
+  Policy failures, invalid overrides, and unavailable models must block rather
+  than select auto, a CLI default, or another provider. Fake mode never loads
+  the model policy. See [docs/github-actions.md](docs/github-actions.md#shared-model-policy).
 - [`publisher.py`](src/wazzup/publisher.py) – writes YAML state and JSON
   mirrors under `public/data/`.
 - [`validate_data.py`](src/wazzup/validate_data.py) – `wazzup-validate-data`
