@@ -180,6 +180,27 @@ class ModelPolicyTests(unittest.TestCase):
         self.assertEqual("a", policy.default)
         self.assertEqual("m" * 128, policy.writer)
 
+    def test_shared_producer_consumer_policy_corpus(self) -> None:
+        cases = json.loads(Path("tests/fixtures/copilot-model-policy-cases.json").read_text(encoding="utf-8"))
+        self.assertIsInstance(cases, list)
+        self.assertTrue(cases)
+        names: set[str] = set()
+        for case in cases:
+            with self.subTest(case=case["name"]):
+                self.assertEqual({"name", "valid", "document"}, set(case))
+                self.assertIsInstance(case["name"], str)
+                self.assertNotIn(case["name"], names)
+                names.add(case["name"])
+                self.assertIs(type(case["valid"]), bool)
+                self.assertIsInstance(case["document"], str)
+                document = case["document"].encode("utf-8")
+                if case["valid"]:
+                    parse_model_policy(document)
+                else:
+                    with self.assertRaises(ModelPolicyError):
+                        parse_model_policy(document)
+        self.fetch.assert_not_called()
+
     def test_missing_or_invalid_policy_cannot_be_bypassed_by_overrides(self) -> None:
         for provider_type in PROVIDERS:
             for body in (b"{}", b'{"schemaVersion":2}', b"not-json"):

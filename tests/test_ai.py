@@ -944,38 +944,96 @@ class AiTransparencyReportProviderTests(PolicyProviderTestCase):
         self.assertEqual(POLICY.revision, response.provider["modelPolicyRevision"])
         self.assertEqual("Transparency report", response.title)
 
-    @patch("wazzup.ai.subprocess.run")
-    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
-    def test_copilot_cli_transparency_falls_back_on_runtime_failure(self, _which, run_mock) -> None:  # type: ignore[no-untyped-def]
-        previous_token = os.environ.get("COPILOT_GITHUB_TOKEN")
-        os.environ["COPILOT_GITHUB_TOKEN"] = "test-token"
-        run_mock.return_value = Mock(returncode=1, stdout="failed", stderr="upstream error")
-        try:
-            response = CopilotCliTransparencyReportProvider().generate_transparency_report(
-                TransparencyReportRequest(
-                    kind="hourly",
-                    window_start="2026-05-06T20:00:00Z",
-                    window_end="2026-05-06T21:00:00Z",
-                    generated_at="2026-05-06T21:00:00Z",
-                    timezone="Europe/Amsterdam",
-                    summary_language="en",
-                    max_items=12,
-                    statuses=[],
-                    ranked_items=[],
-                    selected_items=[],
-                    curation_provider={"type": "fake"},
-                    summary_provider={"type": "fake"},
-                )
-            )
-        finally:
-            if previous_token is None:
-                os.environ.pop("COPILOT_GITHUB_TOKEN", None)
-            else:
-                os.environ["COPILOT_GITHUB_TOKEN"] = previous_token
+    def transparency_request(self) -> TransparencyReportRequest:
+        return TransparencyReportRequest(
+            kind="hourly",
+            window_start="2026-05-06T20:00:00Z",
+            window_end="2026-05-06T21:00:00Z",
+            generated_at="2026-05-06T21:00:00Z",
+            timezone="Europe/Amsterdam",
+            summary_language="en",
+            max_items=12,
+            statuses=[],
+            ranked_items=[],
+            selected_items=[],
+            curation_provider={"type": "fake"},
+            summary_provider={"type": "fake"},
+        )
 
-        self.assertEqual("copilot-cli-fallback", response.provider["type"])
-        self.assertEqual("copilot-cli", response.provider["fallbackFrom"])
-        self.assertIn("exit code 1", response.provider["fallbackReason"])
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_cli_transparency_blocks_every_nonzero_exit(self, _which) -> None:  # type: ignore[no-untyped-def]
+        errors = (
+            f'Model "{POLICY.default}" from --model flag is not available.',
+            "model_not_supported",
+            "upstream error",
+            "",
+        )
+        for error in errors:
+            for stream in ("stdout", "stderr"):
+                for returncode in (1, 2, -1):
+                    with self.subTest(error=error, stream=stream, returncode=returncode):
+                        result = Mock(
+                            returncode=returncode,
+                            stdout=error if stream == "stdout" else "",
+                            stderr=error if stream == "stderr" else "",
+                        )
+                        with patch("wazzup.ai.subprocess.run", return_value=result) as run:
+                            with patch("wazzup.ai.FakeTransparencyReportProvider") as fallback:
+                                with self.assertRaises(RuntimeError) as raised:
+                                    CopilotCliTransparencyReportProvider().generate_transparency_report(self.transparency_request())
+                                fallback.assert_not_called()
+                        message = str(raised.exception)
+                        self.assertIn(f"exit code {returncode}", message)
+                        self.assertIn(f"role=default, model={POLICY.default}", message)
+                        self.assertIn(f"policy revision={POLICY.revision}", message)
+                        self.assertIn("No alternate model will be tried", message)
+                        if error:
+                            self.assertIn(f"{stream}: {error}", message)
+                        run.assert_called_once()
+                        command = run.call_args.args[0]
+                        self.assertEqual(1, command.count("--model"))
+                        self.assertEqual(POLICY.default, command[command.index("--model") + 1])
+
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_cli_transparency_nonzero_exit_ignores_written_output(self, _which) -> None:  # type: ignore[no-untyped-def]
+        for output in ('{"title":"Partial report"}', '{"title":"Report","summary":"Summary","sections":[{"title":"Inputs","bullets":[]}]}'):
+            with self.subTest(output=output):
+                def fake_run(_command, capture_output, cwd, env, text):  # type: ignore[no-untyped-def]
+                    Path(env["WAZZUP_COPILOT_OUTPUT_PATH"]).write_text(output, encoding="utf-8")
+                    return Mock(returncode=1, stdout="", stderr="model_not_supported")
+
+                with patch("wazzup.ai.subprocess.run", side_effect=fake_run) as run:
+                    with patch("wazzup.ai.FakeTransparencyReportProvider") as fallback:
+                        with self.assertRaisesRegex(RuntimeError, "model_not_supported"):
+                            CopilotCliTransparencyReportProvider().generate_transparency_report(self.transparency_request())
+                        fallback.assert_not_called()
+                    run.assert_called_once()
+
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_cli_transparency_falls_back_on_malformed_success(self, _which) -> None:  # type: ignore[no-untyped-def]
+        for output in ("", "not-json", '{"title":"Incomplete"}'):
+            with self.subTest(output=output):
+                def fake_run(_command, capture_output, cwd, env, text):  # type: ignore[no-untyped-def]
+                    Path(env["WAZZUP_COPILOT_OUTPUT_PATH"]).write_text(output, encoding="utf-8")
+                    return Mock(returncode=0, stdout="", stderr="")
+
+                with patch("wazzup.ai.subprocess.run", side_effect=fake_run) as run:
+                    response = CopilotCliTransparencyReportProvider().generate_transparency_report(self.transparency_request())
+                    run.assert_called_once()
+                self.assertEqual("copilot-cli-fallback", response.provider["type"])
+                self.assertEqual("copilot-cli", response.provider["fallbackFrom"])
+                self.assertTrue(response.provider["fallbackReason"])
+                self.assertTrue(response.sections)
+
+    @patch("wazzup.ai.subprocess.run", return_value=Mock(returncode=0, stdout="", stderr=""))
+    @patch("wazzup.ai.shutil.which", return_value="/usr/bin/copilot")
+    def test_copilot_cli_transparency_missing_output_blocks(self, _which, run) -> None:  # type: ignore[no-untyped-def]
+        with patch("wazzup.ai.FakeTransparencyReportProvider") as fallback:
+            with self.assertRaisesRegex(RuntimeError, "did not write transparency-output.json") as raised:
+                CopilotCliTransparencyReportProvider().generate_transparency_report(self.transparency_request())
+            fallback.assert_not_called()
+        self.assertIn(f"model={POLICY.default}", str(raised.exception))
+        run.assert_called_once()
 
 
 if __name__ == "__main__":

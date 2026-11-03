@@ -489,24 +489,27 @@ class CopilotCliTransparencyReportProvider:
                     "--no-ask-user",
                 ]
             )
+            result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
+            if result.returncode != 0:
+                details = []
+                if result.stdout.strip():
+                    details.append(f"stdout: {result.stdout.strip()}")
+                if result.stderr.strip():
+                    details.append(f"stderr: {result.stderr.strip()}")
+                detail_text = "\n" + "\n".join(details) if details else ""
+                raise RuntimeError(
+                    f"Copilot CLI transparency report failed with exit code {result.returncode}. "
+                    f"{self.model_selection.failure_hint()}"
+                    "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
+                    "or use AI_PROVIDER=fake."
+                    f"{detail_text}"
+                )
+            if not output_path.exists():
+                raise RuntimeError(
+                    "Copilot CLI did not write transparency-output.json. "
+                    f"{self.model_selection.failure_hint()}"
+                )
             try:
-                result = subprocess.run(command, capture_output=True, cwd=Path.cwd(), env=run_env, text=True)
-                if result.returncode != 0:
-                    details = []
-                    if result.stdout.strip():
-                        details.append(f"stdout: {result.stdout.strip()}")
-                    if result.stderr.strip():
-                        details.append(f"stderr: {result.stderr.strip()}")
-                    detail_text = "\n" + "\n".join(details) if details else ""
-                    raise RuntimeError(
-                        f"Copilot CLI transparency report failed with exit code {result.returncode}. "
-                        f"{self.model_selection.failure_hint()}"
-                        "Verify COPILOT_GITHUB_TOKEN has Copilot Requests permission, "
-                        "or use AI_PROVIDER=fake."
-                        f"{detail_text}"
-                    )
-                if not output_path.exists():
-                    raise RuntimeError("Copilot CLI did not write transparency-output.json")
                 payload = json.loads(output_path.read_text(encoding="utf-8"))
                 provider = {
                     "type": self.name,
@@ -516,9 +519,7 @@ class CopilotCliTransparencyReportProvider:
                     "validated": True,
                 }
                 return transparency_response_from_payload(payload, provider=provider)
-            except (RuntimeError, ValueError, json.JSONDecodeError) as exc:
-                if f'Model "{self.model}" from --model flag is not available' in str(exc):
-                    raise
+            except ValueError as exc:
                 fallback = FakeTransparencyReportProvider().generate_transparency_report(request)
                 return TransparencyReportResponse(
                     title=fallback.title,

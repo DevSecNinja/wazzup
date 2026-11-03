@@ -1,0 +1,227 @@
+[
+  {
+    "name": "valid-policy-minimum-revision",
+    "valid": true,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "valid-policy-maximum-revision",
+    "valid": true,
+    "document": "{\"schemaVersion\":1,\"revision\":9007199254740991,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "valid-policy-whitespace-and-key-order",
+    "valid": true,
+    "document": " \n{\"models\":{\"writer\":\"model-b\",\"default\":\"model-a\"},\"revision\":2,\"schemaVersion\":1}\t\n"
+  },
+  {
+    "name": "duplicate-root-schema-key",
+    "valid": false,
+    "document": "{\"schemaVersion\":2,\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "duplicate-root-revision-key",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":0,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "duplicate-root-models-key",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{},\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "duplicate-default-model-key",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"auto\",\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "duplicate-writer-model-key",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "duplicate-escaped-model-key",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"auto\",\"def\\u0061ult\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "duplicate-key-in-nested-extra-object",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"},\"extra\":{\"key\":1,\"key\":2}}"
+  },
+  {
+    "name": "leading-zero-schema",
+    "valid": false,
+    "document": "{\"schemaVersion\":01,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "leading-zero-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":01,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "float-schema",
+    "valid": false,
+    "document": "{\"schemaVersion\":1.0,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "float-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1.0,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "exponent-schema",
+    "valid": false,
+    "document": "{\"schemaVersion\":1e0,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "exponent-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1E+0,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "overflow-exponent-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1e9999,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "boolean-schema",
+    "valid": false,
+    "document": "{\"schemaVersion\":true,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "boolean-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":true,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "zero-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":0,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "negative-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":-1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "unsafe-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":9007199254740992,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "fractional-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1.5,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "string-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":\"1\",\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "unsupported-schema",
+    "valid": false,
+    "document": "{\"schemaVersion\":2,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "nan-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":NaN,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "infinity-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":Infinity,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "negative-infinity-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":-Infinity,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "explicit-positive-sign-revision",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":+1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "trailing-comma",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"},}"
+  },
+  {
+    "name": "json-comment",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,/* comment */\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "multiple-documents",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}\n{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "truncated-document",
+    "valid": false,
+    "document": "{\"schemaVersion\":1"
+  },
+  {
+    "name": "empty-document",
+    "valid": false,
+    "document": ""
+  },
+  {
+    "name": "null-document",
+    "valid": false,
+    "document": "null"
+  },
+  {
+    "name": "array-document",
+    "valid": false,
+    "document": "[]"
+  },
+  {
+    "name": "boolean-document",
+    "valid": false,
+    "document": "true"
+  },
+  {
+    "name": "number-document",
+    "valid": false,
+    "document": "1"
+  },
+  {
+    "name": "string-document",
+    "valid": false,
+    "document": "\"policy\""
+  },
+  {
+    "name": "unknown-root-field",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\"},\"extra\":true}"
+  },
+  {
+    "name": "unknown-model-role",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"model-b\",\"extra\":\"model-a\"}}"
+  },
+  {
+    "name": "missing-writer",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\"}}"
+  },
+  {
+    "name": "auto-model",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"auto\",\"writer\":\"model-b\"}}"
+  },
+  {
+    "name": "empty-model",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\",\"writer\":\"\"}}"
+  },
+  {
+    "name": "trailing-newline-model",
+    "valid": false,
+    "document": "{\"schemaVersion\":1,\"revision\":1,\"models\":{\"default\":\"model-a\\n\",\"writer\":\"model-b\"}}"
+  }
+]

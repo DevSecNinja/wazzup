@@ -42,6 +42,7 @@ Implemented safety behavior:
 - Policy downloads are bounded and strictly validated; missing/invalid policy blocks before feed collection or inference. No remote code, stale-file cache, import-time network access, or fake-mode policy requests are used. Workflow/agent definitions do not duplicate model pins.
 - Selected roles/models, selection source and policy revision are logged to stderr and Actions summaries before generation; provider metadata records the same provenance. Model changes are reviewed centrally with a revision increment, rather than silently following CLI defaults. See [shared model policy](../github-actions.md#shared-model-policy).
 - Pass explicit model IDs with `--model`. An unavailable pinned model is a blocking failure, not a reason to retry with another model or the CLI default.
+- Every nonzero CLI exit blocks, including transparency reporting, independent of diagnostic wording. A missing transparency output file also blocks; deterministic transparency fallback is limited to malformed output from a successful process. The workflow's tokenless provider-selection fallback is unchanged.
 - Copilot CLI stdout/stderr is captured and included in sanitized failure diagnostics when the CLI exits non-zero.
 
 ## Consequences
