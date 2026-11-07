@@ -109,6 +109,54 @@ Implemented deviations from the original target:
 | NFR-010 | Auditability    | Every summary should record model/provider, prompt version, generation time, and source IDs.                        |
 | NFR-011 | Release hygiene | Commits must follow Conventional Commits so release-please can be introduced later.                                 |
 
+## Source curation and review cadence
+
+Use source curation as a lightweight quality loop for this personal briefing, not as a generic-news governance process.
+
+### Source curation criteria
+
+Evaluate each source with the same add/keep/mute/remove criteria:
+
+- **Add a source** when it has strong topic fit with configured interests, stable publishing cadence, and acceptable signal-to-noise in recent items.
+- **Keep a source active** when it consistently contributes unique, timely, and relevant items without repeated parsing/fetch failures.
+- **Mute a source temporarily** when it becomes noisy (for example low-value repeated posts) or drifts off-topic for multiple review windows.
+- **Remove a source** when it repeatedly fails, remains noisy after a mute period, duplicates coverage already provided by better sources, or no longer matches personal briefing goals.
+
+### Review cadence
+
+Run a lightweight source review on a regular schedule:
+
+- **Weekly quick check (10-15 minutes):** review `public/data/sources/status.json` for failing/timing-out feeds and obvious noise spikes.
+- **Monthly curation pass (30-45 minutes):** review source health trends, duplicate coverage, topic fit, and whether muted sources should be restored or removed.
+- **Quarterly reset (optional):** reassess whether current sources still reflect personal interests and remove stale "just in case" feeds.
+
+### Source review checklist
+
+Use this checklist each monthly pass so feed decisions stay consistent:
+
+1. **Health and reliability**
+   - Any source with repeated failures or long timeout windows gets flagged for mute/remove.
+   - Any source with stale publication timestamps is reviewed for inactivity.
+2. **Noise and duplication**
+   - Check if a source contributes mostly duplicate stories already covered elsewhere.
+   - Check if item volume is high but contribution to selected briefings stays low.
+3. **Quality and topic fit**
+   - Confirm stories match configured interests rather than broad off-topic content.
+   - Confirm source output remains useful for concise morning/evening briefings.
+4. **Action and follow-up**
+   - Mark each source decision as keep, mute, or remove.
+   - Capture newly proposed sources as "candidate" and evaluate them in the next monthly pass.
+
+### Review path for noisy or failing sources
+
+Apply a simple escalation path:
+
+1. First review hit: **flag** the source and monitor in the next weekly check.
+2. Consecutive review hit: **mute** the source for one monthly window.
+3. Post-mute review:
+   - If improved, **restore** with normal monitoring.
+   - If still failing/noisy, **remove** from `config/sources.yml`.
+
 ## Current scope
 
 ### Included
