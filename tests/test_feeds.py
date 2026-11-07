@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from wazzup.config import load_sources
-from wazzup.feeds import canonicalize_url, deduplicate, parse_feed
+from wazzup.feeds import canonicalize_url, cluster_related_stories, deduplicate, parse_feed
 
 
 class FeedTests(unittest.TestCase):
@@ -90,6 +90,59 @@ class FeedTests(unittest.TestCase):
         self.assertEqual(primary.id, deduped[0].id)
         self.assertEqual(["item-related-source"], [item.id for item in deduped[0].related_items])
         self.assertEqual("related-source", deduped[0].related_items[0].source_id)
+
+    def test_deduplicate_groups_fixture_duplicates(self) -> None:
+        source = load_sources("config/sources.yml")[0]
+        fixture_items = parse_feed(source, Path("tests/fixtures/story-clustering.xml").read_bytes())
+        duplicate = replace(
+            fixture_items[0],
+            id="item-duplicate-source",
+            source_id="duplicate-source",
+            source_name="Duplicate Source",
+            source_tag="Duplicate",
+            canonical_url="https://duplicate.example/acme-vpn-cve-2026-4242",
+            url="https://duplicate.example/acme-vpn-cve-2026-4242",
+            raw_ref="duplicate-entry",
+        )
+
+        deduped = deduplicate([fixture_items[0], duplicate])
+
+        self.assertEqual(1, len(deduped))
+        self.assertEqual(["item-duplicate-source"], [item.id for item in deduped[0].related_items])
+
+    def test_cluster_related_stories_groups_near_duplicates(self) -> None:
+        source = load_sources("config/sources.yml")[0]
+        fixture_items = parse_feed(source, Path("tests/fixtures/story-clustering.xml").read_bytes())
+        first_story = fixture_items[0]
+        near_duplicate = replace(
+            fixture_items[1],
+            id="item-near-duplicate-source",
+            source_id="near-duplicate-source",
+            source_name="Near Duplicate Source",
+            source_tag="Near Duplicate",
+        )
+
+        clustered = cluster_related_stories([first_story, near_duplicate])
+
+        self.assertEqual(1, len(clustered))
+        self.assertEqual(["item-near-duplicate-source"], [item.id for item in clustered[0].related_items])
+
+    def test_cluster_related_stories_keeps_same_topic_different_story_separate(self) -> None:
+        source = load_sources("config/sources.yml")[0]
+        fixture_items = parse_feed(source, Path("tests/fixtures/story-clustering.xml").read_bytes())
+        first_story = fixture_items[0]
+        different_story = replace(
+            fixture_items[2],
+            id="item-different-story-source",
+            source_id="different-story-source",
+            source_name="Different Story Source",
+            source_tag="Different Story",
+        )
+
+        clustered = cluster_related_stories([first_story, different_story])
+
+        self.assertEqual(2, len(clustered))
+        self.assertTrue(all(not item.related_items for item in clustered))
 
 
 if __name__ == "__main__":

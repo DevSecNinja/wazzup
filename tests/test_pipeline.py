@@ -52,6 +52,30 @@ def scored_item(item_id: str, published_at: str, score: float) -> ScoredItem:
     )
 
 
+def make_test_content_item(
+    item_id: str, source_id: str, title: str, canonical_url: str, published_at: str, summary: str
+) -> ContentItem:
+    return ContentItem(
+        schema_version=1,
+        id=item_id,
+        source_id=source_id,
+        source_name=f"{source_id} name",
+        source_tag=source_id.upper(),
+        source_type="rss",
+        title=title,
+        url=canonical_url,
+        canonical_url=canonical_url,
+        published_at=published_at,
+        discovered_at=published_at,
+        authors=[],
+        tags=["security"],
+        language="en",
+        summary=summary,
+        content_hash=f"hash-{item_id}",
+        raw_ref=item_id,
+    )
+
+
 class PipelineTests(unittest.TestCase):
     def test_morning_content_window_covers_overnight_since_evening(self) -> None:
         now = datetime(2026, 5, 10, 5, 10, tzinfo=UTC)
@@ -388,6 +412,66 @@ class PipelineTests(unittest.TestCase):
         fresh_items = exclude_already_featured_hourly_items([correlated, other], {"item-1", "related-featured"})
 
         self.assertEqual(["item-2"], [item.item.id for item in fresh_items])
+
+    def test_generate_clusters_related_story_items_before_ai_summary(self) -> None:
+        previous_provider = os.environ.get("AI_PROVIDER")
+        os.environ["AI_PROVIDER"] = "fake"
+        try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                public_dir = Path(tmp_dir)
+                fixed_now = datetime(2026, 5, 6, 10, 30, tzinfo=UTC)
+                grouped_items = [
+                    make_test_content_item(
+                        "item-primary",
+                        "source-a",
+                        "Acme VPN CVE-2026-4242 exploited in active campaign",
+                        "https://example.com/security/acme-vpn-cve-2026-4242",
+                        "2026-05-06T09:20:00Z",
+                        "Researchers report active exploitation of Acme VPN CVE-2026-4242.",
+                    ),
+                    make_test_content_item(
+                        "item-related",
+                        "source-b",
+                        "Emergency patch for Acme VPN after CVE-2026-4242 exploitation",
+                        "https://example.net/alerts/acme-vpn-cve-2026-4242-patch",
+                        "2026-05-06T09:45:00Z",
+                        "Vendors ship fixes for the same Acme VPN CVE-2026-4242 campaign.",
+                    ),
+                ]
+                with (
+                    patch("wazzup.pipeline.utc_now", return_value=fixed_now),
+                    patch(
+                        "wazzup.pipeline.collect_items",
+                        return_value=(
+                            grouped_items,
+                            [],
+                            [],
+                        ),
+                    ),
+                ):
+                    latest = generate(
+                        [
+                            "--public-dir",
+                            str(public_dir),
+                            "--force-briefing",
+                            "hourly",
+                            "--max-items",
+                            "5",
+                        ]
+                    )
+                briefing = json.loads((public_dir / latest["latestBriefingUrl"]).read_text(encoding="utf-8"))
+                articles = json.loads((public_dir / latest["latestArticlesUrl"]).read_text(encoding="utf-8"))
+
+                self.assertEqual(1, len(articles["items"]))
+                self.assertEqual({"item-primary", "item-related"}, set(briefing["sourceItemIds"]))
+                self.assertGreater(len(briefing["sections"]), 0)
+                self.assertEqual(1, len(briefing["sections"][0]["bullets"]))
+                self.assertEqual({"item-primary", "item-related"}, set(briefing["sections"][0]["bullets"][0]["citations"]))
+        finally:
+            if previous_provider is None:
+                os.environ.pop("AI_PROVIDER", None)
+            else:
+                os.environ["AI_PROVIDER"] = previous_provider
 
 
 if __name__ == "__main__":
