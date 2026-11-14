@@ -26,6 +26,22 @@
     .slot-decision .e-cta { text-decoration-color: #a78bfa !important; }
     .slot-fyi .e-cta { text-decoration-color: #22d3ee !important; }
   }
+  /* Outlook on the web / new Outlook only (they rename classes to x_*). Its dark mode keeps pure black and maps pure white to its own #292929; every other surface turns slate. */
+  [class~="x_e-page"] { background-color: #ffffff !important; }
+  [class~="x_e-panel"] { background-color: #000000 !important; }
+  [class~="x_e-ink"] { color: #1c1917 !important; }
+  [class~="x_e-text"] { color: #44403c !important; }
+  [class~="x_e-muted"] { color: #78716c !important; }
+  [class~="x_e-masthead"] { border-color: #1c1917 !important; }
+  [class~="x_e-rule"] { border-color: #d6d3d1 !important; }
+  [class~="x_e-accent"], [class~="x_slot-needs-you"] [class~="x_e-accent"] { color: #c2410c !important; }
+  [class~="x_slot-deadline"] [class~="x_e-accent"] { color: #b45309 !important; }
+  [class~="x_slot-decision"] [class~="x_e-accent"] { color: #6d28d9 !important; }
+  [class~="x_slot-fyi"] [class~="x_e-accent"] { color: #0e7490 !important; }
+  [class~="x_slot-needs-you"] [class~="x_e-cta"] { text-decoration-color: #c2410c !important; }
+  [class~="x_slot-deadline"] [class~="x_e-cta"] { text-decoration-color: #b45309 !important; }
+  [class~="x_slot-decision"] [class~="x_e-cta"] { text-decoration-color: #6d28d9 !important; }
+  [class~="x_slot-fyi"] [class~="x_e-cta"] { text-decoration-color: #0e7490 !important; }
 </style>
 </head>
 <body class="e-page" style="margin:0;padding:0;background:#f4f1ea;-webkit-text-size-adjust:100%;">

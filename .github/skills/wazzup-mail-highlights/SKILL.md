@@ -236,10 +236,13 @@ JavaScript, external CSS, web fonts, or remote images.
 
 The templates are tuned for dark mode, so do not change their colors.
 Outlook on the web and new Outlook recolor every computed color in dark mode
-and ignore `color-scheme` opt-outs: they keep pure `#000000`, saturated colors,
-and light text, but lift other dark neutrals to slate and strip gradients.
-That is why the `prefers-color-scheme: dark` palettes and `obsidian` use pure
-black surfaces with saturated accents and transparent or accent borders.
+and ignore `color-scheme` opt-outs: they keep pure `#000000`, map pure
+`#ffffff` to their own `#292929` reading pane, keep saturated colors and light
+text, but lift every other surface to slate and strip gradients. They also
+rename classes to `x_*`, so each template ends its `<style>` block with
+`[class~="x_…"]` rules that only match there and force black or white
+surfaces. Other clients keep the full palette, including the
+`prefers-color-scheme: dark` variant. Keep both rule sets when editing.
 
 ### "All quiet" variant
 

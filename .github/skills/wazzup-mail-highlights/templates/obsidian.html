@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="color-scheme" content="dark">
-<meta name="supported-color-schemes" content="dark">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
 <title>Wazzup · {{DATE_LABEL}}</title>
 <!--[if mso]>
 <noscript><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
 <![endif]-->
 <style type="text/css">
-  :root { color-scheme: dark; supported-color-schemes: dark; }
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
   body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
   table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
-  body { margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #000000; }
+  body { margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #e2e8f0; }
   a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
   @media only screen and (max-width: 480px) {
     .outer-pad { padding: 12px 8px !important; }
@@ -27,16 +27,20 @@
     .meta-stack { display: block !important; width: 100% !important; text-align: left !important; }
     .meta-cta { display: block !important; width: 100% !important; text-align: left !important; padding-top: 12px !important; }
   }
+  @media (prefers-color-scheme: dark) {
+    .o-page { background-color: #111318 !important; }
+  }
+  /* Outlook on the web / new Outlook only (they rename classes to x_*). Its dark mode keeps pure black and maps pure white to its own #292929; every other surface turns slate. */
+  [class~="x_o-page"] { background-color: #ffffff !important; }
 </style>
 </head>
-<!-- Surfaces are pure black on purpose: Outlook on the web dark mode keeps #000000 but lifts every other dark neutral to slate. -->
-<body bgcolor="#000000" style="margin:0;padding:0;background-color:#000000;-webkit-font-smoothing:antialiased;">
+<body class="o-page" bgcolor="#e2e8f0" style="margin:0;padding:0;background-color:#e2e8f0;-webkit-font-smoothing:antialiased;">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">{{PREHEADER}}&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
 
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="background-color:#000000;">
+<table class="o-page" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e2e8f0" style="background-color:#e2e8f0;">
 <tr><td class="outer-pad" align="center" style="padding:28px 12px;">
 
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="width:100%;max-width:600px;background-color:#000000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="width:100%;max-width:600px;background-color:#000000;border-radius:16px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 
 <!-- SPECTRUM BAR -->
 <tr><td style="padding:0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="25%" bgcolor="#e11d48" style="background-color:#e11d48;height:4px;font-size:0;line-height:0;">&nbsp;</td><td width="25%" bgcolor="#d97706" style="background-color:#d97706;height:4px;font-size:0;line-height:0;">&nbsp;</td><td width="25%" bgcolor="#7c3aed" style="background-color:#7c3aed;height:4px;font-size:0;line-height:0;">&nbsp;</td><td width="25%" bgcolor="#0891b2" style="background-color:#0891b2;height:4px;font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>

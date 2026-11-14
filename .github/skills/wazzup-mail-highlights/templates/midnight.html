@@ -20,6 +20,15 @@
     .m-muted { color: #94a3b8 !important; }
     .m-link { color: #67e8f9 !important; }
   }
+  /* Outlook on the web / new Outlook only (they rename classes to x_*). Its dark mode keeps pure black and maps pure white to its own #292929; every other surface turns slate. */
+  [class~="x_m-page"], [class~="x_m-body"], [class~="x_m-foot"], [class~="x_m-card"] { background-color: #ffffff !important; border-color: transparent !important; }
+  [class~="x_m-hero"], [class~="x_m-tile"], [class~="x_m-btn"] { background-color: #000000 !important; }
+  [class~="x_m-tile"], [class~="x_m-btn"] { border-color: #155e75 !important; }
+  [class~="x_m-row"] { border-color: transparent !important; }
+  [class~="x_m-ink"] { color: #0f172a !important; }
+  [class~="x_m-text"] { color: #334155 !important; }
+  [class~="x_m-muted"] { color: #64748b !important; }
+  [class~="x_m-link"] { color: #0e7490 !important; }
 </style>
 </head>
 <body class="m-page" style="margin:0;padding:0;background:#e2e8f0;-webkit-text-size-adjust:100%;">
