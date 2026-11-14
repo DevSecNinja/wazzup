@@ -34,9 +34,11 @@ HTML email sent **only to the user themself**. The skill folder (this file plus
 | Folders       | Inbox (Focused + Other); read sent items only to detect answered threads |
 | VIPs          | Manager, skip-level, direct reports, and people the user mailed recently |
 | Language/tone | The user's language; crisp, friendly, no corporate filler                |
-| Time zone     | The user's mailbox time zone (fall back to `Europe/Amsterdam`)           |
+| Time zone     | The user's mailbox time zone; fall back to `Europe/Amsterdam`            |
 
 If the user gives explicit values ("last 3 days", "only top 3"), use them.
+Work IQ often denies `/me/mailboxSettings`, so the time zone fallback is the
+normal path there; do not treat it as an error.
 
 ## Step 1 — Collect
 
@@ -87,12 +89,16 @@ Score each candidate 0–100 and keep the best. Weigh roughly:
 
 Assign each pick exactly one category:
 
-| Category    | Use when                                           |
-| ----------- | -------------------------------------------------- |
-| `NEEDS YOU` | The user must act, answer, approve, or attend      |
-| `DEADLINE`  | A concrete due date or expiring item               |
-| `DECISION`  | Something was decided or changed that affects them |
-| `FYI`       | Worth knowing, no action needed                    |
+| Category    | Slot        | Use when                                           |
+| ----------- | ----------- | -------------------------------------------------- |
+| `NEEDS YOU` | `needs-you` | The user must act, answer, approve, or attend      |
+| `DEADLINE`  | `deadline`  | A concrete due date or expiring item               |
+| `DECISION`  | `decision`  | Something was decided or changed that affects them |
+| `FYI`       | `fyi`       | Worth knowing, no action needed                    |
+
+The slot drives colors; the category is the label text. For mailbox digests
+they match, but other content (for example news) can keep the four slots and
+use its own labels.
 
 Featured highlights are the top 3–5 by score, ordered `NEEDS YOU` →
 `DEADLINE` → `DECISION` → `FYI`, then by score. The next up to 6 become quick
@@ -108,8 +114,10 @@ For every featured highlight, write:
 - **Summary:** 1–2 sentences on what happened and why it matters to the user.
 - **Next step:** one imperative line ("Approve the budget in the thread by
   Thu 17:00"). For `FYI`, use "No action needed".
-- **Meta:** sender display name, relative time ("2h ago", "Yesterday 16:40"),
-  and the message `webLink` for the "Open" button.
+- **Meta:** sender display name, relative time, and the message `webLink` for
+  the "Open" button. Relative time, rounded down: under 1 hour `{m}m ago`;
+  same day `{h}h ago`; yesterday `Yesterday HH:mm`; within 7 days
+  `Ddd HH:mm` (`Thu 09:12`); older `d MMM` (`3 Nov`).
 
 For quick hits, write a single line: `Sender — what it is`, linked to the
 message.
@@ -119,7 +127,8 @@ Also write:
 - **TL;DR:** one sentence covering the overall picture ("Two approvals are
   waiting on you and the launch moved to Friday.").
 - **Preheader:** ~90 characters shown in the inbox preview, based on the TL;DR.
-- **Greeting:** "Good morning/afternoon/evening, {first name}" by local time.
+- **Greeting:** "Good morning, {first name}" from 05:00 to 11:59, "Good
+  afternoon" from 12:00 to 17:59, otherwise "Good evening" (local time).
 
 HTML-escape all mail-derived text (`&`, `<`, `>`, `"`). Never paste raw email
 HTML into the digest.
@@ -128,11 +137,11 @@ HTML into the digest.
 
 ### Pick a theme
 
-| Theme       | Look                                                                     | Template                                             |
-| ----------- | ------------------------------------------------------------------------ | ---------------------------------------------------- |
-| `midnight`  | Default. Dark Wazzup hero with stats, light cards with accent rails      | [templates/midnight.html](templates/midnight.html)   |
-| `editorial` | Warm paper, serif headlines, numbered stories, dark quick-hits panel     | [templates/editorial.html](templates/editorial.html) |
-| `obsidian`  | Fully dark HUD: signal meter, monospace telemetry, terminal action boxes | [templates/obsidian.html](templates/obsidian.html)   |
+| Theme       | Look                                                                  | Template                                             |
+| ----------- | --------------------------------------------------------------------- | ---------------------------------------------------- |
+| `midnight`  | Default. Dark Wazzup hero with stats, light cards with accent rails   | [templates/midnight.html](templates/midnight.html)   |
+| `editorial` | Warm paper, serif headlines, numbered stories, dark quick-hits panel  | [templates/editorial.html](templates/editorial.html) |
+| `obsidian`  | Black HUD: signal meter, monospace telemetry, accent-outlined actions | [templates/obsidian.html](templates/obsidian.html)   |
 
 Use `midnight` unless the user asks for another theme, for example `editorial`
 for "editorial style", "newspaper look", or "weekend edition", and `obsidian`
@@ -146,8 +155,7 @@ Each template marks repeatable blocks with HTML comments. Repeat
 `<!-- QUICK HIT -->…<!-- /QUICK HIT -->` once per quick hit. Remove the whole
 `<!-- QUICK HITS -->…<!-- /QUICK HITS -->` section when there are none. In
 `editorial`, drop the `<!-- DIVIDER -->` row before the first highlight. In
-`obsidian`, drop the `<!-- TAG -->` chip when a highlight has no tag. Strip
-the marker comments from the final HTML.
+`obsidian`, drop the `<!-- TAG -->` chip when a highlight has no tag.
 
 Shared placeholders:
 
@@ -158,44 +166,80 @@ Shared placeholders:
 | `{{GREETING}}`                  | Greeting line                                                   |
 | `{{TLDR}}`                      | TL;DR sentence                                                  |
 | `{{STAT_SCANNED}}`              | Emails scanned after paging                                     |
-| `{{STAT_NEEDS_YOU}}`            | Featured items in `NEEDS YOU`                                   |
-| `{{STAT_DEADLINES}}`            | Featured items in `DEADLINE`                                    |
+| `{{STAT_NEEDS_YOU}}`            | Featured items in the `needs-you` slot                          |
+| `{{STAT_DEADLINES}}`            | Featured items in the `deadline` slot                           |
 | `{{WINDOW_LABEL}}`              | Window, for example `Fri 07:00 – Sat 08:00`                     |
-| `{{CATEGORY}}`                  | `NEEDS YOU`, `DEADLINE`, `DECISION`, or `FYI`                   |
-| `{{ACCENT}}`                    | Category accent for the chosen theme (table below)              |
+| `{{SLOT}}`                      | `needs-you`, `deadline`, `decision`, or `fyi`                   |
+| `{{CATEGORY_LABEL}}`            | Label text, for example `NEEDS YOU`                             |
+| `{{ACCENT}}`                    | Slot accent for the chosen theme (table below)                  |
 | `{{HEADLINE}}` / `{{SUMMARY}}`  | Highlight headline and summary                                  |
 | `{{NEXT_STEP}}`                 | Next step (see theme notes)                                     |
 | `{{SENDER}}` / `{{WHEN}}`       | Sender display name and relative time                           |
 | `{{WEBLINK}}`                   | Message `webLink`                                               |
 | `{{QH_SENDER}}` / `{{QH_TEXT}}` | Quick hit sender and one-liner                                  |
 | `{{QH_WEBLINK}}`                | Quick hit message `webLink`                                     |
+| `{{FOOTER_NOTE}}`               | `Read-only scan, nothing in your mailbox was changed.`          |
+
+Label placeholders keep the templates reusable for non-mail content. For a
+mailbox digest, use these defaults:
+
+| Placeholder                | `midnight`       | `editorial`          | `obsidian`                   |
+| -------------------------- | ---------------- | -------------------- | ---------------------------- |
+| `{{EDITION_LABEL}}`        | —                | `Inbox edition`      | `INBOX HUD`                  |
+| `{{STAT_LABEL_SCANNED}}`   | `Scanned`        | `emails read`        | `Scanned`                    |
+| `{{STAT_LABEL_NEEDS_YOU}}` | `Need you`       | `need you`           | `Need you`                   |
+| `{{STAT_LABEL_DEADLINES}}` | `Deadlines`      | `due soon`           | `Deadlines`                  |
+| `{{STAT_LABEL_DECISIONS}}` | —                | —                    | `Decisions`                  |
+| `{{HIGHLIGHTS_LABEL}}`     | `Top highlights` | —                    | `Priority queue`             |
+| `{{QUICK_HITS_LABEL}}`     | `Quick hits`     | `Also in your inbox` | `Quick hits · worth knowing` |
+| `{{OPEN_LABEL}}`           | `Open`           | —                    | `Open thread`                |
+| `{{RANKING_LABEL}}`        | —                | —                    | `RANKED BY URGENCY`          |
+| `{{NOISE_LABEL}}`          | —                | —                    | `NOISE SUPPRESSED`           |
 
 Theme-specific placeholders:
 
-| Placeholder                                                                | Theme                   | Value                                                                                                                     |
-| -------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `{{INDEX}}`                                                                | `editorial`, `obsidian` | Highlight position: `01`, `02`, …                                                                                         |
-| `{{NEXT_STEP}}`                                                            | `editorial`             | Used as link text, so write "Read the thread" instead of "No action needed"                                               |
-| `{{NEXT_LABEL}}`                                                           | `obsidian`              | `NEXT`, or `STATUS` when the next step is "No action needed"                                                              |
-| `{{TAG}}`                                                                  | `obsidian`              | Short uppercase chip (≤ 16 chars) with the key fact: amount, due time, or type (`€42K SIGN-OFF`)                          |
-| `{{ACCENT_SOFT}}` / `{{ACCENT_EDGE}}`                                      | `obsidian`              | Category soft and edge colors (table below)                                                                               |
-| `{{STAT_DECISIONS}}`                                                       | `obsidian`              | Featured items in `DECISION`                                                                                              |
-| `{{HIGHLIGHT_COUNT}}` / `{{QUICK_HIT_COUNT}}`                              | `obsidian`              | Number of featured highlights / quick hits                                                                                |
-| `{{QH_INDEX}}`                                                             | `obsidian`              | Quick hit position: `01`, `02`, …                                                                                         |
-| `{{NOISE_PCT}}`                                                            | `obsidian`              | `round(100 × (scanned − featured − quick hits) / scanned)`                                                                |
-| `{{SEG_NEEDS_YOU}}`, `{{SEG_DEADLINE}}`, `{{SEG_DECISION}}`, `{{SEG_FYI}}` | `obsidian`              | Meter widths: `6 ×` featured items in that category (quick hits count as `FYI`); remove a segment cell whose width is `0` |
-| `{{SEG_NOISE}}`                                                            | `obsidian`              | `100 −` the other segments (keep at least `40`; scale the others down if needed)                                          |
+| Placeholder                                                                | Theme                   | Value                                                                                            |
+| -------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------ |
+| `{{INDEX}}`                                                                | `editorial`, `obsidian` | Highlight position: `01`, `02`, …                                                                |
+| `{{NEXT_STEP}}`                                                            | `editorial`             | Used as link text, so write "Read the thread" instead of "No action needed"                      |
+| `{{NEXT_LABEL}}`                                                           | `obsidian`              | `NEXT`, or `STATUS` when the next step is "No action needed" (other short labels are fine)       |
+| `{{TAG}}`                                                                  | `obsidian`              | Short uppercase chip (≤ 16 chars) with the key fact: amount, due time, or type (`€42K SIGN-OFF`) |
+| `{{ACCENT_SOFT}}`                                                          | `obsidian`              | Slot soft color (table below)                                                                    |
+| `{{STAT_DECISIONS}}`                                                       | `obsidian`              | Featured items in the `decision` slot                                                            |
+| `{{HIGHLIGHT_COUNT}}` / `{{QUICK_HIT_COUNT}}`                              | `obsidian`              | Number of featured highlights (two digits, `04`) / quick hits                                    |
+| `{{QH_INDEX}}`                                                             | `obsidian`              | Quick hit position: `01`, `02`, …                                                                |
+| `{{NOISE_PCT}}`                                                            | `obsidian`              | `round(100 × (scanned − featured − quick hits) / scanned)`                                       |
+| `{{SEG_NEEDS_YOU}}`, `{{SEG_DEADLINE}}`, `{{SEG_DECISION}}`, `{{SEG_FYI}}` | `obsidian`              | Meter widths: `6 ×` items in that slot (quick hits count as `fyi`); drop a `0` segment cell      |
+| `{{SEG_NOISE}}`                                                            | `obsidian`              | `100 −` the other segments, at least `40` (see rounding below)                                   |
 
-| Category    | `midnight` | `editorial` | `obsidian` accent / soft / edge   |
-| ----------- | ---------- | ----------- | --------------------------------- |
-| `NEEDS YOU` | `#e11d48`  | `#c2410c`   | `#e11d48` / `#fb7185` / `#331a2c` |
-| `DEADLINE`  | `#d97706`  | `#b45309`   | `#d97706` / `#fbbf24` / `#3d2a14` |
-| `DECISION`  | `#7c3aed`  | `#6d28d9`   | `#7c3aed` / `#a78bfa` / `#2a1f4a` |
-| `FYI`       | `#0891b2`  | `#0e7490`   | `#0891b2` / `#22d3ee` / `#164e63` |
+Meter rounding: if the slot segments sum to more than `60`, scale them by
+`60 / sum`, round each to a whole number, then set `SEG_NOISE` to `100 −` their
+sum so the row always totals exactly `100`.
 
-Rendering rules: keep the template's table-based layout and inline styles so
+| Slot        | `midnight` | `editorial` | `obsidian` accent / soft |
+| ----------- | ---------- | ----------- | ------------------------ |
+| `needs-you` | `#e11d48`  | `#c2410c`   | `#e11d48` / `#fb7185`    |
+| `deadline`  | `#d97706`  | `#b45309`   | `#d97706` / `#fbbf24`    |
+| `decision`  | `#7c3aed`  | `#6d28d9`   | `#7c3aed` / `#a78bfa`    |
+| `fyi`       | `#0891b2`  | `#0e7490`   | `#0891b2` / `#22d3ee`    |
+
+Finally, remove only the block marker comments (`HIGHLIGHT`, `QUICK HIT`,
+`QUICK HITS`, `DIVIDER`, `TAG`). Other section comments may stay or go, but
+never remove `<!--[if mso]>…<![endif]-->` conditional blocks or the `<style>`
+element.
+
+### Rendering and dark mode
+
+Keep the template's table-based layout, inline styles, and `<style>` block so
 it renders in Outlook desktop, Outlook on the web, mobile, and Gmail. Never add
 JavaScript, external CSS, web fonts, or remote images.
+
+The templates are tuned for dark mode, so do not change their colors.
+Outlook on the web and new Outlook recolor every computed color in dark mode
+and ignore `color-scheme` opt-outs: they keep pure `#000000`, saturated colors,
+and light text, but lift other dark neutrals to slate and strip gradients.
+That is why the `prefers-color-scheme: dark` palettes and `obsidian` use pure
+black surfaces with saturated accents and transparent or accent borders.
 
 ### "All quiet" variant
 
@@ -205,13 +249,14 @@ keep the header, stats, and footer.
 
 ### Send
 
-Send it as HTML (`contentType: HTML`) to the user's own address with subject:
+Before sending, compact the HTML: drop blank lines and leading indentation.
+Hosts that send through an MCP tool must paste the whole body into the tool
+call. Save the exact HTML you sent when the host allows it.
 
-```text
-Wazzup · {Weekday d MMM} · {n} need you
-```
-
-Use `Wazzup · {Weekday d MMM} · All quiet` when nothing needs the user. With
+Send it as HTML (`contentType: HTML`) to the user's own address with subject
+`Wazzup · {Weekday} {d} {MMM} · {n} need you`, for example
+`Wazzup · Saturday 14 Nov · 2 need you`. Use
+`Wazzup · Saturday 14 Nov · All quiet` when nothing needs the user. With
 Graph, use `POST /me/sendMail` with `saveToSentItems: true` so the next run
 can find the window start.
 
