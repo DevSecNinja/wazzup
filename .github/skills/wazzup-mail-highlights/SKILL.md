@@ -128,14 +128,16 @@ HTML into the digest.
 
 ### Pick a theme
 
-| Theme       | Look                                                                 | Template                                             |
-| ----------- | -------------------------------------------------------------------- | ---------------------------------------------------- |
-| `midnight`  | Default. Dark Wazzup hero with stats, light cards with accent rails  | [templates/midnight.html](templates/midnight.html)   |
-| `editorial` | Warm paper, serif headlines, numbered stories, dark quick-hits panel | [templates/editorial.html](templates/editorial.html) |
+| Theme       | Look                                                                     | Template                                             |
+| ----------- | ------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `midnight`  | Default. Dark Wazzup hero with stats, light cards with accent rails      | [templates/midnight.html](templates/midnight.html)   |
+| `editorial` | Warm paper, serif headlines, numbered stories, dark quick-hits panel     | [templates/editorial.html](templates/editorial.html) |
+| `obsidian`  | Fully dark HUD: signal meter, monospace telemetry, terminal action boxes | [templates/obsidian.html](templates/obsidian.html)   |
 
-Use `midnight` unless the user asks for `editorial` (for example "editorial
-style", "newspaper look", or "weekend edition"). Read the chosen template file
-from this skill's folder and fill it in; do not redesign it.
+Use `midnight` unless the user asks for another theme, for example `editorial`
+for "editorial style", "newspaper look", or "weekend edition", and `obsidian`
+for "dark mode", "HUD", or "terminal look". Read the chosen template file from
+this skill's folder and fill it in; do not redesign it.
 
 ### Fill the template
 
@@ -143,35 +145,53 @@ Each template marks repeatable blocks with HTML comments. Repeat
 `<!-- HIGHLIGHT -->…<!-- /HIGHLIGHT -->` once per featured highlight and
 `<!-- QUICK HIT -->…<!-- /QUICK HIT -->` once per quick hit. Remove the whole
 `<!-- QUICK HITS -->…<!-- /QUICK HITS -->` section when there are none. In
-`editorial`, drop the `<!-- DIVIDER -->` row before the first highlight. Strip
+`editorial`, drop the `<!-- DIVIDER -->` row before the first highlight. In
+`obsidian`, drop the `<!-- TAG -->` chip when a highlight has no tag. Strip
 the marker comments from the final HTML.
 
-| Placeholder                     | Value                                                                                                 |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `{{PREHEADER}}`                 | Preheader text                                                                                        |
-| `{{DATE_LABEL}}`                | `Saturday 14 November` (`midnight`), `Sat 14 Nov 2026` (`editorial`)                                  |
-| `{{GREETING}}`                  | Greeting line                                                                                         |
-| `{{TLDR}}`                      | TL;DR sentence                                                                                        |
-| `{{STAT_SCANNED}}`              | Emails scanned after paging                                                                           |
-| `{{STAT_NEEDS_YOU}}`            | Featured items in `NEEDS YOU`                                                                         |
-| `{{STAT_DEADLINES}}`            | Featured items in `DEADLINE`                                                                          |
-| `{{WINDOW_LABEL}}`              | Window, for example `Fri 07:00 – Sat 08:00`                                                           |
-| `{{INDEX}}`                     | `editorial` only: `01`, `02`, …                                                                       |
-| `{{CATEGORY}}`                  | `NEEDS YOU`, `DEADLINE`, `DECISION`, or `FYI`                                                         |
-| `{{ACCENT}}`                    | Category accent for the chosen theme (table below)                                                    |
-| `{{HEADLINE}}` / `{{SUMMARY}}`  | Highlight headline and summary                                                                        |
-| `{{NEXT_STEP}}`                 | Next step; in `editorial` it is the link text, so use "Read the thread" instead of "No action needed" |
-| `{{SENDER}}` / `{{WHEN}}`       | Sender display name and relative time                                                                 |
-| `{{WEBLINK}}`                   | Message `webLink`                                                                                     |
-| `{{QH_SENDER}}` / `{{QH_TEXT}}` | Quick hit sender and one-liner                                                                        |
-| `{{QH_WEBLINK}}`                | Quick hit message `webLink`                                                                           |
+Shared placeholders:
 
-| Category    | `midnight` accent | `editorial` accent |
-| ----------- | ----------------- | ------------------ |
-| `NEEDS YOU` | `#e11d48`         | `#c2410c`          |
-| `DEADLINE`  | `#d97706`         | `#b45309`          |
-| `DECISION`  | `#7c3aed`         | `#6d28d9`          |
-| `FYI`       | `#0891b2`         | `#0e7490`          |
+| Placeholder                     | Value                                                           |
+| ------------------------------- | --------------------------------------------------------------- |
+| `{{PREHEADER}}`                 | Preheader text                                                  |
+| `{{DATE_LABEL}}`                | `Saturday 14 November` (`midnight`), `Sat 14 Nov 2026` (others) |
+| `{{GREETING}}`                  | Greeting line                                                   |
+| `{{TLDR}}`                      | TL;DR sentence                                                  |
+| `{{STAT_SCANNED}}`              | Emails scanned after paging                                     |
+| `{{STAT_NEEDS_YOU}}`            | Featured items in `NEEDS YOU`                                   |
+| `{{STAT_DEADLINES}}`            | Featured items in `DEADLINE`                                    |
+| `{{WINDOW_LABEL}}`              | Window, for example `Fri 07:00 – Sat 08:00`                     |
+| `{{CATEGORY}}`                  | `NEEDS YOU`, `DEADLINE`, `DECISION`, or `FYI`                   |
+| `{{ACCENT}}`                    | Category accent for the chosen theme (table below)              |
+| `{{HEADLINE}}` / `{{SUMMARY}}`  | Highlight headline and summary                                  |
+| `{{NEXT_STEP}}`                 | Next step (see theme notes)                                     |
+| `{{SENDER}}` / `{{WHEN}}`       | Sender display name and relative time                           |
+| `{{WEBLINK}}`                   | Message `webLink`                                               |
+| `{{QH_SENDER}}` / `{{QH_TEXT}}` | Quick hit sender and one-liner                                  |
+| `{{QH_WEBLINK}}`                | Quick hit message `webLink`                                     |
+
+Theme-specific placeholders:
+
+| Placeholder                                                                | Theme                   | Value                                                                                                                     |
+| -------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `{{INDEX}}`                                                                | `editorial`, `obsidian` | Highlight position: `01`, `02`, …                                                                                         |
+| `{{NEXT_STEP}}`                                                            | `editorial`             | Used as link text, so write "Read the thread" instead of "No action needed"                                               |
+| `{{NEXT_LABEL}}`                                                           | `obsidian`              | `NEXT`, or `STATUS` when the next step is "No action needed"                                                              |
+| `{{TAG}}`                                                                  | `obsidian`              | Short uppercase chip (≤ 16 chars) with the key fact: amount, due time, or type (`€42K SIGN-OFF`)                          |
+| `{{ACCENT_SOFT}}` / `{{ACCENT_EDGE}}`                                      | `obsidian`              | Category soft and edge colors (table below)                                                                               |
+| `{{STAT_DECISIONS}}`                                                       | `obsidian`              | Featured items in `DECISION`                                                                                              |
+| `{{HIGHLIGHT_COUNT}}` / `{{QUICK_HIT_COUNT}}`                              | `obsidian`              | Number of featured highlights / quick hits                                                                                |
+| `{{QH_INDEX}}`                                                             | `obsidian`              | Quick hit position: `01`, `02`, …                                                                                         |
+| `{{NOISE_PCT}}`                                                            | `obsidian`              | `round(100 × (scanned − featured − quick hits) / scanned)`                                                                |
+| `{{SEG_NEEDS_YOU}}`, `{{SEG_DEADLINE}}`, `{{SEG_DECISION}}`, `{{SEG_FYI}}` | `obsidian`              | Meter widths: `6 ×` featured items in that category (quick hits count as `FYI`); remove a segment cell whose width is `0` |
+| `{{SEG_NOISE}}`                                                            | `obsidian`              | `100 −` the other segments (keep at least `40`; scale the others down if needed)                                          |
+
+| Category    | `midnight` | `editorial` | `obsidian` accent / soft / edge   |
+| ----------- | ---------- | ----------- | --------------------------------- |
+| `NEEDS YOU` | `#e11d48`  | `#c2410c`   | `#e11d48` / `#fb7185` / `#331a2c` |
+| `DEADLINE`  | `#d97706`  | `#b45309`   | `#d97706` / `#fbbf24` / `#3d2a14` |
+| `DECISION`  | `#7c3aed`  | `#6d28d9`   | `#7c3aed` / `#a78bfa` / `#2a1f4a` |
+| `FYI`       | `#0891b2`  | `#0e7490`   | `#0891b2` / `#22d3ee` / `#164e63` |
 
 Rendering rules: keep the template's table-based layout and inline styles so
 it renders in Outlook desktop, Outlook on the web, mobile, and Gmail. Never add

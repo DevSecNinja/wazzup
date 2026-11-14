@@ -19,7 +19,7 @@ Wazzup is a GitHub-native personal news briefing app. It collects configured RSS
 
 ## AI skills
 
-- [wazzup-mail-highlights](.github/skills/wazzup-mail-highlights/SKILL.md) scans your mailbox from GitHub Copilot or Microsoft 365 Copilot Cowork and emails you the top highlights as a modern HTML digest, with `midnight` (default) and `editorial` themes.
+- [wazzup-mail-highlights](.github/skills/wazzup-mail-highlights/SKILL.md) scans your mailbox from GitHub Copilot or Microsoft 365 Copilot Cowork and emails you the top highlights as a modern HTML digest, with `midnight` (default), `editorial`, and `obsidian` themes.
 
 ## Implemented app
 
