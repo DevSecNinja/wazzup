@@ -17,6 +17,10 @@ Wazzup is a GitHub-native personal news briefing app. It collects configured RSS
 - [config/sources.yml](config/sources.yml) maintains the RSS/Atom source registry with short source tags, broad category tags, source weights, and feed-specific interest hints.
 - [config/interests.yml](config/interests.yml) configures English summaries, 3-day retention, `Europe/Amsterdam`, and weighted interests for security, AI/developer platforms, cloud, and Microsoft.
 
+## AI skills
+
+- [wazzup-news-mail](.github/skills/wazzup-news-mail/SKILL.md) emails you the latest Wazzup briefing as a modern HTML newsletter from GitHub Copilot or Microsoft 365 Copilot Cowork, with `midnight` (default), `editorial`, and `obsidian` themes.
+
 ## Implemented app
 
 1. Fetch configured RSS/Atom feeds from GitHub Actions every two hours at 07:00, 09:00, ... 21:00 Europe/Amsterdam.

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="{{LANG}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Wazzup · {{DATE_LABEL}}</title>
+<style type="text/css">
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  /* Dark mode: only pure black surfaces, light text, and saturated accents survive Outlook on the web's recoloring. */
+  @media (prefers-color-scheme: dark) {
+    .m-page, .m-body, .m-foot, .m-card, .m-tile, .m-btn { background-color: #000000 !important; }
+    .m-hero { background-color: #000000 !important; background-image: linear-gradient(135deg, #000000 0%, #0b1120 60%, #0c3a4a 100%) !important; }
+    .m-card, .m-foot, .m-row { border-color: transparent !important; }
+    .m-tile { border-color: #155e75 !important; }
+    .m-btn { border-color: #155e75 !important; }
+    .m-ink { color: #f8fafc !important; }
+    .m-text { color: #cbd5e1 !important; }
+    .m-muted { color: #94a3b8 !important; }
+    .m-link { color: #67e8f9 !important; }
+  }
+  /* Outlook on the web / new Outlook only (they rename classes to x_*). Its dark mode keeps pure black and maps pure white to its own #292929; every other surface turns slate. */
+  [class~="x_m-page"], [class~="x_m-body"], [class~="x_m-foot"], [class~="x_m-card"] { background-color: #ffffff !important; border-color: transparent !important; }
+  [class~="x_m-hero"], [class~="x_m-tile"], [class~="x_m-btn"] { background-color: #000000 !important; }
+  [class~="x_m-tile"], [class~="x_m-btn"] { border-color: #155e75 !important; }
+  [class~="x_m-row"] { border-color: transparent !important; }
+  [class~="x_m-ink"] { color: #0f172a !important; }
+  [class~="x_m-text"] { color: #334155 !important; }
+  [class~="x_m-muted"] { color: #64748b !important; }
+  [class~="x_m-link"] { color: #0e7490 !important; }
+</style>
+</head>
+<body class="m-page" style="margin:0;padding:0;background:#e2e8f0;-webkit-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">{{PREHEADER}}&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
+<table class="m-page" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e2e8f0" style="background:#e2e8f0;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Inter,Roboto,Helvetica,Arial,sans-serif;">
+
+<!-- HERO -->
+<tr><td class="m-hero" bgcolor="#0f172a" style="background-color:#0f172a;background-image:linear-gradient(135deg,#020617 0%,#0f172a 55%,#164e63 100%);border-radius:20px 20px 0 0;padding:32px 32px 28px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td style="font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#67e8f9;">&#9679; Wazzup</td>
+    <td align="right" style="font-size:13px;color:#a8b3c7;">{{DATE_LABEL}}</td>
+  </tr></table>
+  <h1 style="margin:20px 0 6px;font-size:28px;line-height:1.25;font-weight:700;color:#f8fafc;">{{GREETING}}</h1>
+  <p style="margin:0;font-size:16px;line-height:1.55;color:#cbd5e1;">{{TLDR}}</p>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;"><tr>
+    <td class="m-tile" bgcolor="#1e293b" style="padding:10px 16px;border-radius:12px;background-color:#1e293b;border:1px solid #334155;">
+      <span style="display:block;font-size:22px;font-weight:700;color:#f8fafc;">{{STAT_ARTICLES}}</span>
+      <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;">Articles</span>
+    </td>
+    <td width="10"></td>
+    <td class="m-tile" bgcolor="#1e293b" style="padding:10px 16px;border-radius:12px;background-color:#1e293b;border:1px solid #334155;">
+      <span style="display:block;font-size:22px;font-weight:700;color:#fb7185;">{{STAT_HOT}}</span>
+      <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;">Hot</span>
+    </td>
+    <td width="10"></td>
+    <td class="m-tile" bgcolor="#1e293b" style="padding:10px 16px;border-radius:12px;background-color:#1e293b;border:1px solid #334155;">
+      <span style="display:block;font-size:22px;font-weight:700;color:#fbbf24;">{{STAT_WARM}}</span>
+      <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;">Warm</span>
+    </td>
+  </tr></table>
+</td></tr>
+
+<!-- BODY -->
+<tr><td class="m-body" bgcolor="#f8fafc" style="background-color:#f8fafc;padding:28px 24px 8px;">
+  <p class="m-muted" style="margin:0 8px 14px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#64748b;">Top stories</p>
+
+  <!-- HIGHLIGHT -->
+  <table class="m-card slot-{{SLOT}}" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="margin-bottom:14px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:16px;">
+  <tr>
+    <td width="5" bgcolor="{{ACCENT}}" style="background-color:{{ACCENT}};border-radius:16px 0 0 16px;font-size:0;line-height:0;">&nbsp;</td>
+    <td style="padding:18px 20px;">
+      <span style="display:inline-block;padding:3px 10px;border-radius:999px;background-color:{{ACCENT}};color:#ffffff;font-size:11px;font-weight:700;letter-spacing:1px;">{{CATEGORY_LABEL}}</span>
+      <h2 class="m-ink" style="margin:10px 0 6px;font-size:18px;line-height:1.35;font-weight:700;color:#0f172a;">{{HEADLINE}}</h2>
+      <p class="m-text" style="margin:0 0 10px;font-size:15px;line-height:1.55;color:#334155;">{{SUMMARY}}</p>
+      <p class="m-ink" style="margin:0 0 14px;font-size:14px;line-height:1.5;color:#0f172a;"><span style="color:{{ACCENT}};">{{TEMP_ICON}}</span> <strong>{{TEMP_LABEL}}</strong></p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td class="m-muted" style="font-size:13px;color:#64748b;">{{SOURCE}} &middot; {{WHEN}}</td>
+        <td align="right"><a class="m-btn" href="{{URL}}" style="display:inline-block;padding:7px 14px;border-radius:10px;background-color:#0f172a;border:1px solid #334155;color:#67e8f9;font-size:13px;font-weight:600;text-decoration:none;">Read &rsaquo;</a></td>
+      </tr></table>
+    </td>
+  </tr>
+  </table>
+  <!-- /HIGHLIGHT -->
+
+  <!-- QUICK HITS -->
+  <p class="m-muted" style="margin:22px 8px 10px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#64748b;">More news</p>
+  <table class="m-card" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="margin-bottom:18px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:16px;">
+    <!-- QUICK HIT -->
+    <tr><td class="m-text m-row" style="padding:12px 20px;border-bottom:1px solid #f1f5f9;font-size:14px;line-height:1.5;color:#334155;">
+      <span style="color:#0891b2;">&#9679;</span>&nbsp; <strong class="m-ink" style="color:#0f172a;">{{QH_SOURCE}}</strong> &mdash; <a class="m-link" href="{{QH_URL}}" style="color:#0e7490;text-decoration:none;">{{QH_TEXT}}</a>
+    </td></tr>
+    <!-- /QUICK HIT -->
+  </table>
+  <!-- /QUICK HITS -->
+</td></tr>
+
+<!-- FOOTER -->
+<tr><td class="m-foot m-muted" bgcolor="#f8fafc" align="center" style="background-color:#f8fafc;border-radius:0 0 20px 20px;border-top:1px solid #e2e8f0;padding:18px 32px 26px;font-size:12px;line-height:1.6;color:#64748b;">
+  Covering {{WINDOW_LABEL}} &middot; From the latest Wazzup briefing &middot; <a class="m-link" href="{{WAZZUP_URL}}" style="color:#0e7490;">Open Wazzup</a><br>
+  Made with &#9749; by Wazzup
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">wazzup-briefing:{{BRIEFING_ID}}</div>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="{{LANG}}" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Wazzup · {{DATE_LABEL}}</title>
+<!--[if mso]>
+<noscript><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+<![endif]-->
+<style type="text/css">
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  body { margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #e2e8f0; }
+  a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+  @media only screen and (max-width: 480px) {
+    .outer-pad { padding: 12px 8px !important; }
+    .hero-pad { padding: 24px 18px 20px !important; }
+    .body-pad { padding: 18px 14px 10px !important; }
+    .card-pad { padding: 16px 16px !important; }
+    .hero-title { font-size: 24px !important; line-height: 1.25 !important; }
+    .stat-num { font-size: 20px !important; }
+    .stat-cell { padding: 10px 10px !important; }
+    .meta-stack { display: block !important; width: 100% !important; text-align: left !important; }
+    .meta-cta { display: block !important; width: 100% !important; text-align: left !important; padding-top: 12px !important; }
+  }
+  @media (prefers-color-scheme: dark) {
+    .o-page { background-color: #111318 !important; }
+  }
+  /* Outlook on the web / new Outlook only (they rename classes to x_*). Its dark mode keeps pure black and maps pure white to its own #292929; every other surface turns slate. */
+  [class~="x_o-page"] { background-color: #ffffff !important; }
+</style>
+</head>
+<body class="o-page" bgcolor="#e2e8f0" style="margin:0;padding:0;background-color:#e2e8f0;-webkit-font-smoothing:antialiased;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">{{PREHEADER}}&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
+
+<table class="o-page" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e2e8f0" style="background-color:#e2e8f0;">
+<tr><td class="outer-pad" align="center" style="padding:28px 12px;">
+
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="width:100%;max-width:600px;background-color:#000000;border-radius:16px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+<!-- SPECTRUM BAR -->
+<tr><td style="padding:0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="25%" bgcolor="#e11d48" style="background-color:#e11d48;height:4px;font-size:0;line-height:0;">&nbsp;</td><td width="25%" bgcolor="#d97706" style="background-color:#d97706;height:4px;font-size:0;line-height:0;">&nbsp;</td><td width="25%" bgcolor="#7c3aed" style="background-color:#7c3aed;height:4px;font-size:0;line-height:0;">&nbsp;</td><td width="25%" bgcolor="#0891b2" style="background-color:#0891b2;height:4px;font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
+
+<!-- HERO -->
+<tr><td class="hero-pad" bgcolor="#000000" style="background-color:#000000;background-image:radial-gradient(circle at 88% 12%,#0c3a4a 0%,#05121a 45%,#000000 100%);padding:30px 30px 26px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td valign="middle">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td bgcolor="#000000" style="background-color:#000000;border:1px solid #22d3ee;border-radius:999px;padding:4px 12px;"><span style="font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:#22d3ee;">&#9679; WAZZUP // NEWS HUD</span></td>
+      </tr></table>
+    </td>
+    <td align="right" valign="middle" style="font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:12px;text-transform:uppercase;color:#94a3b8;">{{DATE_LABEL}}</td>
+  </tr></table>
+
+  <h1 class="hero-title" style="margin:22px 0 10px;font-size:28px;line-height:1.2;font-weight:800;letter-spacing:-0.5px;color:#f8fafc;">{{GREETING}}</h1>
+  <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#cbd5e1;">{{TLDR}}</p>
+
+  <!-- SIGNAL METER -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;"><tr><td>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:11px;letter-spacing:0.8px;text-transform:uppercase;color:#94a3b8;">Briefing &middot; <span style="color:#e2e8f0;">{{WINDOW_LABEL}}</span></td>
+      <td align="right" style="font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:11px;font-weight:700;color:#22d3ee;">{{SHOWN_COUNT}} OF {{STAT_ARTICLES}} SHOWN</td>
+    </tr></table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;"><tr>
+      <td width="{{SEG_HOT}}%" bgcolor="#e11d48" style="background-color:#e11d48;height:5px;font-size:0;line-height:0;">&nbsp;</td>
+      <td width="{{SEG_WARM}}%" bgcolor="#d97706" style="background-color:#d97706;height:5px;font-size:0;line-height:0;">&nbsp;</td>
+      <td width="{{SEG_COOL}}%" bgcolor="#0891b2" style="background-color:#0891b2;height:5px;font-size:0;line-height:0;">&nbsp;</td>
+      <td width="{{SEG_REST}}%" bgcolor="#1e293b" style="background-color:#1e293b;height:5px;font-size:0;line-height:0;">&nbsp;</td>
+    </tr></table>
+  </td></tr></table>
+
+  <!-- STATS -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td width="24%" class="stat-cell" bgcolor="#000000" style="background-color:#000000;border-top:2px solid #22d3ee;padding:12px 14px;">
+      <span class="stat-num" style="display:block;font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:22px;font-weight:700;line-height:1.1;color:#f8fafc;">{{STAT_ARTICLES}}</span>
+      <span style="display:block;margin-top:4px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#94a3b8;">Articles</span>
+    </td>
+    <td width="2%" style="font-size:0;line-height:0;">&nbsp;</td>
+    <td width="24%" class="stat-cell" bgcolor="#000000" style="background-color:#000000;border-top:2px solid #e11d48;padding:12px 14px;">
+      <span class="stat-num" style="display:block;font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:22px;font-weight:700;line-height:1.1;color:#fb7185;">{{STAT_HOT}}</span>
+      <span style="display:block;margin-top:4px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#fda4af;">Hot</span>
+    </td>
+    <td width="2%" style="font-size:0;line-height:0;">&nbsp;</td>
+    <td width="24%" class="stat-cell" bgcolor="#000000" style="background-color:#000000;border-top:2px solid #d97706;padding:12px 14px;">
+      <span class="stat-num" style="display:block;font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:22px;font-weight:700;line-height:1.1;color:#fbbf24;">{{STAT_WARM}}</span>
+      <span style="display:block;margin-top:4px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#fcd34d;">Warm</span>
+    </td>
+    <td width="2%" style="font-size:0;line-height:0;">&nbsp;</td>
+    <td width="22%" class="stat-cell" bgcolor="#000000" style="background-color:#000000;border-top:2px solid #7c3aed;padding:12px 14px;">
+      <span class="stat-num" style="display:block;font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:22px;font-weight:700;line-height:1.1;color:#c4b5fd;">{{STAT_SOURCES}}</span>
+      <span style="display:block;margin-top:4px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#a78bfa;">Sources</span>
+    </td>
+  </tr></table>
+</td></tr>
+
+<!-- BODY -->
+<tr><td class="body-pad" bgcolor="#000000" style="background-color:#000000;padding:24px 24px 12px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:14px;"><tr>
+    <td style="font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:11px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#94a3b8;">&#9632; Top stories ({{HIGHLIGHT_COUNT}})</td>
+    <td align="right" style="font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:11px;color:#64748b;">RANKED BY HEAT</td>
+  </tr></table>
+
+  <!-- HIGHLIGHT -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="margin-bottom:18px;background-color:#000000;">
+  <tr>
+    <td width="3" bgcolor="{{ACCENT}}" style="background-color:{{ACCENT}};border-radius:3px;font-size:0;line-height:0;">&nbsp;</td>
+    <td class="card-pad" style="padding:6px 0 6px 18px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td>
+          <span style="display:inline-block;padding:3px 10px;border-radius:6px;background-color:{{ACCENT}};color:#ffffff;font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:11px;font-weight:700;letter-spacing:1px;">{{CATEGORY_LABEL}}</span>
+          <!-- TAG -->
+          <span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:6px;background-color:#000000;border:1px solid {{ACCENT_SOFT}};color:{{ACCENT_SOFT}};font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:11px;font-weight:600;text-transform:uppercase;">{{TAG}}</span>
+          <!-- /TAG -->
+        </td>
+        <td align="right" style="font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:12px;color:#64748b;">{{INDEX}} / {{HIGHLIGHT_COUNT}}</td>
+      </tr></table>
+      <h2 style="margin:12px 0 6px;font-size:18px;line-height:1.35;font-weight:700;color:#f8fafc;">{{HEADLINE}}</h2>
+      <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#cbd5e1;">{{SUMMARY}}</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="background-color:#000000;border-left:2px solid {{ACCENT_SOFT}};margin-bottom:12px;"><tr>
+        <td style="padding:6px 12px;font-size:13px;line-height:1.45;color:#f8fafc;"><span style="font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:{{ACCENT_SOFT}};">HEAT &rarr;</span>&nbsp; {{TEMP_ICON}} <strong>{{TEMP_LABEL}}</strong></td>
+      </tr></table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td class="meta-stack" valign="middle" style="font-size:13px;color:#94a3b8;"><strong style="color:#e2e8f0;font-weight:600;">{{SOURCE}}</strong> &middot; <span style="font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:12px;">{{WHEN}}</span></td>
+        <td class="meta-cta" align="right" valign="middle"><a href="{{URL}}" style="display:inline-block;padding:6px 14px;border-radius:8px;background-color:#000000;border:1px solid #38bdf8;color:#38bdf8;font-size:12px;font-weight:700;letter-spacing:0.4px;text-decoration:none;">Read article &#8599;</a></td>
+      </tr></table>
+    </td>
+  </tr>
+  </table>
+  <!-- /HIGHLIGHT -->
+
+  <!-- QUICK HITS -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 10px;"><tr>
+    <td style="font-family:Consolas,'SFMono-Regular',Menlo,monospace;font-size:11px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#94a3b8;">&#9670; More news ({{QUICK_HIT_COUNT}})</td>
+  </tr></table>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="margin-bottom:18px;background-color:#000000;">
+    <!-- QUICK HIT -->
+    <tr><td style="padding:7px 0;font-size:14px;line-height:1.5;color:#cbd5e1;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td width="28" valign="top" style="font-family:Consolas,monospace;font-weight:700;color:#22d3ee;">{{QH_INDEX}}</td>
+        <td><strong style="color:#f8fafc;">{{QH_SOURCE}}</strong> &mdash; <a href="{{QH_URL}}" style="color:#67e8f9;text-decoration:none;">{{QH_TEXT}}</a></td>
+      </tr></table>
+    </td></tr>
+    <!-- /QUICK HIT -->
+  </table>
+  <!-- /QUICK HITS -->
+</td></tr>
+
+<!-- FOOTER -->
+<tr><td bgcolor="#000000" style="background-color:#000000;padding:14px 28px 24px;font-size:12px;line-height:1.6;color:#64748b;">
+  <span style="font-family:Consolas,'SFMono-Regular',Menlo,monospace;color:#94a3b8;">WINDOW:</span> {{WINDOW_LABEL}} &middot; From the latest Wazzup briefing &middot; <a href="{{WAZZUP_URL}}" style="color:#22d3ee;">Open Wazzup</a><br>
+  Made with &#9749; by <span style="color:#22d3ee;">Wazzup</span>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">wazzup-briefing:{{BRIEFING_ID}}</div>
+</body>
+</html>
