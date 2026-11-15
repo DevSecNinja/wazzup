@@ -94,9 +94,9 @@ Drop exact duplicate links.
 - **Preheader:** ~90 characters shown in the inbox preview, based on the TL;DR.
 - **Greeting:** "Good morning, {first name}" from 05:00 to 11:59, "Good
   afternoon" from 12:00 to 17:59, otherwise "Good evening" (local time).
-- **Relative time** (rounded down): under 1 hour `{m}m ago`; same day
-  `{h}h ago`; yesterday `Yesterday HH:mm`; within 7 days `Ddd HH:mm`; older
-  `d MMM`.
+- **Publish time:** absolute local time, never "x hours ago" (email can't
+  update it after sending): `Ddd HH:mm` within the last 7 days (`Sun 08:22`),
+  otherwise `d MMM HH:mm` (`3 Nov 14:05`).
 
 HTML-escape all briefing-derived text (`&`, `<`, `>`, `"`, `'`). Links must
 come from `citations[].url` and start with `https://`; attribute-escape them
@@ -146,7 +146,7 @@ Shared placeholders:
 | `{{HEADLINE}}` / `{{SUMMARY}}`   | Story headline and summary                                        |
 | `{{TEMP_ICON}}`                  | Temperature `icon`, e.g. 🔥                                       |
 | `{{TEMP_LABEL}}`                 | Temperature `label`, e.g. `High priority`                         |
-| `{{SOURCE}}` / `{{WHEN}}`        | Source name and relative publish time                             |
+| `{{SOURCE}}` / `{{WHEN}}`        | Source name and publish time, e.g. `Sun 08:22`                    |
 | `{{URL}}`                        | Article link                                                      |
 | `{{QH_SOURCE}}` / `{{QH_TEXT}}`  | More-news source name and headline                                |
 | `{{QH_URL}}`                     | More-news article link                                            |
