@@ -47,25 +47,25 @@
   <p style="margin:0;font-size:16px;line-height:1.55;color:#cbd5e1;">{{TLDR}}</p>
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;"><tr>
     <td class="m-tile" bgcolor="#1e293b" style="padding:10px 16px;border-radius:12px;background-color:#1e293b;border:1px solid #334155;">
-      <span style="display:block;font-size:22px;font-weight:700;color:#f8fafc;">{{STAT_SCANNED}}</span>
-      <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;">{{STAT_LABEL_SCANNED}}</span>
+      <span style="display:block;font-size:22px;font-weight:700;color:#f8fafc;">{{STAT_ARTICLES}}</span>
+      <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;">Articles</span>
     </td>
     <td width="10"></td>
     <td class="m-tile" bgcolor="#1e293b" style="padding:10px 16px;border-radius:12px;background-color:#1e293b;border:1px solid #334155;">
-      <span style="display:block;font-size:22px;font-weight:700;color:#fb7185;">{{STAT_NEEDS_YOU}}</span>
-      <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;">{{STAT_LABEL_NEEDS_YOU}}</span>
+      <span style="display:block;font-size:22px;font-weight:700;color:#fb7185;">{{STAT_HOT}}</span>
+      <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;">Hot</span>
     </td>
     <td width="10"></td>
     <td class="m-tile" bgcolor="#1e293b" style="padding:10px 16px;border-radius:12px;background-color:#1e293b;border:1px solid #334155;">
-      <span style="display:block;font-size:22px;font-weight:700;color:#fbbf24;">{{STAT_DEADLINES}}</span>
-      <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;">{{STAT_LABEL_DEADLINES}}</span>
+      <span style="display:block;font-size:22px;font-weight:700;color:#fbbf24;">{{STAT_WARM}}</span>
+      <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;">Warm</span>
     </td>
   </tr></table>
 </td></tr>
 
 <!-- BODY -->
 <tr><td class="m-body" bgcolor="#f8fafc" style="background-color:#f8fafc;padding:28px 24px 8px;">
-  <p class="m-muted" style="margin:0 8px 14px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#64748b;">{{HIGHLIGHTS_LABEL}}</p>
+  <p class="m-muted" style="margin:0 8px 14px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#64748b;">Top stories</p>
 
   <!-- HIGHLIGHT -->
   <table class="m-card slot-{{SLOT}}" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="margin-bottom:14px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:16px;">
@@ -75,10 +75,10 @@
       <span style="display:inline-block;padding:3px 10px;border-radius:999px;background-color:{{ACCENT}};color:#ffffff;font-size:11px;font-weight:700;letter-spacing:1px;">{{CATEGORY_LABEL}}</span>
       <h2 class="m-ink" style="margin:10px 0 6px;font-size:18px;line-height:1.35;font-weight:700;color:#0f172a;">{{HEADLINE}}</h2>
       <p class="m-text" style="margin:0 0 10px;font-size:15px;line-height:1.55;color:#334155;">{{SUMMARY}}</p>
-      <p class="m-ink" style="margin:0 0 14px;font-size:14px;line-height:1.5;color:#0f172a;"><strong style="color:{{ACCENT}};">&rarr;</strong> <strong>{{NEXT_STEP}}</strong></p>
+      <p class="m-ink" style="margin:0 0 14px;font-size:14px;line-height:1.5;color:#0f172a;"><span style="color:{{ACCENT}};">{{TEMP_ICON}}</span> <strong>{{TEMP_LABEL}}</strong></p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td class="m-muted" style="font-size:13px;color:#64748b;">{{SENDER}} &middot; {{WHEN}}</td>
-        <td align="right"><a class="m-btn" href="{{WEBLINK}}" style="display:inline-block;padding:7px 14px;border-radius:10px;background-color:#0f172a;border:1px solid #334155;color:#67e8f9;font-size:13px;font-weight:600;text-decoration:none;">{{OPEN_LABEL}} &rsaquo;</a></td>
+        <td class="m-muted" style="font-size:13px;color:#64748b;">{{SOURCE}} &middot; {{WHEN}}</td>
+        <td align="right"><a class="m-btn" href="{{URL}}" style="display:inline-block;padding:7px 14px;border-radius:10px;background-color:#0f172a;border:1px solid #334155;color:#67e8f9;font-size:13px;font-weight:600;text-decoration:none;">Read &rsaquo;</a></td>
       </tr></table>
     </td>
   </tr>
@@ -86,11 +86,11 @@
   <!-- /HIGHLIGHT -->
 
   <!-- QUICK HITS -->
-  <p class="m-muted" style="margin:22px 8px 10px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#64748b;">{{QUICK_HITS_LABEL}}</p>
+  <p class="m-muted" style="margin:22px 8px 10px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#64748b;">More news</p>
   <table class="m-card" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="margin-bottom:18px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:16px;">
     <!-- QUICK HIT -->
     <tr><td class="m-text m-row" style="padding:12px 20px;border-bottom:1px solid #f1f5f9;font-size:14px;line-height:1.5;color:#334155;">
-      <span style="color:#0891b2;">&#9679;</span>&nbsp; <strong class="m-ink" style="color:#0f172a;">{{QH_SENDER}}</strong> &mdash; <a class="m-link" href="{{QH_WEBLINK}}" style="color:#0e7490;text-decoration:none;">{{QH_TEXT}}</a>
+      <span style="color:#0891b2;">&#9679;</span>&nbsp; <strong class="m-ink" style="color:#0f172a;">{{QH_SOURCE}}</strong> &mdash; <a class="m-link" href="{{QH_URL}}" style="color:#0e7490;text-decoration:none;">{{QH_TEXT}}</a>
     </td></tr>
     <!-- /QUICK HIT -->
   </table>
@@ -99,13 +99,13 @@
 
 <!-- FOOTER -->
 <tr><td class="m-foot m-muted" bgcolor="#f8fafc" align="center" style="background-color:#f8fafc;border-radius:0 0 20px 20px;border-top:1px solid #e2e8f0;padding:18px 32px 26px;font-size:12px;line-height:1.6;color:#94a3b8;">
-  Covering {{WINDOW_LABEL}} &middot; {{FOOTER_NOTE}}<br>
-  Made with &#9749; by Wazzup mail highlights
+  Covering {{WINDOW_LABEL}} &middot; From the latest Wazzup briefing &middot; <a class="m-link" href="{{WAZZUP_URL}}" style="color:#0e7490;">Open Wazzup</a><br>
+  Made with &#9749; by Wazzup
 </td></tr>
 
 </table>
 </td></tr>
 </table>
-<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">wazzup-window:{{WINDOW_START_ISO}}/{{WINDOW_END_ISO}}</div>
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">wazzup-briefing:{{BRIEFING_ID}}</div>
 </body>
 </html>
