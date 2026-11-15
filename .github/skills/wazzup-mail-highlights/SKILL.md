@@ -57,14 +57,20 @@ Use whichever mail capability the host exposes, in this order of preference:
    - `GET /me/manager` and `GET /me/directReports` to seed VIPs.
 
 To find the start of the window, search sent items for the most recent message
-whose subject starts with `Wazzup ·`; its footer window (`Covering …` or
-`WINDOW:`) ends at the previous scan cutoff, so start there. Fall back to its
-sent time if the footer can't be parsed. Record the scan cutoff
-(`end`, the current time) **before** fetching, and query
-`receivedDateTime ge {start} and receivedDateTime lt {end}`. Fetch full bodies
-only for candidates that survive Step 2. Stop paging after ~300 messages; if
-you hit that cap, set `end` to the oldest message you actually scanned, so
-the next run picks up the remainder instead of skipping it.
+whose subject starts with `Wazzup ·` and read its hidden checkpoint
+`wazzup-window:{start ISO}/{end ISO}` (full ISO 8601 with UTC offset). The new
+`start` is that previous `end`. If there is no previous digest, or the
+checkpoint is missing, use the default window from Inputs; if only the sent
+time is known, start one hour before it so messages that arrived while the
+previous digest was being written are not skipped.
+
+Record the scan cutoff `end` (the current time, ISO 8601 with offset)
+**before** fetching, and query `receivedDateTime ge {start} and
+receivedDateTime lt {end}`, newest first. Fetch full bodies only for
+candidates that survive Step 2. Stop paging after ~300 messages: the digest
+then covers the newest messages, and older ones in the window are deliberately
+skipped. In that case say so in the TL;DR (for example "Busy day: only the
+newest 300 emails were scanned.").
 
 If no send-capable mail tool is available, stop before Step 5 and tell the user
 which capability is missing instead of improvising another channel.
@@ -180,26 +186,29 @@ Each template marks repeatable blocks with HTML comments. Repeat
 
 Shared placeholders:
 
-| Placeholder                     | Value                                                                      |
-| ------------------------------- | -------------------------------------------------------------------------- |
-| `{{PREHEADER}}`                 | Preheader text                                                             |
-| `{{DATE_LABEL}}`                | `Saturday 14 November` (`midnight`), `Sat 14 Nov 2026` (others)            |
-| `{{GREETING}}`                  | Greeting line                                                              |
-| `{{TLDR}}`                      | TL;DR sentence                                                             |
-| `{{STAT_SCANNED}}`              | Emails scanned after paging                                                |
-| `{{STAT_NEEDS_YOU}}`            | Featured items in the `needs-you` slot                                     |
-| `{{STAT_DEADLINES}}`            | Featured items in the `deadline` slot                                      |
-| `{{WINDOW_LABEL}}`              | Window from `start` to the scan cutoff `end`, e.g. `Fri 07:00 – Sat 08:00` |
-| `{{SLOT}}`                      | `needs-you`, `deadline`, `decision`, or `fyi`                              |
-| `{{CATEGORY_LABEL}}`            | Label text, for example `NEEDS YOU`                                        |
-| `{{ACCENT}}`                    | Slot accent for the chosen theme (table below)                             |
-| `{{HEADLINE}}` / `{{SUMMARY}}`  | Highlight headline and summary                                             |
-| `{{NEXT_STEP}}`                 | Next step (see theme notes)                                                |
-| `{{SENDER}}` / `{{WHEN}}`       | Sender display name and relative time                                      |
-| `{{WEBLINK}}`                   | Message `webLink`                                                          |
-| `{{QH_SENDER}}` / `{{QH_TEXT}}` | Quick hit sender and one-liner                                             |
-| `{{QH_WEBLINK}}`                | Quick hit message `webLink`                                                |
-| `{{FOOTER_NOTE}}`               | `Read-only scan, nothing in your mailbox was changed.`                     |
+| Placeholder                     | Value                                                             |
+| ------------------------------- | ----------------------------------------------------------------- |
+| `{{PREHEADER}}`                 | Preheader text                                                    |
+| `{{DATE_LABEL}}`                | `Saturday 14 November` (`midnight`), `Sat 14 Nov 2026` (others)   |
+| `{{GREETING}}`                  | Greeting line                                                     |
+| `{{TLDR}}`                      | TL;DR sentence                                                    |
+| `{{STAT_SCANNED}}`              | Emails scanned after paging                                       |
+| `{{STAT_NEEDS_YOU}}`            | Featured items in the `needs-you` slot                            |
+| `{{STAT_DEADLINES}}`            | Featured items in the `deadline` slot                             |
+| `{{WINDOW_LABEL}}`              | Human window from `start` to `end`, e.g. `Fri 07:00 – Sat 08:00`  |
+| `{{WINDOW_START_ISO}}`          | `start` as ISO 8601 with offset, e.g. `2026-11-13T07:00:00+01:00` |
+| `{{WINDOW_END_ISO}}`            | Scan cutoff `end` as ISO 8601 with offset (the next run's start)  |
+| `{{LANG}}`                      | BCP 47 tag of the digest language, e.g. `en` or `nl`              |
+| `{{SLOT}}`                      | `needs-you`, `deadline`, `decision`, or `fyi`                     |
+| `{{CATEGORY_LABEL}}`            | Label text, for example `NEEDS YOU`                               |
+| `{{ACCENT}}`                    | Slot accent for the chosen theme (table below)                    |
+| `{{HEADLINE}}` / `{{SUMMARY}}`  | Highlight headline and summary                                    |
+| `{{NEXT_STEP}}`                 | Next step (see theme notes)                                       |
+| `{{SENDER}}` / `{{WHEN}}`       | Sender display name and relative time                             |
+| `{{WEBLINK}}`                   | Message `webLink`                                                 |
+| `{{QH_SENDER}}` / `{{QH_TEXT}}` | Quick hit sender and one-liner                                    |
+| `{{QH_WEBLINK}}`                | Quick hit message `webLink`                                       |
+| `{{FOOTER_NOTE}}`               | `Read-only scan, nothing in your mailbox was changed.`            |
 
 Label placeholders keep the templates reusable for non-mail content. For a
 mailbox digest, use these defaults:
@@ -240,9 +249,9 @@ sum so the row always totals exactly `100`.
 | Slot        | `midnight` | `editorial` | `obsidian` accent / soft |
 | ----------- | ---------- | ----------- | ------------------------ |
 | `needs-you` | `#e11d48`  | `#c2410c`   | `#e11d48` / `#fb7185`    |
-| `deadline`  | `#d97706`  | `#b45309`   | `#d97706` / `#fbbf24`    |
+| `deadline`  | `#b45309`  | `#b45309`   | `#b45309` / `#fbbf24`    |
 | `decision`  | `#7c3aed`  | `#6d28d9`   | `#7c3aed` / `#a78bfa`    |
-| `fyi`       | `#0891b2`  | `#0e7490`   | `#0891b2` / `#22d3ee`    |
+| `fyi`       | `#0e7490`  | `#0e7490`   | `#0e7490` / `#22d3ee`    |
 
 Finally, remove only the block marker comments (`HIGHLIGHT`, `QUICK HIT`,
 `QUICK HITS`, `DIVIDER`, `TAG`). Other section comments may stay or go, but
