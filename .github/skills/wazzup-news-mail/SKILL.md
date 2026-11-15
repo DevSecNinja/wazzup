@@ -56,8 +56,11 @@ If the user gives explicit values ("only top 3", "use the morning briefing",
    - `citations[]`, each with `itemId`, `url`, `sourceName`, `sourceTag`,
      `publishedAt`, and `temperature` (`level` of `hot`, `warm`, or `cool`,
      plus a `label` and an `icon`).
-3. Optionally `GET` `latestArticlesUrl` to count today's articles. Otherwise
-   count the briefing's `citations`.
+3. Article count: only when the selected briefing is `latestBriefingUrl`,
+   optionally `GET` `latestArticlesUrl` and count its articles (that pointer
+   always follows the newest run). Otherwise, or if that fails, count the
+   selected briefing's `citations`. Never use a count lower than the number
+   of stories you show.
 
 Use whichever web fetch capability the host has (Cowork web access, a
 `web_fetch` tool, or `curl`). If the site is unreachable or `latest.json` has
@@ -82,6 +85,10 @@ Turn every bullet into a story:
 Order stories by slot (`hot`, `warm`, `cool`), then by their order in the
 briefing. The first 5 become top stories and the next 8 become "more news".
 Drop exact duplicate links.
+
+If no story is left (for example the briefing only has a "No notable updates"
+bullet without citations), do not send anything; tell the user the latest
+briefing has no stories yet.
 
 ## Step 3 — Write
 
@@ -161,8 +168,8 @@ Shared placeholders:
 | `{{ACCENT_SOFT}}`                             | Slot soft color (table below)                                           |
 | `{{STAT_SOURCES}}`                            | Distinct sources across all stories in the email                        |
 | `{{SHOWN_COUNT}}`                             | Stories in the email (top stories plus more news)                       |
-| `{{SEG_HOT}}`, `{{SEG_WARM}}`, `{{SEG_COOL}}` | `round(100 × stories in that slot / STAT_ARTICLES)`; `0` if no articles |
-| `{{SEG_REST}}`                                | `100 −` the three segments, so the row totals exactly `100`             |
+| `{{SEG_HOT}}`, `{{SEG_WARM}}`, `{{SEG_COOL}}` | `floor(100 × stories in that slot / STAT_ARTICLES)`; `0` if no articles |
+| `{{SEG_REST}}`                                | `100 −` the three segments (never negative), so the row totals `100`    |
 
 Drop a meter segment cell whose width is `0`.
 
