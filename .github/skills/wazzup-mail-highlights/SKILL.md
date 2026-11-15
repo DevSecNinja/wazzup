@@ -240,10 +240,8 @@ and ignore `color-scheme` opt-outs: they keep pure `#000000`, map pure
 `#ffffff` to their own `#292929` reading pane, keep saturated colors and light
 text, but lift every other surface to slate and strip gradients. They also
 rename classes to `x_*`, so each template ends its `<style>` block with
-`[class~="x_…"]` rules that only match there: content surfaces become
-pure white so they blend into the reading pane (like Microsoft's own
-newsletters), heroes become one solid saturated color (`midnight` teal,
-`obsidian` indigo), and text is reset to dark colors that Outlook inverts. Other clients keep the full palette, including the
+`[class~="x_…"]` rules that only match there and force black or white
+surfaces. Other clients keep the full palette, including the
 `prefers-color-scheme: dark` variant. Keep both rule sets when editing.
 
 ### "All quiet" variant
