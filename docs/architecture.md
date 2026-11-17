@@ -251,7 +251,7 @@ Example fields:
 
 ## Scheduling model
 
-GitHub Actions cron runs in UTC and can be delayed. The workflow should use an hourly UTC cron with a local cadence gate, run every two hours during the configured active window, and let the pipeline decide whether a morning or evening briefing is due in the configured IANA time zone.
+GitHub Actions cron runs in UTC and can be delayed or dropped. The workflow uses a frequent UTC cron (every 20 minutes) with a local active-window gate plus a freshness gate on the persisted state, so it generates roughly every two hours during the configured active window even when most ticks are lost, and lets the pipeline decide whether a morning or evening briefing is due in the configured IANA time zone.
 
 Recommended defaults:
 
