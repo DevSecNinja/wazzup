@@ -117,20 +117,60 @@ tasks:
           cp public/data/transparency/latest.md .state/{{.TRANSPARENCY_REPORT_ASSET}}
         fi
 
-        if gh release view {{.STATE_RELEASE}} --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-          gh release upload {{.STATE_RELEASE}} .state/{{.STATE_ASSET}} --clobber --repo "${GITHUB_REPOSITORY}"
-          if [[ -f .state/{{.TRANSPARENCY_REPORT_ASSET}} ]]; then
-            gh release upload {{.STATE_RELEASE}} .state/{{.TRANSPARENCY_REPORT_ASSET}} --clobber --repo "${GITHUB_REPOSITORY}"
+        # gh reports any failed release lookup (5xx, abuse limits, network
+        # errors) as "release not found", so query the REST API directly to
+        # tell a real 404 apart from a transient failure, and retry transient
+        # failures instead of losing a whole generated briefing.
+        release_endpoint="repos/${GITHUB_REPOSITORY}/releases/tags/{{.STATE_RELEASE}}"
+        max_attempts="${STATE_PERSIST_ATTEMPTS:-4}"
+        retry_delay="${STATE_PERSIST_RETRY_DELAY:-5}"
+
+        release_state=""
+        for (( attempt = 1; attempt <= max_attempts; attempt++ )); do
+          if lookup="$(gh api "${release_endpoint}" --jq .id 2>&1)"; then
+            release_state=exists
+            break
+          elif [[ "${lookup}" == *"HTTP 404"* ]]; then
+            release_state=missing
+            break
           fi
-        else
-          gh release create {{.STATE_RELEASE}} .state/{{.STATE_ASSET}} \
+          echo "::warning::Release lookup attempt ${attempt}/${max_attempts} failed: ${lookup}"
+          if (( attempt < max_attempts )); then sleep $(( retry_delay * attempt )); fi
+        done
+        if [[ -z "${release_state}" ]]; then
+          echo "::error::Could not look up the {{.STATE_RELEASE}} release after ${max_attempts} attempts."
+          exit 1
+        fi
+
+        upload_asset() {
+          local asset="$1"
+          for (( attempt = 1; attempt <= max_attempts; attempt++ )); do
+            if upload_output="$(gh release upload {{.STATE_RELEASE}} "${asset}" --clobber --repo "${GITHUB_REPOSITORY}" 2>&1)"; then
+              return 0
+            fi
+            # gh hides the failed request's HTTP status behind "release not
+            # found", so pair its message with an immediate status probe that
+            # shows whether the release really disappeared or the error was
+            # transient.
+            probe_status="$(gh api --include "${release_endpoint}" 2>&1 | head -n 1 || true)"
+            echo "::warning::Upload attempt ${attempt}/${max_attempts} for ${asset} failed: ${upload_output} (release probe: ${probe_status})"
+            if (( attempt < max_attempts )); then sleep $(( retry_delay * attempt )); fi
+          done
+          echo "::error::Failed to upload ${asset} to the {{.STATE_RELEASE}} release after ${max_attempts} attempts."
+          return 1
+        }
+
+        if [[ "${release_state}" == "missing" ]]; then
+          gh release create {{.STATE_RELEASE}} \
             --title "Wazzup retained news state" \
             --notes "Rolling generated YAML state and JSON mirrors for the Wazzup GitHub Pages deployment." \
             --prerelease \
             --repo "${GITHUB_REPOSITORY}"
-          if [[ -f .state/{{.TRANSPARENCY_REPORT_ASSET}} ]]; then
-            gh release upload {{.STATE_RELEASE}} .state/{{.TRANSPARENCY_REPORT_ASSET}} --clobber --repo "${GITHUB_REPOSITORY}"
-          fi
+        fi
+
+        upload_asset .state/{{.STATE_ASSET}}
+        if [[ -f .state/{{.TRANSPARENCY_REPORT_ASSET}} ]]; then
+          upload_asset .state/{{.TRANSPARENCY_REPORT_ASSET}}
         fi
 
   news:generate:
