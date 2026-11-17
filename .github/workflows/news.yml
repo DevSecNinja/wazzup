@@ -125,6 +125,9 @@ jobs:
                 && listing="$(unzip -Z1 "${state_dir}/${STATE_ASSET}")"; then
                 if ! grep -qxF "${briefing}" <<<"${listing}"; then
                   stale_reason="${due_kind} briefing is due but missing from the persisted state"
+                  # Pin the kind so a slow setup that crosses the end of the due
+                  # window still produces this briefing instead of an hourly one.
+                  echo "missing_briefing_kind=${due_kind}" >>"${GITHUB_OUTPUT}"
                 fi
               else
                 echo "::warning::Could not inspect ${STATE_ASSET} for the due ${due_kind} briefing; keeping the freshness decision."
@@ -208,7 +211,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
-          FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
+          FORCE_BRIEFING: ${{ inputs.forceBriefing || steps.cadence.outputs.missing_briefing_kind || 'auto' }}
         run: task news:generate
 
       - name: Upload generated public artifact
@@ -238,7 +241,7 @@ jobs:
       - name: Write workflow summary
         if: ${{ always() && steps.cadence.outputs.should_run == 'true' }}
         env:
-          FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
+          FORCE_BRIEFING: ${{ inputs.forceBriefing || steps.cadence.outputs.missing_briefing_kind || 'auto' }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           GENERATION_OUTCOME: ${{ steps.generation.outcome }}
           PAGES_OUTCOME: ${{ steps.pages.outcome }}

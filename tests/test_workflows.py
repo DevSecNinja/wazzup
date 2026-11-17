@@ -35,6 +35,12 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(int(briefings["morningLocalTime"].split(":")[0]), int(cadence["env"]["MORNING_LOCAL_HOUR"]))
         self.assertEqual(int(briefings["eveningLocalTime"].split(":")[0]), int(cadence["env"]["EVENING_LOCAL_HOUR"]))
         self.assertIn("briefing is due but missing from the persisted state", cadence["run"])
+        self.assertIn('echo "missing_briefing_kind=${due_kind}" >>"${GITHUB_OUTPUT}"', cadence["run"])
+        generation = next(step for step in workflow["jobs"]["generate"]["steps"] if step["name"] == "Generate and persist retained news state")
+        self.assertEqual(
+            "${{ inputs.forceBriefing || steps.cadence.outputs.missing_briefing_kind || 'auto' }}",
+            generation["env"]["FORCE_BRIEFING"],
+        )
 
     def test_copilot_agents_do_not_override_runtime_model_policy(self) -> None:
         for agent in ("wazzup-curator", "wazzup-transparency-reporter", "wazzup-writer"):
