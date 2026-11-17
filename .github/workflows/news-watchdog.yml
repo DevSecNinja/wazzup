@@ -3,7 +3,13 @@ name: News watchdog
 
 on:
   schedule:
-    - cron: "37 * * * *"
+    # Only schedule inside the UTC hours that can map to the local active
+    # window (07:00-21:59 Europe/Amsterdam). Summer (UTC+2) maps local
+    # 07:00->05:00 UTC, winter (UTC+1) maps local 21:00->20:00 UTC, so
+    # 05:00-20:00 UTC covers the whole window across daylight-saving
+    # transitions. Scheduling overnight only spins up runners to skip, wasting
+    # Actions minutes. The in-job window check still filters the exact hours.
+    - cron: "37 5-20 * * *"
   workflow_dispatch:
 
 permissions:
