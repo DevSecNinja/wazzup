@@ -104,7 +104,7 @@ jobs:
           fi
 
           last_failure_at="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/news.yml/runs?status=failure&per_page=1" \
-            --jq '.workflow_runs[0].created_at // empty' || true)"
+            --jq '.workflow_runs[0].updated_at // empty' || true)"
           if [[ -n "${last_failure_at}" ]]; then
             failure_age_minutes=$(( (now_epoch - $(date -u -d "${last_failure_at}" +%s)) / 60 ))
             if (( failure_age_minutes < 10#${FAILURE_BACKOFF_MINUTES} )); then
