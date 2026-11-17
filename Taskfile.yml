@@ -145,10 +145,15 @@ tasks:
         upload_asset() {
           local asset="$1"
           for (( attempt = 1; attempt <= max_attempts; attempt++ )); do
-            if gh release upload {{.STATE_RELEASE}} "${asset}" --clobber --repo "${GITHUB_REPOSITORY}"; then
+            if upload_output="$(gh release upload {{.STATE_RELEASE}} "${asset}" --clobber --repo "${GITHUB_REPOSITORY}" 2>&1)"; then
               return 0
             fi
-            echo "::warning::Upload attempt ${attempt}/${max_attempts} for ${asset} failed; API lookup: $(gh api "${release_endpoint}" --jq '.tag_name' 2>&1 || true)"
+            # gh hides the failed request's HTTP status behind "release not
+            # found", so pair its message with an immediate status probe that
+            # shows whether the release really disappeared or the error was
+            # transient.
+            probe_status="$(gh api --include "${release_endpoint}" 2>&1 | head -n 1 || true)"
+            echo "::warning::Upload attempt ${attempt}/${max_attempts} for ${asset} failed: ${upload_output} (release probe: ${probe_status})"
             if (( attempt < max_attempts )); then sleep $(( retry_delay * attempt )); fi
           done
           echo "::error::Failed to upload ${asset} to the {{.STATE_RELEASE}} release after ${max_attempts} attempts."
