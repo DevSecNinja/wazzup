@@ -26,6 +26,16 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('select(.conclusion == "failure" or .conclusion == "timed_out")', workflow)
         self.assertFalse(Path(".github/workflows/news-watchdog.yml").exists())
 
+    def test_news_cadence_due_hours_match_briefing_config(self) -> None:
+        # The gate must not let fresh state hide a due morning/evening briefing,
+        # so its due hours have to follow the configured briefing times.
+        workflow = yaml.safe_load(Path(".github/workflows/news.yml").read_text(encoding="utf-8"))
+        cadence = next(step for step in workflow["jobs"]["generate"]["steps"] if step["name"] == "Check scheduled cadence")
+        briefings = yaml.safe_load(Path("config/interests.yml").read_text(encoding="utf-8"))["briefings"]
+        self.assertEqual(int(briefings["morningLocalTime"].split(":")[0]), int(cadence["env"]["MORNING_LOCAL_HOUR"]))
+        self.assertEqual(int(briefings["eveningLocalTime"].split(":")[0]), int(cadence["env"]["EVENING_LOCAL_HOUR"]))
+        self.assertIn("briefing is due but missing from the persisted state", cadence["run"])
+
     def test_copilot_agents_do_not_override_runtime_model_policy(self) -> None:
         for agent in ("wazzup-curator", "wazzup-transparency-reporter", "wazzup-writer"):
             with self.subTest(agent=agent):
