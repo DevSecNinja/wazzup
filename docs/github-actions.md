@@ -90,7 +90,10 @@ name: News
 
 on:
   schedule:
-    - cron: "7 * * * *"
+    # Every 20 minutes, 05:00-20:59 UTC. The "Check scheduled cadence" step
+    # skips ticks outside 07:00-21:59 local time and generates only when the
+    # persisted news-state asset is stale.
+    - cron: "7,27,47 5-20 * * *"
   workflow_dispatch:
     inputs:
       forceBriefing:
@@ -155,7 +158,7 @@ jobs:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
 ```
 
-GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions, and GitHub drops or delays scheduled runs under load. The workflow therefore ticks every 20 minutes from 05:00 to 20:59 UTC (`7,27,47 5-20 * * *`), which covers the 07:00–21:59 local active window in both CET and CEST. A first cadence step skips ticks outside the local window, then reads the `updated_at` of the `wazzup-state.zip` asset on the `news-state` release (one API call) and continues only when the persisted state is at least 100 minutes old. Generations therefore land 100–120 minutes apart, the first stale tick after 07:00 produces the morning briefing, and a dropped tick is made up 20 minutes later. If the state is stale but a `News` run failed within the last 55 minutes, the tick backs off so a persistent failure (for example a token rate limit) does not spend AI requests every 20 minutes. If the release cannot be read, the tick generates anyway. Manual dispatch always runs. Skipped ticks finish in seconds and never install tooling.
+GitHub cron is UTC-only and does not understand `Europe/Amsterdam` daylight-saving transitions, and GitHub drops or delays scheduled runs under load. The workflow therefore ticks every 20 minutes from 05:00 to 20:59 UTC (`7,27,47 5-20 * * *`), which covers the 07:00–21:59 local active window in both CET and CEST. A first cadence step skips ticks outside the local window, then reads the `updated_at` of the `wazzup-state.zip` asset on the `news-state` release (one API call) and continues only when the persisted state is at least 100 minutes old. Generations therefore land 100–120 minutes apart, the first stale tick after 07:00 produces the morning briefing, and a dropped tick is made up 20 minutes later. If the state is stale but a `News` run failed or timed out within the last 55 minutes, the tick backs off so a persistent failure (for example a token rate limit) does not spend AI requests every 20 minutes. If the release cannot be read, the tick generates anyway. Manual dispatch always runs. Skipped ticks finish in seconds and never install tooling.
 
 Operational learning: the first live News run failed because Copilot CLI was requested but the token secret was empty. The workflow now selects an effective provider before installing Node/Copilot. If `copilot-cli` is requested without `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN`, it logs a warning and uses `AI_PROVIDER=fake` so the release state and Pages deployment path can still be validated end to end.
 

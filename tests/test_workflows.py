@@ -23,7 +23,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("STATE_ASSET: wazzup-state.zip", workflow)
         self.assertIn('CADENCE_INTERVAL_MINUTES: "100"', workflow)
         self.assertIn("FAILURE_BACKOFF_MINUTES:", workflow)
-        self.assertIn("runs?status=failure", workflow)
+        self.assertIn('select(.conclusion == "failure" or .conclusion == "timed_out")', workflow)
         self.assertFalse(Path(".github/workflows/news-watchdog.yml").exists())
 
     def test_copilot_agents_do_not_override_runtime_model_policy(self) -> None:
