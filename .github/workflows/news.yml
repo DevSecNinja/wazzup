@@ -3,7 +3,11 @@ name: News
 
 on:
   schedule:
-    - cron: "7 * * * *"
+    # GitHub drops or delays many scheduled runs under load, so tick every 20
+    # minutes and let the freshness gate below enforce the two-hour cadence.
+    # 05:00-20:59 UTC covers the 07:00-21:59 Europe/Amsterdam active window in
+    # both CET and CEST; the gate trims the edge hours to local time.
+    - cron: "7,27,47 5-20 * * *"
   workflow_dispatch:
     inputs:
       forceBriefing:
@@ -50,25 +54,104 @@ jobs:
         id: cadence
         env:
           EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          STATE_RELEASE: news-state
+          STATE_ASSET: wazzup-state.zip
+          # Regenerate once the persisted state is older than this. Ticks are
+          # 20 minutes apart, so generations land 100-120 minutes apart.
+          CADENCE_INTERVAL_MINUTES: "100"
+          # After a failed generation, wait this long before retrying so a
+          # persistent failure (for example a token rate limit) does not burn
+          # AI requests on every tick.
+          FAILURE_BACKOFF_MINUTES: "55"
+          # Local hours when morning/evening briefings become due; keep in sync
+          # with config/interests.yml. The pipeline treats each as due for two
+          # hours, so fresh state must not hide a missing due briefing.
+          MORNING_LOCAL_HOUR: "7"
+          EVENING_LOCAL_HOUR: "20"
         run: |-
           set -euo pipefail
 
-          if [[ "${EVENT_NAME}" != "schedule" ]]; then
-            echo "should_run=true" >>"${GITHUB_OUTPUT}"
-            echo "reason=manual dispatch" >>"${GITHUB_OUTPUT}"
+          decide() {
+            echo "should_run=$1" >>"${GITHUB_OUTPUT}"
+            echo "reason=$2" >>"${GITHUB_OUTPUT}"
+            echo "Cadence decision: should_run=$1 ($2)"
             exit 0
+          }
+
+          if [[ "${EVENT_NAME}" != "schedule" ]]; then
+            decide true "manual dispatch"
           fi
 
           local_hour="$(TZ="${WAZZUP_TIMEZONE}" date +%H)"
           hour=$((10#${local_hour}))
-
-          if (( hour >= 6 && hour < 22 && hour % 2 == 1 )); then
-            echo "should_run=true" >>"${GITHUB_OUTPUT}"
-            echo "reason=active two-hour local cadence" >>"${GITHUB_OUTPUT}"
-          else
-            echo "should_run=false" >>"${GITHUB_OUTPUT}"
-            echo "reason=outside active two-hour local cadence" >>"${GITHUB_OUTPUT}"
+          if (( hour < 7 || hour >= 22 )); then
+            decide false "outside active local window"
           fi
+
+          # Freshness is the age of the persisted state asset, so any trigger
+          # that generated state (scheduled, manual, or a delayed run) counts
+          # and dropped cron runs are made up on the next tick.
+          now_epoch="$(date -u +%s)"
+          stale_reason=""
+          state_age_minutes=""
+          if ! state_updated_at="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${STATE_RELEASE}" \
+            --jq ".assets[] | select(.name == \"${STATE_ASSET}\") | .updated_at" 2>&1)"; then
+            echo "::warning::Could not read ${STATE_RELEASE} freshness (${state_updated_at}); treating state as stale."
+            stale_reason="state freshness unknown"
+          elif [[ -z "${state_updated_at}" ]]; then
+            stale_reason="no persisted state"
+          else
+            state_age_minutes=$(( (now_epoch - $(date -u -d "${state_updated_at}" +%s)) / 60 ))
+            echo "Persisted state updated at ${state_updated_at} (${state_age_minutes} minutes ago)."
+            if (( state_age_minutes >= 10#${CADENCE_INTERVAL_MINUTES} )); then
+              stale_reason="state is ${state_age_minutes} minutes old"
+            fi
+          fi
+
+          # A run that started just before a due window can leave fresh state
+          # without that window's briefing, so check the state for it.
+          if [[ -z "${stale_reason}" ]]; then
+            due_kind=""
+            if (( hour >= 10#${MORNING_LOCAL_HOUR} && hour < 10#${MORNING_LOCAL_HOUR} + 2 )); then
+              due_kind=morning
+            elif (( hour >= 10#${EVENING_LOCAL_HOUR} && hour < 10#${EVENING_LOCAL_HOUR} + 2 )); then
+              due_kind=evening
+            fi
+            if [[ -n "${due_kind}" ]]; then
+              briefing="data/briefings/$(TZ="${WAZZUP_TIMEZONE}" date +%Y/%m/%d)/${due_kind}.json"
+              state_dir="$(mktemp -d)"
+              if gh release download "${STATE_RELEASE}" --pattern "${STATE_ASSET}" --dir "${state_dir}" --repo "${GITHUB_REPOSITORY}" \
+                && listing="$(unzip -Z1 "${state_dir}/${STATE_ASSET}")"; then
+                if ! grep -qxF "${briefing}" <<<"${listing}"; then
+                  stale_reason="${due_kind} briefing is due but missing from the persisted state"
+                  # Pin the kind so a slow setup that crosses the end of the due
+                  # window still produces this briefing instead of an hourly one.
+                  echo "missing_briefing_kind=${due_kind}" >>"${GITHUB_OUTPUT}"
+                fi
+              else
+                echo "::warning::Could not inspect ${STATE_ASSET} for the due ${due_kind} briefing; keeping the freshness decision."
+              fi
+              rm -rf "${state_dir}"
+            fi
+          fi
+
+          if [[ -z "${stale_reason}" ]]; then
+            decide false "state is ${state_age_minutes} minutes old, within the two-hour cadence"
+          fi
+
+          # Timed-out runs (conclusion timed_out) also leave state stale, so
+          # back off from the most recent failed or timed-out completion.
+          last_failure_at="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/news.yml/runs?status=completed&per_page=30" \
+            --jq '[.workflow_runs[] | select(.conclusion == "failure" or .conclusion == "timed_out") | .updated_at] | max // empty' || true)"
+          if [[ -n "${last_failure_at}" ]]; then
+            failure_age_minutes=$(( (now_epoch - $(date -u -d "${last_failure_at}" +%s)) / 60 ))
+            if (( failure_age_minutes < 10#${FAILURE_BACKOFF_MINUTES} )); then
+              decide false "${stale_reason}, but a generation failed ${failure_age_minutes} minutes ago; backing off"
+            fi
+          fi
+
+          decide true "${stale_reason}"
 
       - name: Checkout code
         if: ${{ steps.cadence.outputs.should_run == 'true' }}
@@ -128,7 +211,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_REQUESTS_PAT || secrets.COPILOT_GITHUB_TOKEN }}
-          FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
+          FORCE_BRIEFING: ${{ inputs.forceBriefing || steps.cadence.outputs.missing_briefing_kind || 'auto' }}
         run: task news:generate
 
       - name: Upload generated public artifact
@@ -149,7 +232,7 @@ jobs:
           set -euo pipefail
           # Dispatch the Pages deploy explicitly. The cross-workflow
           # workflow_run trigger does not fire for News runs started by
-          # workflow_dispatch (manual or the news-watchdog catch-up), which
+          # workflow_dispatch (manual runs), which
           # left freshly persisted state undeployed. Dispatching here covers
           # every trigger type.
           gh workflow run pages.yml --repo "${GITHUB_REPOSITORY}" --ref "${GITHUB_REF_NAME}"
@@ -158,7 +241,7 @@ jobs:
       - name: Write workflow summary
         if: ${{ always() && steps.cadence.outputs.should_run == 'true' }}
         env:
-          FORCE_BRIEFING: ${{ inputs.forceBriefing || 'auto' }}
+          FORCE_BRIEFING: ${{ inputs.forceBriefing || steps.cadence.outputs.missing_briefing_kind || 'auto' }}
           AI_PROVIDER: ${{ steps.ai.outputs.provider }}
           GENERATION_OUTCOME: ${{ steps.generation.outcome }}
           PAGES_OUTCOME: ${{ steps.pages.outcome }}
@@ -185,6 +268,6 @@ jobs:
             echo "## Wazzup news state"
             echo ""
             echo "- Skipped scheduled run: ${CADENCE_REASON}"
-            echo "- Active cadence: every two hours from 07:00 to 21:59 local time"
+            echo "- Active cadence: state older than two hours, checked every 20 minutes from 07:00 to 21:59 local time"
             echo "- Overnight cadence: skipped"
           } >>"${GITHUB_STEP_SUMMARY}"

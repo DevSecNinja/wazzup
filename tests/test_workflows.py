@@ -7,18 +7,40 @@ import yaml
 
 
 class WorkflowTests(unittest.TestCase):
-    def test_news_workflow_uses_active_two_hour_local_cadence_gate(self) -> None:
+    def test_news_workflow_uses_freshness_gated_cadence(self) -> None:
         workflow = Path(".github/workflows/news.yml").read_text(encoding="utf-8")
         self.assertIn("name: News\n", workflow)
-        self.assertIn('cron: "7 * * * *"', workflow)
+        # Several ticks per hour so dropped scheduled runs are made up quickly.
+        self.assertIn('cron: "7,27,47 5-20 * * *"', workflow)
         self.assertIn("default: auto", workflow)
         self.assertIn("- auto", workflow)
         self.assertIn("Check scheduled cadence", workflow)
-        self.assertIn("hour >= 6 && hour < 22 && hour % 2 == 1", workflow)
-        self.assertIn("active two-hour local cadence", workflow)
-        self.assertIn("outside active two-hour local cadence", workflow)
-        self.assertNotIn("overnight two-hour cadence", workflow)
-        self.assertNotIn('cron: "d"', workflow)
+        self.assertIn("hour < 7 || hour >= 22", workflow)
+        # Wall-clock hour parity skipped real work whenever ticks were dropped
+        # or jittered; freshness of the persisted state decides instead.
+        self.assertNotIn("hour % 2 == 1", workflow)
+        self.assertIn("releases/tags/${STATE_RELEASE}", workflow)
+        self.assertIn("STATE_ASSET: wazzup-state.zip", workflow)
+        self.assertIn('CADENCE_INTERVAL_MINUTES: "100"', workflow)
+        self.assertIn("FAILURE_BACKOFF_MINUTES:", workflow)
+        self.assertIn('select(.conclusion == "failure" or .conclusion == "timed_out")', workflow)
+        self.assertFalse(Path(".github/workflows/news-watchdog.yml").exists())
+
+    def test_news_cadence_due_hours_match_briefing_config(self) -> None:
+        # The gate must not let fresh state hide a due morning/evening briefing,
+        # so its due hours have to follow the configured briefing times.
+        workflow = yaml.safe_load(Path(".github/workflows/news.yml").read_text(encoding="utf-8"))
+        cadence = next(step for step in workflow["jobs"]["generate"]["steps"] if step["name"] == "Check scheduled cadence")
+        briefings = yaml.safe_load(Path("config/interests.yml").read_text(encoding="utf-8"))["briefings"]
+        self.assertEqual(int(briefings["morningLocalTime"].split(":")[0]), int(cadence["env"]["MORNING_LOCAL_HOUR"]))
+        self.assertEqual(int(briefings["eveningLocalTime"].split(":")[0]), int(cadence["env"]["EVENING_LOCAL_HOUR"]))
+        self.assertIn("briefing is due but missing from the persisted state", cadence["run"])
+        self.assertIn('echo "missing_briefing_kind=${due_kind}" >>"${GITHUB_OUTPUT}"', cadence["run"])
+        generation = next(step for step in workflow["jobs"]["generate"]["steps"] if step["name"] == "Generate and persist retained news state")
+        self.assertEqual(
+            "${{ inputs.forceBriefing || steps.cadence.outputs.missing_briefing_kind || 'auto' }}",
+            generation["env"]["FORCE_BRIEFING"],
+        )
 
     def test_copilot_agents_do_not_override_runtime_model_policy(self) -> None:
         for agent in ("wazzup-curator", "wazzup-transparency-reporter", "wazzup-writer"):
@@ -51,31 +73,6 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("Deploy refreshed state to Pages", workflow)
         self.assertIn("gh workflow run pages.yml", workflow)
         self.assertIn("- Pages deployment dispatch: ${PAGES_OUTCOME}", workflow)
-
-    def test_news_watchdog_dispatches_when_effective_generation_is_stale(self) -> None:
-        workflow = Path(".github/workflows/news-watchdog.yml").read_text(encoding="utf-8")
-        self.assertIn('cron: "37 * * * *"', workflow)
-        self.assertIn("actions: write", workflow)
-        self.assertIn("TARGET_WORKFLOW: news.yml", workflow)
-        # The watchdog runs every hour inside the active window. Gating on
-        # odd-hour parity would disable it under GitHub schedule jitter, which
-        # is exactly when catch-up dispatches are needed.
-        self.assertIn("hour >= 7 && hour < 22", workflow)
-        self.assertNotIn("hour % 2 == 1", workflow)
-        # Two-hour cadence is enforced by elapsed time since the last effective
-        # generation, not by the wall-clock hour of this run.
-        self.assertIn("CADENCE_INTERVAL_MINUTES:", workflow)
-        self.assertIn("GENERATE_STEP_NAME: Generate and persist retained news state", workflow)
-        self.assertIn("last_effective_epoch", workflow)
-        self.assertIn("threshold_epoch", workflow)
-        # A cadence skip still produces a News run, so existence alone must not
-        # suppress catch-up; the generate step result is inspected instead.
-        self.assertIn("/jobs", workflow)
-        self.assertNotIn("Existing News runs this scheduled UTC hour", workflow)
-        self.assertIn("gh workflow run \"${TARGET_WORKFLOW}\"", workflow)
-        self.assertIn("--repo \"${GITHUB_REPOSITORY}\"", workflow)
-        self.assertIn("forceBriefing=auto", workflow)
-        self.assertIn("aiProvider=copilot-cli", workflow)
 
     def test_pages_workflow_runs_after_main_updates(self) -> None:
         workflow = Path(".github/workflows/pages.yml").read_text(encoding="utf-8")

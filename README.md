@@ -45,7 +45,7 @@ Important current limitations and deviations from the original target architectu
 - The backend is Python under [src/wazzup](src/wazzup), not TypeScript.
 - The frontend is vanilla JavaScript in [public/app.js](public/app.js), not TypeScript/Web Components yet.
 - JSON Feed and podcast adapters are modeled but not implemented yet.
-- Automatic morning/evening due-time selection is implemented in the pipeline and exposed through the scheduled workflow's `auto` mode; the workflow runs on an hourly UTC cron with a local two-hour active-window cadence gate.
+- Automatic morning/evening due-time selection is implemented in the pipeline and exposed through the scheduled workflow's `auto` mode; the workflow ticks every 20 minutes in the active window and regenerates when the persisted state is older than about two hours.
 - JSON is the canonical generated state consumed by the PWA.
 - Copilot CLI is optional at runtime. If no `COPILOT_REQUESTS_PAT` or `COPILOT_GITHUB_TOKEN` secret exists, the News workflow falls back to the deterministic fake provider so the pipeline and Pages deployment continue to work.
 - The service worker cache is versioned from generated build metadata; the footer shows the short commit and links back to the repository.
