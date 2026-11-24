@@ -190,15 +190,12 @@ jobs:
 
           echo "provider=${provider}" >>"${GITHUB_OUTPUT}"
 
-      - name: Set up Node.js for Copilot CLI
+      # Copilot CLI is pinned in .mise.toml ("npm:@github/copilot") and installed
+      # by the mise step above, so Renovate updates it through the soaked mise
+      # rule. This step fails early if it isn't on PATH and logs the version.
+      - name: Check Copilot CLI
         if: ${{ steps.ai.outputs.provider == 'copilot-cli' }}
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: 24
-
-      - name: Install Copilot CLI
-        if: ${{ steps.ai.outputs.provider == 'copilot-cli' }}
-        run: npm install -g @github/copilot
+        run: copilot --version
 
       - name: Install Python dependencies
         if: ${{ steps.cadence.outputs.should_run == 'true' }}
