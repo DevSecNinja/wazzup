@@ -213,7 +213,11 @@ copilot --model "$model" --agent wazzup-writer
 The implementation hides provider-specific commands behind `task news:generate` and the Python AI provider adapter. Copilot CLI is pinned in [../.mise.toml](../.mise.toml) as `npm:@github/copilot`, so `jdx/mise-action` installs the exact version and Renovate updates it through the soaked mise rule; don't install it with `npm install -g`, which would pull the latest unpinned release. Internally, a Copilot CLI adapter can follow this pattern:
 
 ```yaml
-- uses: jdx/mise-action@v4 # installs node and npm:@github/copilot from .mise.toml
+# Installs node and npm:@github/copilot from .mise.toml.
+- uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+  with:
+    # renovate: datasource=github-releases depName=jdx/mise
+    version: 2026.8.10
 
 - name: Check Copilot CLI
   run: copilot --version
