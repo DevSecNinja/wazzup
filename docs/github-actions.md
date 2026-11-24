@@ -143,12 +143,10 @@ jobs:
             provider="fake"
           fi
           echo "provider=${provider}" >>"${GITHUB_OUTPUT}"
-      - name: Set up Node.js for Copilot CLI
+      # Copilot CLI comes from .mise.toml ("npm:@github/copilot"), installed by mise above.
+      - name: Check Copilot CLI
         if: ${{ steps.ai.outputs.provider == 'copilot-cli' }}
-        uses: actions/setup-node@v6
-      - name: Install Copilot CLI
-        if: ${{ steps.ai.outputs.provider == 'copilot-cli' }}
-        run: npm install -g @github/copilot
+        run: copilot --version
       - run: task install
       - name: Generate retained news state
         run: task news:generate
@@ -212,15 +210,17 @@ copilot --model "$model" --agent wazzup-writer
 
 ## Copilot CLI workflow variant
 
-The implementation hides provider-specific commands behind `task news:generate` and the Python AI provider adapter. Internally, a Copilot CLI adapter can follow this pattern:
+The implementation hides provider-specific commands behind `task news:generate` and the Python AI provider adapter. Copilot CLI is pinned in [../.mise.toml](../.mise.toml) as `npm:@github/copilot`, so `jdx/mise-action` installs the exact version and Renovate updates it through the soaked mise rule; don't install it with `npm install -g`, which would pull the latest unpinned release. Internally, a Copilot CLI adapter can follow this pattern:
 
 ```yaml
-- uses: actions/setup-node@v6
+# Installs node and npm:@github/copilot from .mise.toml.
+- uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
   with:
-    node-version: 24
+    # renovate: datasource=github-releases depName=jdx/mise
+    version: 2026.8.10
 
-- name: Install Copilot CLI
-  run: npm install -g @github/copilot
+- name: Check Copilot CLI
+  run: copilot --version
 
 - name: Generate briefing with Copilot CLI provider
   env:
