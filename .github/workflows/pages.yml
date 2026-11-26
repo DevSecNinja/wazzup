@@ -27,7 +27,7 @@ jobs:
       pull-requests: write
     with:
       # renovate: datasource=node-version depName=node
-      node-version: "24"
+      node-version: "26"
       node-cache: ""
       # renovate: datasource=npm depName=wrangler
       wrangler-version: "4.166.0"
