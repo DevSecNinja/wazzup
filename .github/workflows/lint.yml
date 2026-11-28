@@ -15,13 +15,13 @@ concurrency:
 jobs:
   lint:
     # renovate: datasource=github-tags depName=DevSecNinja/.github
-    uses: DevSecNinja/.github/.github/workflows/lint.yml@8ef60d65001c56a496d12f6ae0a7091c05db2e06 # v3.5.0
+    uses: DevSecNinja/.github/.github/workflows/lint.yml@eadb4f166f27d0864147189741c7596560be39dd # v3.6.0
     permissions:
       contents: read
       security-events: write
     with:
       # renovate: datasource=github-releases depName=jdx/mise
-      mise-version: "2026.11.7"
+      mise-version: "2026.11.8"
       # No Go in this repo: skip golangci-lint. The reusable workflow still
       # declares golangci-lint-version as a required input, so a value must be
       # provided even though the go job is disabled.

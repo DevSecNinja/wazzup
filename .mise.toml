@@ -1,5 +1,5 @@
 # renovate: datasource=github-releases depName=jdx/mise
-min_version = "2026.11.7"
+min_version = "2026.11.8"
 
 [tools]
 python = "3.15.2"
@@ -8,7 +8,7 @@ node = "24.22.3"
 # renovate: datasource=github-releases depName=go-task/task
 "github:go-task/task" = "3.54.0"
 # renovate: datasource=npm depName=@github/copilot
-"npm:@github/copilot" = "1.0.109"
+"npm:@github/copilot" = "1.0.112"
 cocogitto = "7.0.0"
 dprint = "0.64.3"
 yamlfmt = "0.21.0"
